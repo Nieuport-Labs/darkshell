@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">DarkShell</string>
+    <string name="title_activity_main">DarkShell</string>
+    <string name="package_name">cash.darkshell.wallet</string>
+    <string name="custom_url_scheme">cash.darkshell.wallet</string>
+</resources>

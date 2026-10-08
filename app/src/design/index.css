@@ -1,0 +1,258 @@
+@import './tokens.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Base, components and utilities follow Secret_Dashboard src/styles/index.css. */
+@layer base {
+  html {
+    color-scheme: dark;
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply bg-bg text-text font-sans antialiased;
+    margin: 0;
+    min-height: 100dvh;
+    overscroll-behavior-y: none;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+    border-radius: var(--radius-control);
+  }
+
+  ::selection {
+    background: var(--color-accent);
+    color: var(--color-accent-text);
+  }
+}
+
+@keyframes modal-in {
+  from {
+    transform: translateY(8px) scale(0.98);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes page-in {
+  from { transform: translateX(24px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-8px); }
+  40% { transform: translateX(8px); }
+  60% { transform: translateX(-5px); }
+  80% { transform: translateX(5px); }
+}
+
+@keyframes toast-in {
+  from {
+    transform: translateY(12px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@layer components {
+  .card {
+    border-radius: var(--radius-card);
+    background: var(--color-surface-1);
+    border: 1px solid var(--color-border);
+  }
+
+  .glass {
+    background: var(--glass-bg);
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  }
+
+  .bar {
+    background: var(--bar-bg);
+    backdrop-filter: blur(24px) saturate(160%);
+    -webkit-backdrop-filter: blur(24px) saturate(160%);
+  }
+
+  .glass-panel {
+    background: var(--glass-bg);
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    border: 1px solid var(--glass-edge);
+    box-shadow: var(--shadow-panel);
+  }
+
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .glass,
+    .glass-panel {
+      background: var(--color-bg);
+    }
+  }
+
+  .state-layer {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+  }
+
+  .state-layer::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: currentColor;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--duration-short) var(--ease-standard);
+  }
+
+  /* only real pointers hover: on touch screens a hover state sticks after the tap */
+  @media (hover: hover) {
+    .state-layer:hover::before {
+      opacity: var(--state-hover);
+    }
+  }
+
+  .state-layer:focus-visible::before {
+    opacity: var(--state-focus);
+  }
+
+  .state-layer:active::before {
+    opacity: var(--state-pressed);
+  }
+
+  .state-layer:disabled::before,
+  .state-layer[aria-disabled='true']::before {
+    opacity: 0;
+  }
+
+  /* A filled field, the way Send's boxes look. */
+  .field {
+    @apply flex flex-col gap-1.5 rounded-card border border-border bg-surface px-4 py-3;
+  }
+
+  .field-input {
+    @apply bg-transparent text-base outline-none placeholder:text-text-faint;
+  }
+}
+
+@layer utilities {
+  .break-address {
+    word-break: break-all;
+    overflow-wrap: anywhere;
+  }
+
+  .pt-safe {
+    padding-top: max(1.25rem, calc(env(safe-area-inset-top) + 0.75rem), calc(var(--safe-area-inset-top, 0px) + 0.75rem));
+  }
+
+  .pb-safe {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom), var(--safe-area-inset-bottom, 0px));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* --------------------------- payment received -------------------------- */
+
+@keyframes notice-in {
+  from { transform: translateY(-16px) scale(0.97); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+@keyframes paid-pop {
+  0% { transform: scale(0.4); opacity: 0; }
+  60% { transform: scale(1.08); opacity: 1; }
+  100% { transform: scale(1); }
+}
+
+@keyframes paid-draw {
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes paid-ring {
+  from { transform: scale(0.6); opacity: 0.7; }
+  to { transform: scale(1.9); opacity: 0; }
+}
+
+@keyframes live {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+
+@layer components {
+  .live-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 9999px;
+    background: var(--color-accent);
+    animation: live 1.6s var(--ease-standard) infinite;
+  }
+
+  .paid-mark {
+    position: relative;
+    width: 7.5rem;
+    height: 7.5rem;
+    margin: 0.75rem auto;
+  }
+  .paid-disc {
+    fill: color-mix(in srgb, var(--color-positive) 14%, transparent);
+    stroke: var(--color-positive);
+    stroke-width: 2;
+  }
+  .paid-check {
+    fill: none;
+    stroke: var(--color-positive);
+    stroke-width: 3.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .paid-ring {
+    position: absolute;
+    inset: 0;
+    border-radius: 9999px;
+    border: 2px solid var(--color-positive);
+    opacity: 0;
+  }
+  .paid-mark.is-new svg {
+    animation: paid-pop 520ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+  .paid-mark.is-new .paid-check {
+    stroke-dasharray: 40;
+    stroke-dashoffset: 40;
+    animation: paid-draw 420ms 360ms var(--ease-emphasised) forwards;
+  }
+  .paid-mark.is-new .paid-ring {
+    animation: paid-ring 900ms 200ms var(--ease-emphasised) 2;
+  }
+  .paid-note {
+    animation: toast-in 400ms 500ms var(--ease-emphasised) both;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .paid-mark.is-new svg,
+  .paid-mark.is-new .paid-ring,
+  .live-dot { animation: none; }
+  .paid-mark.is-new .paid-check { animation: none; stroke-dashoffset: 0; }
+}

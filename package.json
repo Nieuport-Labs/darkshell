@@ -1,0 +1,16 @@
+{
+  "name": "darkshell",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "app"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w app",
+    "build": "npm run build -w secret-pay && npm run build -w app",
+    "test": "npm test -w secret-pay && npm test -w app"
+  },
+  "overrides": {
+    "protobufjs": "^7.6.6"
+  }
+}

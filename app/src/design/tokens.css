@@ -1,0 +1,182 @@
+/* Design tokens from Nieuport-Labs/Secret_Dashboard src/styles/tokens.css (dark theme). */
+@font-face {
+  font-family: 'Google Sans Flex';
+  font-style: normal;
+  font-weight: 300 900;
+  font-display: swap;
+  src: url('/fonts/google-sans-flex-latin.woff2') format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Google Sans Flex';
+  font-style: normal;
+  font-weight: 300 900;
+  font-display: swap;
+  src: url('/fonts/google-sans-flex-latin-ext.woff2') format('woff2');
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF,
+    U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/*
+ * Structure borrows Material 3's model, since the design's own typeface is
+ * Google Sans Flex and it reads as Material-adjacent: tonal elevation rather
+ * than drop shadows, state layers rather than one-off hover colours, and
+ * Material's emphasised easing. The palette stays the Figma file's own.
+ *
+ * `@material/web` is deliberately not installed. Material components carry
+ * their own layout, shape and colour opinions, which would fight the design
+ * rather than serve it. What is borrowed here is the system, not the widgets.
+ */
+
+/* Dark is the design's own theme and the default. */
+:root {
+  --font-sans: 'Google Sans Flex', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  --color-bg: #080808;
+
+  /*
+   * Tonal elevation, and it is *translucent*. A raised surface in a dark theme
+   * is a wash of light over whatever is behind it, not an opaque grey tile —
+   * which is why these are alpha values rather than the hexes they used to be.
+   * Over the page they resolve to the same tones; over a drawer, a menu or an
+   * image they keep working instead of punching a hole.
+   */
+  --color-surface-1: rgb(255 255 255 / 0.035); /* card resting on the page */
+  --color-surface-2: rgb(255 255 255 / 0.06); /* panel */
+  --color-surface-3: rgb(255 255 255 / 0.09); /* menu, toast — the top layer */
+  /* Filled input, chip, secondary button. */
+  --color-surface: rgb(255 255 255 / 0.07);
+  /* A hairline, not a rule. Anything heavier draws the box instead of the
+     content sitting in it. */
+  --color-border: rgb(255 255 255 / 0.08);
+  --color-border-strong: rgb(255 255 255 / 0.14);
+
+  /*
+   * Glass. A floating layer is the page seen through frosted material: a dark
+   * translucent base so text stays legible, a blur so the content behind reads
+   * as depth rather than noise, a touch of saturation because blur washes
+   * colour out, and a light top edge where the material catches the light.
+   */
+  --glass-bg: rgb(8 8 8 / 0.8);
+  /* bars and toasts that sit over scrolling content: readable even where blur is unavailable */
+  --bar-bg: rgb(14 14 14 / 0.94);
+  --toast-bg: #1b1b1b;
+  --glass-blur: 40px;
+  --glass-saturate: 160%;
+  --glass-edge: rgb(255 255 255 / 0.09);
+  --scrim: rgb(0 0 0 / 0.55);
+  /*
+   * Chrome — the rail and the top strip — carries no fill at all. It is the
+   * page seen through frosted material and nothing else, so the content
+   * scrolling beneath stays visible as movement and colour. That only works
+   * with a heavy blur: at anything less the text underneath stays readable
+   * enough to compete with the labels sitting on top of it.
+   */
+  --chrome-blur: 28px;
+
+  /* Depth for the layers that float. Invisible on flat near-black, essential
+     under a translucent panel — it is what stops the panel dissolving. */
+  --shadow-panel: 0 24px 64px -16px rgb(0 0 0 / 0.8);
+  --shadow-menu: 0 12px 32px -8px rgb(0 0 0 / 0.7);
+
+  --color-text: #ffffff;
+  /* Both cleared AA at 16px. The interface now runs at 14, so they were lifted
+     until they clear it there too: 10.3:1 and 5.2:1 on the background. */
+  --color-text-muted: rgb(255 255 255 / 0.72);
+  --color-text-faint: rgb(255 255 255 / 0.5);
+
+  /* Brand orange. 5.71:1 on the background, so it is safe as text and icons. */
+  --color-accent: #ff3912;
+  /*
+   * The same orange as a *filled surface*, darkened until white on it clears
+   * WCAG AA for body text. #ff3912 with a white label measures 3.59:1, which
+   * passes only as large text. This measures 4.66:1. Brand identity lives in
+   * --color-accent; this exists so a control does not trade legibility for it.
+   */
+  --color-accent-strong: #de2e0d;
+  /* Nav active state. */
+  --color-accent-soft: rgb(255 57 18 / 0.12);
+  /*
+   * Material's "secondary container": a tonal fill carrying accent-coloured
+   * text. The design uses it for the wallet action row and the Stake button.
+   * 20% over the background puts accent text at 4.76:1, which clears AA.
+   */
+  --color-accent-container: rgb(255 57 18 / 0.2);
+  /* Sits on the accent, so it is fixed — --color-text inverts and this must not
+     follow it. */
+  --color-accent-text: #ffffff;
+
+  --color-positive: #21c17a;
+  --color-negative: #ff4d4d;
+
+  /*
+   * State layers. Material's interaction model: a translucent wash of the
+   * foreground colour over the component, rather than a separate colour per
+   * state. One rule covers hover, focus and press on every surface.
+   */
+  --state-hover: 0.08;
+  --state-focus: 0.1;
+  --state-pressed: 0.12;
+
+  /* Material's emphasised easing — decelerates hard, which reads as physical. */
+  --ease-emphasised: cubic-bezier(0.2, 0, 0, 1);
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --duration-short: 150ms;
+  --duration-medium: 250ms;
+  --duration-long: 400ms;
+
+  /*
+   * Shape scale. Pulled in again from 16/8: at 14px body text a 16px corner is
+   * larger than the cap height of the words inside it, which is the geometry
+   * that reads as bubbly. 12 for a container, 8 for a control, full for a chip.
+   */
+  --radius-card: 12px;
+  --radius-control: 8px;
+  --radius-pill: 999px;
+
+  /* 300px of rail against 14px labels was mostly empty. Google's own nav rails
+     sit at 256. */
+  --sidebar-width: 256px;
+
+  /*
+   * The narrowest the content column is allowed to get on a desktop layout.
+   *
+   * 720px is what the two-column pages need before their second column hits its
+   * own floor and starts eating the first: under it the wallet's greeting lands
+   * on top of its balance and the network's stat grid prints one figure over
+   * another. See `.app-frame` in index.css for what spends against it.
+   */
+  --content-floor: 720px;
+}
+
+/*
+ * Type scale.
+ *
+ * Material's, with its tracking: display and headline sizes tighten as they
+ * grow, labels open up. That negative tracking on large text is most of why
+ * Google's own interfaces read as composed rather than shouted.
+ *
+ * Pitched a step below the first pass throughout. This is a dashboard, not a
+ * marketing page: its job is to put a lot of true things on screen at once, and
+ * 16px body with a 36px page title spends the screen on air. 14px body is what
+ * Gmail, Cloud Console and Analytics all run at, and it is the difference
+ * between an interface that looks composed and one that looks enlarged.
+ *
+ * Sizes are rem so they follow the browser's font setting.
+ */
+:root {
+  --text-display: 1.75rem; /* 28px */
+  --text-display-tracking: -0.022em;
+  --text-headline: 1.25rem; /* 20px */
+  --text-headline-tracking: -0.018em;
+  --text-title: 1rem; /* 16px */
+  --text-title-tracking: -0.011em;
+  --text-body: 0.875rem; /* 14px */
+  --text-body-tracking: 0;
+  --text-label: 0.75rem; /* 12px */
+  --text-label-tracking: 0.02em;
+}
