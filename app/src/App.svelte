@@ -11,6 +11,7 @@
 	import AccountsModal from './components/wallet/AccountsModal.svelte';
 	import BottomNav from './components/wallet/BottomNav.svelte';
 	import LightningModal from './components/wallet/LightningModal.svelte';
+	import TxDetailModal from './components/wallet/TxDetailModal.svelte';
 	import { kv } from './lib/storage';
 	import Activity from './screens/Activity.svelte';
 	import Home from './screens/Home.svelte';
@@ -94,6 +95,8 @@
 		<SettingsModal />
 	{:else if ui.dialog?.name === 'accounts'}
 		<AccountsModal />
+	{:else if ui.dialog?.name === 'tx'}
+		{#key ui.dialog.item?.id ?? ui.dialog.hash}<TxDetailModal item={ui.dialog.item} hash={ui.dialog.hash} />{/key}
 	{:else if ui.dialog?.name === 'lightning'}
 		<LightningModal target={ui.dialog.target} orderId={ui.dialog.orderId} />
 	{/if}

@@ -78,7 +78,12 @@
 		failure = '';
 		try {
 			const plan = await buildPlan(target, base, memo.trim() || undefined, quote.kind === 'ready' ? quote.quote : undefined);
-			outcome = await pay(plan, target.kind === 'ibc' ? 'ibc' : 'send', (p) => (outcome = p));
+			outcome = await pay(plan, target.kind === 'ibc' ? 'ibc' : 'send', (p) => (outcome = p), {
+				to: target.kind === 'ibc' ? target.address : target.kind === 'secret' ? target.request.address : undefined,
+				amount: base.toString(),
+				symbol,
+				memo: memo.trim() || undefined,
+			});
 		} catch (e) {
 			failure =
 				e instanceof NoGasError

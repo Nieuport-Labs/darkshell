@@ -137,7 +137,7 @@
 				// the network accepted it: show progress at once
 				order = { ...record, sscrt: q.amountIn.toString(), hash: p.hash, status: 'NEW' };
 				step = 'progress';
-			});
+			}, { to: o.from.address, amount: atom.toString(), symbol: 'ATOM', memo });
 			order = { ...record, sscrt: q.amountIn.toString(), hash: out.hash, status: 'NEW' };
 			await saveLnOrder(order);
 			step = 'progress';
@@ -181,6 +181,28 @@
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
 		}
+	}
+
+	let copiedField = $state('');
+	async function copyText(text: string, field: string) {
+		await navigator.clipboard.writeText(text).catch(() => {});
+		copiedField = field;
+		setTimeout(() => copiedField === field && (copiedField = ''), 1500);
+	}
+
+	const short = (x: string, head = 10, tail = 6) => (x.length > head + tail + 1 ? `${x.slice(0, head)}…${x.slice(-tail)}` : x);
+
+	/** [label, shown, copyable] for each leg of the payment */
+	function route(o: LnOrder): [string, string, string?][] {
+		return [
+			...(o.sscrt ? [['You paid', `${formatAmount(BigInt(o.sscrt))} sSCRT`] as [string, string]] : []),
+			['Swapped to', `${formatAmount(BigInt(o.atom))} ATOM · ShadeSwap`],
+			['Sent over IBC to', short(o.deposit), o.deposit],
+			...(o.memo ? [['IBC memo', o.memo, o.memo] as [string, string, string]] : []),
+			['Lightning invoice', short(o.invoice, 14, 8), o.invoice],
+			['Order', o.id, o.id],
+			['Created', new Date(o.created).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })],
+		];
 	}
 
 	async function copyId() {
@@ -228,9 +250,23 @@
 			<Button variant="secondary" block size="lg" onclick={refund}>Request refund</Button>
 		{/if}
 		{#if error}<p class="text-base text-text-muted">{error}</p>{/if}
-		<p class="text-label text-text-faint">
-			Order <span class="font-mono">{order.id}</span> · {formatAmount(BigInt(order.atom))} ATOM{order.sscrt ? ` from ${formatAmount(BigInt(order.sscrt))} sSCRT` : ''}. If anything goes wrong, FixedFloat support can find it by this ID.
-		</p>
+		<!-- the whole route, step by step -->
+		<dl class="flex flex-col divide-y divide-border rounded-card border border-border bg-surface-1 text-base">
+			{#each route(order) as [k, v, full] (k)}
+				<div class="flex items-start justify-between gap-4 px-4 py-3">
+					<dt class="shrink-0 text-text-faint">{k}</dt>
+					<dd class="min-w-0 text-right">
+						{#if full}
+							<button type="button" onclick={() => copyText(full, k)} class="flex max-w-full items-center gap-1.5">
+								<span class="truncate font-mono text-[0.8125rem]">{v}</span>
+								{#if copiedField === k}<CheckCircle2 size={13} class="shrink-0 text-positive" />{:else}<Copy size={12} class="shrink-0 text-text-faint" />{/if}
+							</button>
+						{:else}<span class="tabular-nums">{v}</span>{/if}
+					</dd>
+				</div>
+			{/each}
+		</dl>
+		<p class="text-label text-text-faint">If anything goes wrong, FixedFloat support can find the payment by its order ID.</p>
 		<div class="flex flex-wrap gap-2">
 			<Button variant="secondary" shape="control" size="sm" onclick={copyId}>
 				{#snippet icon()}<Copy size={14} />{/snippet}

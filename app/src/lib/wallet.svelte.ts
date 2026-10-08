@@ -67,6 +67,8 @@ export const wallet = $state({
 	history: [] as HistoryItem[],
 	refreshing: false,
 	switching: false,
+	/** bumps whenever the local transaction log changes */
+	logged: 0,
 	error: '' as string,
 });
 
@@ -78,7 +80,17 @@ export interface LoggedTx {
 	/** sSCRT the payment itself spent, base units */
 	spent?: string;
 	refilled?: string;
+	/** what the payment was, for the activity detail */
+	to?: string;
+	amount?: string;
+	symbol?: string;
+	memo?: string;
+	status?: 'pending' | 'confirmed' | 'failed';
+	error?: string;
 }
+
+/** Recipient, amount and memo of a payment, kept with its log entry. */
+export type PayInfo = Pick<LoggedTx, 'to' | 'amount' | 'symbol' | 'memo'>;
 
 export async function init(): Promise<void> {
 	if (await hasVault()) {
@@ -412,6 +424,7 @@ export async function refresh(): Promise<void> {
 		wallet.native = native;
 		wallet.history = history;
 		wallet.credits = credits;
+		void settlePending(s);
 	} catch (e) {
 		wallet.error = e instanceof Error ? e.message : String(e);
 	} finally {
@@ -419,10 +432,29 @@ export async function refresh(): Promise<void> {
 	}
 }
 
+/** Adds or updates (by hash) an entry of the local transaction log. */
 export async function log(entry: LoggedTx) {
+	if (session?.decoy) return;
 	const key = addrKey('txlog', wallet.address);
 	const list = (await kv.get<LoggedTx[]>(key)) ?? [];
-	await kv.set(key, [entry, ...list].slice(0, 200));
+	const old = list.find((l) => l.hash === entry.hash);
+	const next = old ? { ...old, ...Object.fromEntries(Object.entries(entry).filter(([, v]) => v !== undefined)) } : entry;
+	await kv.set(key, [next, ...list.filter((l) => l !== old)].slice(0, 200));
+	wallet.logged++;
+}
+
+/** Sent transactions still waiting for a block: ask the chain once more. */
+async function settlePending(s: Session): Promise<void> {
+	const list = await txLog();
+	for (const l of list.filter((x) => x.status === 'pending')) {
+		try {
+			const tx = await s.client.query.getTx(l.hash);
+			if (tx) await log({ ...l, status: tx.code === 0 ? 'confirmed' : 'failed', error: tx.code === 0 ? undefined : tx.rawLog });
+			else if (Date.now() - l.time > 30 * 60_000) await log({ ...l, status: 'failed', error: 'Never made it into a block.' });
+		} catch {
+			/* try again next refresh */
+		}
+	}
 }
 
 export async function txLog(): Promise<LoggedTx[]> {
@@ -434,6 +466,7 @@ export async function pay(
 	plan: PaymentPlan,
 	kind: LoggedTx['kind'],
 	onBroadcast?: (pending: Extract<TxOutcome, { status: 'pending' }>) => void,
+	info: PayInfo = {},
 ): Promise<TxOutcome> {
 	const s = session;
 	if (!s) throw new Error('Wallet is locked');
@@ -444,11 +477,20 @@ export async function pay(
 		onBroadcast: (p) => {
 			// show it as sent right away; the balance drops optimistically until the block confirms
 			if (wallet.balance !== null && wallet.balance >= plan.spends) wallet.balance -= plan.spends;
+			void log({ hash: p.hash, kind, time: Date.now(), spent: plan.spends.toString(), status: 'pending', ...info });
 			onBroadcast?.(p);
 		},
 	});
 	forgetGrants(s.wallet.address);
-	await log({ hash: out.hash, kind, time: Date.now(), spent: plan.spends.toString(), refilled: out.refilled ? out.refilled.toString() : undefined });
+	await log({
+		hash: out.hash,
+		kind,
+		time: Date.now(),
+		spent: plan.spends.toString(),
+		refilled: out.refilled ? out.refilled.toString() : undefined,
+		status: out.status === 'confirmed' ? 'confirmed' : 'pending',
+		...info,
+	});
 	setTimeout(() => void refresh(), out.status === 'confirmed' ? 0 : 8000);
 	return out;
 }
@@ -477,7 +519,7 @@ export async function refillNow(): Promise<TxOutcome> {
 	const s = session;
 	if (!s) throw new Error('Wallet is locked');
 	const out = await sendTx(s.client, s.wallet.address, [], 0, [], { sscrtSpare: wallet.balance ?? 0n, forceRefill: true });
-	await log({ hash: out.hash, kind: 'refill', time: Date.now(), refilled: out.refilled.toString() });
+	await log({ hash: out.hash, kind: 'refill', time: Date.now(), refilled: out.refilled.toString(), status: out.status === 'confirmed' ? 'confirmed' : 'pending' });
 	void refresh();
 	return out;
 }
@@ -491,7 +533,7 @@ export async function wrapPublic(): Promise<TxOutcome> {
 	const amount = wallet.native - fee;
 	if (amount <= 0n) throw new Error('Not enough public SCRT to move.');
 	const plan = await wrapPayment(s.client, s.wallet.address, amount);
-	return pay(plan, 'wrap');
+	return pay(plan, 'wrap', undefined, { amount: amount.toString(), symbol: 'SCRT' });
 }
 
 /* ---------------------------------- auto-lock --------------------------------- */
@@ -534,4 +576,63 @@ export async function forgetDevice(): Promise<void> {
 	await kv.clear();
 	wallet.address = '';
 	wallet.phase = 'onboarding';
+}
+
+/* ----------------------------- transaction detail ----------------------------- */
+
+const hashCache = new Map<string, string | null>();
+
+/**
+ * The hash of the transaction that paid us `item`. sSCRT history has no
+ * hashes; the SNIP-52 notification in each block names the ones meant for us.
+ */
+export async function receivedHash(item: HistoryItem): Promise<string | null> {
+	const key = `${wallet.address}:${item.id}`;
+	if (hashCache.has(key)) return hashCache.get(key)!;
+	const own = watchList.find((w) => w.address === wallet.address);
+	if (!own || !item.height) return null;
+	const { firstRpc, scanTx, txsSince } = await import('./notify/snip52');
+	const txs = await firstRpc((rpc) => txsSince(rpc, SSCRT_ADDRESS, item.height! - 1, 1));
+	const hits = txs.filter((t) => t.height === item.height).flatMap((t) => scanTx(t, [own.watch]));
+	const hit = hits.find((h) => h.amount === item.amount) ?? (hits.length === 1 ? hits[0] : undefined);
+	const hash = hit?.hash ?? null;
+	hashCache.set(key, hash);
+	return hash;
+}
+
+export interface ChainTxDetail {
+	code: number;
+	error?: string;
+	height: number;
+	time?: string;
+	gasUsed: number;
+	gasWanted: number;
+	fee?: string;
+	feePayer?: string;
+	txMemo?: string;
+	/** messages as the chain has them, decrypted where this wallet can */
+	messages: unknown[];
+}
+
+/** A transaction from the chain; our own contract calls come back decrypted. */
+export async function chainTx(hash: string): Promise<ChainTxDetail | null> {
+	const s = session;
+	if (!s) throw new Error('Wallet is locked');
+	const tx = await s.client.query.getTx(hash);
+	if (!tx) return null;
+	const body = tx.tx?.body as { messages?: unknown[]; memo?: string } | undefined;
+	const auth = tx.tx?.auth_info as { fee?: { amount?: { amount: string; denom: string }[]; granter?: string } } | undefined;
+	const fee = auth?.fee?.amount?.[0];
+	return {
+		code: tx.code,
+		error: tx.code ? tx.rawLog : undefined,
+		height: tx.height,
+		time: tx.timestamp,
+		gasUsed: Number(tx.gasUsed),
+		gasWanted: Number(tx.gasWanted),
+		fee: fee ? `${formatAmount(BigInt(fee.amount))} ${fee.denom === 'uscrt' ? 'SCRT' : fee.denom}` : undefined,
+		feePayer: auth?.fee?.granter || undefined,
+		txMemo: body?.memo || undefined,
+		messages: body?.messages ?? [],
+	};
 }

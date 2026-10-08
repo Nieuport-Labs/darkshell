@@ -1,6 +1,7 @@
 // Which dialog is open. Only `/pay/<address>?…` is a real URL (so shared
 // invoice links open the wallet on the payment); everything else is state.
 
+import type { HistoryItem } from './chain/sscrt';
 import { classify, type Target } from './pay/classify';
 
 export type Dialog =
@@ -10,6 +11,7 @@ export type Dialog =
 	| { name: 'invoice'; fromReceive?: boolean; id?: string }
 	| { name: 'settings' }
 	| { name: 'accounts' }
+	| { name: 'tx'; item?: HistoryItem; hash?: string }
 	| { name: 'lightning'; target?: Extract<Target, { kind: 'lightning' }>; orderId?: string };
 
 export type Tab = 'home' | 'activity' | 'invoices' | 'settings';

@@ -1,0 +1,71 @@
+// What an activity entry was, in words. sSCRT history only knows transfers,
+// deposits and redeems; our own log (kept when we send) says what a redeem or
+// a swap was for, matched by amount and time.
+
+import type { HistoryItem } from './chain/sscrt';
+import { SHADESWAP_ROUTER } from './chain/shadeSwap';
+import { shortAddress } from './format';
+import type { LoggedTx } from './wallet.svelte';
+
+export type Icon = 'in' | 'out' | 'swap' | 'gas' | 'shield' | 'bolt';
+
+export interface Described {
+	title: string;
+	detail: string;
+	sign: '+' | '−' | '';
+	icon: Icon;
+	/** our log entry for this transaction, when we sent it */
+	link?: LoggedTx;
+}
+
+const WINDOW_MS = 15 * 60_000;
+
+/** The logged send `h` belongs to, matched by amount and time. */
+export function linkOf(h: HistoryItem, logged: LoggedTx[]): LoggedTx | undefined {
+	if (!h.time || h.kind === 'in') return undefined;
+	const near = (l: LoggedTx) => Math.abs(l.time - h.time! * 1000) < WINDOW_MS;
+	const amount = h.amount.toString();
+	if (h.kind === 'unwrap') {
+		const refill = logged.find((l) => l.refilled === amount && near(l));
+		if (refill) return refill;
+	}
+	if (h.kind === 'wrap') return logged.find((l) => l.kind === 'wrap' && near(l));
+	return logged.find((l) => l.spent === amount && near(l));
+}
+
+export function describe(h: HistoryItem, link?: LoggedTx): Described {
+	const out = (title: string, detail: string, icon: Icon = 'out'): Described => ({ title, detail, sign: '−', icon, link });
+	if (h.kind === 'in') return { title: 'Received', detail: h.counterparty ? `from ${shortAddress(h.counterparty, 6, 4)}` : '', sign: '+', icon: 'in' };
+	if (h.kind === 'wrap') return { title: 'Made private', detail: 'from public SCRT', sign: '+', icon: 'shield', link };
+	if (link?.kind === 'lightning') return out('Lightning payment', 'via FixedFloat', 'bolt');
+	if (link?.kind === 'refill' || (h.kind === 'unwrap' && link?.refilled === h.amount.toString())) return out('Gas credits', 'refill', 'gas');
+	if (link?.kind === 'invoice') return out('Paid invoice', link.to ? `to ${shortAddress(link.to, 6, 4)}` : '', h.counterparty === SHADESWAP_ROUTER ? 'swap' : 'out');
+	if (link?.kind === 'ibc') return out('Sent', 'to another chain');
+	if (h.kind === 'out' && h.counterparty === SHADESWAP_ROUTER) return out('Swapped', 'on ShadeSwap', 'swap');
+	if (h.kind === 'out') return out('Sent', h.counterparty ? `to ${shortAddress(h.counterparty, 6, 4)}` : '');
+	if (h.kind === 'unwrap') return link ? out('Sent', 'as public SCRT') : out('Unwrapped', 'to public SCRT');
+	return { title: 'Other', detail: '', sign: '', icon: 'out' };
+}
+
+/** A logged send the chain history does not show yet (still in flight, or failed). */
+export function unsettled(logged: LoggedTx[], history: HistoryItem[]): LoggedTx[] {
+	return logged.filter((l) => {
+		if (l.status !== 'pending' && l.status !== 'failed') return false;
+		if (l.status === 'failed' && Date.now() - l.time > 24 * 3600_000) return false;
+		return !history.some((h) => linkOf(h, [l]) === l);
+	});
+}
+
+export function describeLogged(l: LoggedTx): Described {
+	const to = l.to ? `to ${shortAddress(l.to, 6, 4)}` : '';
+	const map: Record<LoggedTx['kind'], [string, Icon]> = {
+		send: ['Sending', 'out'],
+		invoice: ['Paying invoice', 'out'],
+		ibc: ['Sending to another chain', 'out'],
+		wrap: ['Making private', 'shield'],
+		refill: ['Refilling gas credits', 'gas'],
+		lightning: ['Lightning payment', 'bolt'],
+	};
+	const [title, icon] = map[l.kind];
+	return { title: l.status === 'failed' ? `${title} failed` : title, detail: to, sign: l.kind === 'wrap' ? '+' : '−', icon, link: l };
+}

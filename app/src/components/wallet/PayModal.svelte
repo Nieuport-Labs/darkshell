@@ -56,7 +56,12 @@
 		failure = '';
 		try {
 			const plan = await buildPlan(target, amount, undefined, quote.kind === 'ready' ? quote.quote : undefined);
-			outcome = await pay(plan, 'invoice', (p) => (outcome = p));
+			outcome = await pay(plan, 'invoice', (p) => (outcome = p), {
+				to: request.address,
+				amount: amount.toString(),
+				symbol: asset.symbol,
+				memo: request.id ?? request.memo,
+			});
 		} catch (e) {
 			failure =
 				e instanceof NoGasError
