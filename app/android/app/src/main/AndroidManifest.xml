@@ -33,6 +33,14 @@
                 <data android:scheme="secret" />
             </intent-filter>
 
+            <!-- Secret Dashboard pay links open DarkShell when it is installed -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="dashboard.nieuportlabs.cz" android:pathPrefix="/pay/" />
+            </intent-filter>
+
             <!-- lightning: invoices are paid through FixedFloat -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />

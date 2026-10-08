@@ -15,7 +15,7 @@ type Fail = { ok: false; error: ParseErrorCode; detail?: string };
 const fail = (error: ParseErrorCode, detail?: string): Fail => ({ ok: false, error, detail });
 
 /**
- * Parses anything a user might paste or scan: a `secret:` URI, a `…/pay/<addr>`
+ * Parses anything a user might paste or scan: `<addr>?…`, a `secret:` URI, a `…/pay/<addr>`
  * web link, the short form `<addr>:<SYMBOL>`, or a bare address.
  */
 export function parsePayment(input: string): ParseResult {
@@ -42,6 +42,10 @@ export function parsePayment(input: string): ParseResult {
 	// short form: <address>:<asset>
 	const short = /^([a-z0-9]+1[02-9ac-hj-np-z]+):([^\s:?]+)$/i.exec(raw);
 	if (short) return build(short[1]!, `asset=${encodeURIComponent(short[2]!)}`, 'short');
+
+	// address with parameters: <address>?asset=…&amount=…
+	const withQuery = /^([a-z0-9]+1[02-9ac-hj-np-z]+)\?([^#]*)$/i.exec(raw);
+	if (withQuery) return build(withQuery[1]!, withQuery[2]!, 'uri');
 
 	// bare address
 	if (/^[a-z0-9]+1[02-9ac-hj-np-z]+$/i.test(raw)) return build(raw, '', 'address');

@@ -19,11 +19,11 @@ The same request can be written in three interchangeable forms.
 
 | Form | Example | Use |
 |---|---|---|
-| URI | `secret:secret16dyf…0rad?asset=secret1k0jn…fzek&amount=12.5` | QR codes, deep links |
+| URI | `secret16dyf…0rad?asset=secret1k0jn…fzek&amount=12.5` | QR codes, shared text |
 | Web link | `https://<host>/pay/secret16dyf…0rad?asset=…&amount=12.5` | Sharing in chat/e-mail; opens a web page when no wallet handles it |
 | Short form | `secret16dyf…0rad:sSCRT` | Human text, copy & paste of a receiving address |
 
-- The **URI** is `secret:` + address + optional `?` + query. The scheme is case-insensitive. Readers SHOULD tolerate `secret://` and `web+secret:`; writers MUST emit `secret:`.
+- The **URI** is the address + optional `?` + query, with no scheme: the address's bech32 prefix already names the chain. Writers MUST NOT emit a scheme. Readers MUST also accept the older `secret:` form (case-insensitive) and SHOULD tolerate `secret://` and `web+secret:`.
 - The **web link** is any `http(s)` URL whose path ends in `/pay/<address>`, followed by the same query as the URI. The host is the publisher's choice.
 - The **short form** is `<address>:<asset>` and carries only the address and the required asset. Writers SHOULD use the asset's registered symbol (`sSCRT`); readers resolve it through the registry (§3). Anything more (amount, memo…) needs the URI.
 - A **bare address** is a valid request with no parameters.
@@ -87,7 +87,7 @@ and shows the short form `<address>:<SYMBOL>` as text. A payer's wallet that rea
 An invoice is a request with `amount` and either `memo` or `id`. It SHOULD carry `exp`.
 
 ```
-secret:secret16dyfc744j0lrhae0xpfjxl5cnx2hu80h0p0rad
+secret16dyfc744j0lrhae0xpfjxl5cnx2hu80h0p0rad
   ?asset=secret1k0jntykt7e4g3y88ltc60czgjuqdy4c9e8fzek
   &amount=12.5
   &id=INV-7Q2M9K4D

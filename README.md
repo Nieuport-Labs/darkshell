@@ -44,7 +44,7 @@ The APK build needs the Android SDK (path in `app/android/local.properties`) and
 - **Send** works for:
   - a `secret1…` address (private sSCRT, with an encrypted memo);
   - an `osmo1…` or `cosmos1…` address (unwrap and IBC in one transaction);
-  - any scanned or pasted `secret:` URI, `/pay/…` link or `addr:SYMBOL` short form.
+  - any scanned or pasted `address?asset=…` request, older `secret:` URI, `/pay/…` link or `addr:SYMBOL` short form.
 - **Pay invoices in other tokens.** This follows Secret_Dashboard: the sSCRT is swapped on ShadeSwap and the swap carries a minimum return.
   - The recipient gets exactly the amount and token they asked for, in one transaction.
   - Any of 66 tokens can be requested, private or public (IBC).
@@ -60,7 +60,7 @@ The APK build needs the Android SDK (path in `app/android/local.properties`) and
   - Each transaction is signed once, and any retry re-sends the same bytes, so a retry cannot pay twice.
   - A slow confirmation shows as "pending" with the hash, never as a failure that invites pressing Send again.
 - **Android.**
-  - `secret:` links from other apps open the payment.
+  - Secret Dashboard `/pay/…` links and `secret:` links from other apps open the payment.
   - The QR scanner uses the camera.
   - The back button closes dialogs, then tabs.
   - The scanner's WASM is bundled, so it makes no CDN calls.
@@ -71,6 +71,6 @@ The APK build needs the Android SDK (path in `app/android/local.properties`) and
 - Showing tokens other than sSCRT that end up in the account (swap leftovers, refunds on the Cosmos Hub).
 - Payments to Ethereum through Axelar.
 - A tool for funding the first gas credits.
-- A configured public origin (`VITE_PAY_ORIGIN`) for https pay links. Until one is set, sharing uses `secret:` URIs.
+- Shared invoices are Secret Dashboard links (`https://dashboard.nieuportlabs.cz/pay/…`, override with `VITE_PAY_ORIGIN`). For Android to open them in DarkShell without asking, the dashboard must serve `/.well-known/assetlinks.json` for `cash.darkshell.wallet`.
 
 Third-party code: [THIRD_PARTY.md](./THIRD_PARTY.md).

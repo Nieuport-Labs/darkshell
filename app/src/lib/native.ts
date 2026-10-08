@@ -9,7 +9,7 @@ export const isNative = Capacitor.isNativePlatform();
 
 let pendingLink: string | null = null;
 
-/** A `secret:` link opened from outside, waiting for the wallet to unlock. */
+/** A payment link opened from outside, waiting for the wallet to unlock. */
 export function takeNativeLink(): string | null {
 	const l = pendingLink;
 	pendingLink = null;
@@ -19,7 +19,7 @@ export function takeNativeLink(): string | null {
 export function initNative(): void {
 	if (!isNative) return;
 
-	// `secret:` links (other apps, QR scanners, browsers) open the payment
+	// payment links (dashboard /pay/ links, `secret:`, `lightning:`) open the payment
 	void App.addListener('appUrlOpen', ({ url }) => {
 		if (wallet.phase === 'unlocked') openPayment(url);
 		else pendingLink = url;

@@ -27,14 +27,10 @@ export const LCD_URLS = [
 export const EXPLORER_TX = 'https://www.mintscan.io/secret/tx/{hash}';
 
 /**
- * Public origin for shareable `/pay/…` web links (VITE_PAY_ORIGIN at build
- * time). Without one — e.g. inside the Android app, whose origin is
- * https://localhost — sharing falls back to the `secret:` URI, which DarkShell
- * and other wallets open directly.
+ * Where shared `/pay/…` links point: Secret Dashboard pays them in a browser,
+ * and DarkShell opens them when installed. VITE_PAY_ORIGIN overrides it.
  */
-export const PAY_LINK_ORIGIN: string =
-	import.meta.env.VITE_PAY_ORIGIN ||
-	(typeof location !== 'undefined' && !/^https?:\/\/localhost(:\d+)?$/.test(location.origin) && location.protocol === 'https:' ? location.origin : '');
+export const PAY_LINK_ORIGIN: string = import.meta.env.VITE_PAY_ORIGIN || 'https://dashboard.nieuportlabs.cz';
 
 export const GAS_BUFFER = 1.2;
 export function withGasBuffer(gas: number): number {

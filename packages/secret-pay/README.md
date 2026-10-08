@@ -3,9 +3,9 @@
 Payment requests and invoices for Secret Network as one URI format, plus a zero-dependency TypeScript reference implementation.
 
 ```
-secret:secret16dyfc744j0lrhae0xpfjxl5cnx2hu80h0p0rad?asset=sscrt          receiving address, sSCRT only
+secret16dyfc744j0lrhae0xpfjxl5cnx2hu80h0p0rad?asset=sscrt                 receiving address, sSCRT only
 secret16dyfc744j0lrhae0xpfjxl5cnx2hu80h0p0rad:sSCRT                       the same, short human form
-secret:secret16dyf…0rad?asset=secret1k0jn…fzek&amount=12.5&id=INV-7Q2M9K4D&exp=1893456000    invoice
+secret16dyf…0rad?asset=secret1k0jn…fzek&amount=12.5&id=INV-7Q2M9K4D&exp=1893456000    invoice
 https://<host>/pay/secret16dyf…0rad?asset=…&amount=12.5&id=…             invoice as a web link
 ```
 
