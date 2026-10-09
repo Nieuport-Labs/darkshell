@@ -15,6 +15,7 @@
 	import { pay, prefetchForPayment, wallet } from '../../lib/wallet.svelte';
 	import Button from '../ui/Button.svelte';
 	import Modal from '../ui/Modal.svelte';
+	import SwipeConfirm from '../ui/SwipeConfirm.svelte';
 	import { usdValue } from '../../lib/price.svelte';
 	import TxResult from './TxResult.svelte';
 
@@ -125,7 +126,7 @@
 		{#if failure}<p class="break-address text-base text-negative" role="alert">{failure}</p>{/if}
 
 		<div class="mt-auto pt-4">
-			<Button block size="xl" loading={sending} disabled={!ready} onclick={submit}>Pay invoice</Button>
+			<SwipeConfirm label="Swipe to pay" loading={sending} disabled={!ready && !sending} onconfirm={submit} />
 		</div>
 	{/if}
 </Modal>

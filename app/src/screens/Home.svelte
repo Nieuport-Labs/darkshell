@@ -69,19 +69,19 @@
 	</div>
 
 	{#if wallet.balance === null}
-		<div class="mt-4 h-[3.75rem] w-52 animate-pulse rounded-control bg-surface"></div>
+		<div class="mt-4 h-[3rem] w-44 animate-pulse rounded-control bg-surface"></div>
 	{:else}
 		<!-- whole sSCRT large; decimals above and the unit below, both small, on the same line -->
 		<div class="mt-4 flex items-stretch gap-1.5" aria-label="{ui.hideBalance ? 'Hidden' : formatAmount(wallet.balance)} sSCRT">
-			<span class="text-[3.75rem] font-semibold leading-[0.9] tracking-[-0.04em] tabular-nums" aria-hidden="true">{ui.hideBalance ? '••••' : int}</span>
-			<span class="flex flex-col justify-between pb-[0.25rem] pt-[0.15rem] text-[1.0625rem] font-semibold leading-none tracking-[-0.01em]" aria-hidden="true">
+			<span class="text-[3rem] font-semibold leading-[0.9] tracking-[-0.035em] tabular-nums" aria-hidden="true">{ui.hideBalance ? '••••' : int}</span>
+			<span class="flex flex-col justify-between pb-[0.2rem] pt-[0.1rem] text-[0.9375rem] font-semibold leading-none tracking-[-0.01em]" aria-hidden="true">
 				<span class="tabular-nums text-text-muted">{ui.hideBalance ? '' : `.${frac ?? '00'}`}</span>
 				<span class="text-text-faint">sSCRT</span>
 			</span>
 		</div>
 	{/if}
 
-	<p class="mt-3 min-h-6 text-[1.0625rem] tabular-nums text-text-muted">
+	<p class="mt-2.5 min-h-6 text-base tabular-nums text-text-muted">
 		{#if wallet.error}
 			<button type="button" onclick={refresh} class="text-negative">Couldn't update. Tap to retry</button>
 		{:else if wallet.balance !== null && price.usd !== null}

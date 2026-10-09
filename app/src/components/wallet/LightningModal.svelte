@@ -18,6 +18,7 @@
 	import { client, cosmosAddress, pay, prefetchForPayment, wallet } from '../../lib/wallet.svelte';
 	import Button from '../ui/Button.svelte';
 	import Modal from '../ui/Modal.svelte';
+	import SwipeConfirm from '../ui/SwipeConfirm.svelte';
 	import { usdValue } from '../../lib/price.svelte';
 	import PoweredByFF from './PoweredByFF.svelte';
 
@@ -303,10 +304,7 @@
 		</dl>
 		{#if wallet.balance !== null && quote.amountIn > wallet.balance}<p class="text-base text-negative">Not enough sSCRT.</p>{/if}
 		<div class="mt-auto pt-4">
-			<Button block size="xl" loading={step === 'sending'} disabled={wallet.balance !== null && quote.amountIn > wallet.balance} onclick={confirm}>
-				{#snippet icon()}<Zap size={18} />{/snippet}
-				Pay {Number(sats).toLocaleString()} sats
-			</Button>
+			<SwipeConfirm label="Swipe to pay {Number(sats).toLocaleString()} sats" loading={step === 'sending'} disabled={wallet.balance !== null && quote.amountIn > wallet.balance} onconfirm={confirm} />
 		</div>
 	{/if}
 	<PoweredByFF />

@@ -14,6 +14,8 @@
 	import AmountHero from '../ui/AmountHero.svelte';
 	import Button from '../ui/Button.svelte';
 	import Modal from '../ui/Modal.svelte';
+	import SwipeConfirm from '../ui/SwipeConfirm.svelte';
+	import { usdValue } from '../../lib/price.svelte';
 	import TxResult from './TxResult.svelte';
 
 	let { target: initial, raw: initialRaw = '' }: { target?: Target; raw?: string } = $props();
@@ -26,6 +28,8 @@
 	let sending = $state(false);
 	let failure = $state('');
 	let outcome = $state<TxOutcome | null>(null);
+	/** the last step: what is about to be sent, confirmed with a swipe */
+	let reviewing = $state(false);
 	let quote = $state<QuoteState>({ kind: 'none' });
 
 	const asset = $derived(target ? assetOf(target) : undefined);
@@ -98,22 +102,46 @@
 		}
 	}
 
-	const label = $derived(
-		!recipient.trim()
-			? 'Enter a recipient'
-			: !amount
-				? 'Enter an amount'
-				: target?.kind === 'ibc'
-					? `Send SCRT to ${target.dest.name}`
-					: `Send ${symbol}`,
-	);
+	const label = $derived(!recipient.trim() ? 'Enter a recipient' : !amount ? 'Enter an amount' : 'Review');
+	const toAddress = $derived(target?.kind === 'ibc' ? target.address : target?.kind === 'secret' ? target.request.address : recipient.trim());
+	const isPrivate = $derived(target?.kind === 'secret' && target.asset.private);
 
 	prefetchForPayment();
 </script>
 
-<Modal full title="Send" onclose={close}>
+<Modal full title={reviewing && !outcome ? 'Confirm' : 'Send'} onclose={close} onback={reviewing && !outcome && !sending ? () => ((reviewing = false), (failure = '')) : undefined}>
 	{#if outcome}
 		<TxResult {outcome} summary="Sent {amount} {symbol} to {shortAddress(target && 'request' in target ? target.request.address : recipient.trim())}." ondone={close} />
+	{:else if reviewing}
+		<div class="flex flex-col items-center gap-1 pt-6 text-center">
+			<span class="text-label text-text-faint">You're sending</span>
+			<div class="flex items-baseline gap-2">
+				<span class="text-[2.75rem] font-semibold leading-tight tracking-[-0.03em] tabular-nums">{amount}</span>
+				<span class="text-title text-text-muted">{symbol}</span>
+			</div>
+			{#if symbol === 'sSCRT' && base !== null && usdValue(base)}<span class="text-base tabular-nums text-text-faint">≈ {usdValue(base)}</span>{/if}
+		</div>
+		<dl class="flex flex-col divide-y divide-border rounded-card border border-border bg-surface-1 text-base">
+			<div class="flex flex-col gap-1 px-4 py-3.5">
+				<dt class="text-text-faint">To{target?.kind === 'ibc' ? ` · ${target.dest.name}` : ''}</dt>
+				<dd class="break-all font-mono text-[0.875rem]">{toAddress}</dd>
+			</div>
+			{#if memo.trim()}
+				<div class="flex items-start justify-between gap-4 px-4 py-3.5"><dt class="text-text-faint">Memo</dt><dd class="break-words text-right">{memo.trim()}</dd></div>
+			{/if}
+			{#if quote.kind === 'ready'}
+				<div class="flex items-start justify-between gap-4 px-4 py-3.5">
+					<dt class="text-text-faint">You pay</dt><dd class="text-right tabular-nums">≈ {formatAmount(quote.quote.amountIn)} sSCRT <span class="block text-label text-text-faint">swapped on ShadeSwap</span></dd>
+				</div>
+			{/if}
+			<div class="flex items-start justify-between gap-4 px-4 py-3.5">
+				<dt class="text-text-faint">Privacy</dt>
+				<dd class="flex items-center gap-1.5 text-right">{#if isPrivate}<ShieldCheck size={14} class="text-accent" /> Private{:else}<Eye size={14} /> Public{/if}</dd>
+			</div>
+			<div class="flex items-start justify-between gap-4 px-4 py-3.5"><dt class="text-text-faint">Network fee</dt><dd class="text-right">Paid from gas credits</dd></div>
+		</dl>
+		{#if failure}<p class="break-address text-base text-negative" role="alert">{failure}</p>{/if}
+		<div class="mt-auto pt-4"><SwipeConfirm label="Swipe to send" loading={sending} disabled={!ready && !sending} onconfirm={submit} /></div>
 	{:else}
 		<div class="flex items-center gap-2 rounded-pill bg-surface py-1.5 pl-5 pr-1.5">
 			<input
@@ -160,6 +188,6 @@
 
 		{#if failure}<p class="break-address text-base text-negative" role="alert">{failure}</p>{/if}
 
-		<Button block size="xl" loading={sending} disabled={!ready} onclick={submit}>{label}</Button>
+		<Button block size="xl" disabled={!ready} onclick={() => ((failure = ''), (reviewing = true))}>{label}</Button>
 	{/if}
 </Modal>

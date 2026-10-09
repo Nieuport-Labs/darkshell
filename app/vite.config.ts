@@ -45,6 +45,9 @@ export default defineConfig({
 	},
 	build: {
 		target: 'es2022',
+		// say which browsers the CSS is for: with only a JS target the minifier kept
+		// -webkit-backdrop-filter alone, which Android's WebView ignores (no blur)
+		cssTarget: ['chrome100', 'safari15', 'firefox110'],
 		chunkSizeWarningLimit: 4096,
 	},
 	test: {
