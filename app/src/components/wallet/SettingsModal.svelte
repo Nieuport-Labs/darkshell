@@ -177,7 +177,7 @@
 			? 'Checking…'
 			: {
 					warm: 'Healthy. Network fees are paid from your gas credits.',
-					low: `Below ${formatAmount(CREDIT_FLOOR)} SCRT. Your next payment tops them up by ${formatAmount(CREDIT_REFILL)} sSCRT in the same transaction.`,
+					low: `Below ${formatAmount(CREDIT_FLOOR)} SCRT. DarkShell is adding ${formatAmount(CREDIT_REFILL)} SCRT automatically.`,
 					cold: 'Empty. The first top-up needs a little public SCRT (see below).',
 					unknown: 'Could not be read right now. Nothing is lost.',
 				}[c.state],
@@ -347,9 +347,9 @@
 			<dd class="text-right font-mono text-sm">{shortAddress(GAS_VAULT_ADDRESS, 10, 6)}</dd>
 		</dl>
 		<p class="text-label text-text-faint">
-			Fees are paid from prepaid gas credits, a fee grant from the gas vault, so you never need SCRT. When they drop below {formatAmount(CREDIT_FLOOR)} SCRT, your next payment converts {formatAmount(
-				CREDIT_REFILL,
-			)} sSCRT into credits in the same transaction — one confirmation, never a separate transaction.
+			Fees are paid from prepaid gas credits, a fee grant from the gas vault, so you never need SCRT. They are kept between {formatAmount(CREDIT_FLOOR)} and {formatAmount(
+				CREDIT_FLOOR + CREDIT_REFILL,
+			)} SCRT: below {formatAmount(CREDIT_FLOOR)}, {formatAmount(CREDIT_REFILL)} are added from public SCRT you make private, or from sSCRT — with your next payment, or on their own when nothing else is being sent.
 		</p>
 		{#if c?.state === 'cold'}
 			<p class="text-label text-text-faint">

@@ -52,11 +52,14 @@ export const GAS = {
 } as const;
 
 /**
- * Gas credits: refill when below the floor, by a fixed amount, as part of the
- * user's next transaction (never as a transaction of its own).
+ * Gas credits are kept between 2 and 4 SCRT: below the floor, 2 SCRT are
+ * added — riding along with the next transaction (a wrap takes them from the
+ * public SCRT it wraps), or on their own when nothing else is being sent.
  */
-export const CREDIT_FLOOR = 1_000_000n; // 1 SCRT
+export const CREDIT_FLOOR = 2_000_000n; // 2 SCRT
 export const CREDIT_REFILL = 2_000_000n; // 2 SCRT ≈ hundreds of payments
+/** smallest automatic top-up worth a message */
+export const MIN_REFILL = 200_000n; // 0.2 SCRT
 /** after a refill was sent, don't add another for this long (grant reads lag) */
 export const REFILL_COOLDOWN_MS = 3 * 60_000;
 

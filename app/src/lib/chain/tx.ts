@@ -6,12 +6,12 @@
 //   accepts a given account sequence once, so a retry can never pay twice.
 // - "Not confirmed yet" is not "failed". A slow block gives a pending result
 //   with the hash, never an error that invites the user to press Send again.
-// - Gas credits ride along. When credits are low, a refill (redeem sSCRT → buy
-//   credits) is appended to the user's own transaction instead of being sent
-//   as a separate one, and is left off whenever it would change who pays.
+// - Gas credits ride along. When credits are low, a refill (public SCRT the tx
+//   leaves untouched, else redeemed sSCRT → buy credits) is appended to the
+//   user's own transaction, and is left off whenever it would change who pays.
 
 import { BroadcastMode, MsgExecuteContract, type Msg, type SecretNetworkClient, type TxResponse } from 'secretjs';
-import { CREDIT_FLOOR, CREDIT_REFILL, DENOM, GAS, GAS_PRICE, GAS_VAULT_ADDRESS, REFILL_COOLDOWN_MS, SSCRT_ADDRESS } from '../config';
+import { CREDIT_FLOOR, CREDIT_REFILL, DENOM, GAS, GAS_PRICE, GAS_VAULT_ADDRESS, MIN_REFILL, REFILL_COOLDOWN_MS, SSCRT_ADDRESS } from '../config';
 import { MSG_EXECUTE, fetchGrants, planFee, type FeePlan } from '../gas/feePayer';
 import { availableFee, type FeeGrant } from '../gas/feegrant-sdk';
 import { addrKey, kv } from '../storage';
@@ -46,6 +46,8 @@ export interface SendOptions {
 	memo?: string;
 	/** sSCRT this tx does NOT spend, i.e. what a refill may use */
 	sscrtSpare?: bigint;
+	/** public SCRT this tx (and its fee) does NOT use; a refill takes it first, without a redeem */
+	nativeSpare?: bigint;
 	/** used by "Refill now": include the refill even above the floor */
 	forceRefill?: boolean;
 	/** how long to wait for the block before returning `pending` (0 = don't wait) */
@@ -64,10 +66,12 @@ export function isSending(): boolean {
 	return inFlight;
 }
 
-async function refillMessages(client: SecretNetworkClient, sender: string, amount: bigint): Promise<Msg[]> {
+async function refillMessages(client: SecretNetworkClient, sender: string, amount: bigint, fromNative: boolean): Promise<Msg[]> {
 	const [sscrtHash, vaultHash] = await Promise.all([codeHash(client, SSCRT_ADDRESS), codeHash(client, GAS_VAULT_ADDRESS)]);
 	return [
-		new MsgExecuteContract({ sender, contract_address: SSCRT_ADDRESS, code_hash: sscrtHash, msg: { redeem: { amount: amount.toString(), denom: DENOM } }, sent_funds: [] }),
+		...(fromNative
+			? []
+			: [new MsgExecuteContract({ sender, contract_address: SSCRT_ADDRESS, code_hash: sscrtHash, msg: { redeem: { amount: amount.toString(), denom: DENOM } }, sent_funds: [] })]),
 		new MsgExecuteContract({
 			sender,
 			contract_address: GAS_VAULT_ADDRESS,
@@ -82,6 +86,20 @@ const REFILL_GAS = GAS.unwrap + GAS.buyGasCredit;
 
 async function cooldownUntil(address: string): Promise<number> {
 	return (await kv.get<number>(addrKey('refill.until', address))) ?? 0;
+}
+
+/** Credits are below the floor and no refill is still on its way. */
+export async function refillDue(address: string): Promise<boolean> {
+	const grants = await fetchGrants(address);
+	return vaultCredit(grants) < CREDIT_FLOOR && Date.now() > (await cooldownUntil(address));
+}
+
+/** How much a refill takes, and from where: public SCRT first, then sSCRT; at most one refill. */
+export function refillSource(native: bigint, sscrt: bigint, min: bigint): { amount: bigint; fromNative: boolean } {
+	const take = (x: bigint) => (x < CREDIT_REFILL ? x : CREDIT_REFILL);
+	if (native >= min) return { amount: take(native), fromNative: true };
+	if (sscrt >= min) return { amount: take(sscrt), fromNative: false };
+	return { amount: 0n, fromNative: false };
 }
 
 function vaultCredit(grants: FeeGrant[]): bigint {
@@ -121,19 +139,17 @@ export async function sendTx(
 		let all = msgs;
 		let refilled = 0n;
 
-		// append a gas-credit refill when it is due and affordable
-		const spare = opts.sscrtSpare ?? 0n;
+		// append a gas-credit refill when it is due and affordable: up to
+		// CREDIT_REFILL from what the payment leaves untouched
 		const due = opts.forceRefill || (vaultCredit(grants) < CREDIT_FLOOR && Date.now() > (await cooldownUntil(address)));
-		// Automatic refills only ever take a full refill from sSCRT the payment
-		// leaves untouched, so they never drain a small balance; "Refill now"
-		// may use whatever is there.
-		const amount = opts.forceRefill ? (spare < CREDIT_REFILL ? spare : CREDIT_REFILL) : spare >= CREDIT_REFILL ? CREDIT_REFILL : 0n;
-		if (due && amount >= 100_000n) {
+		const { amount, fromNative } = refillSource(opts.nativeSpare ?? 0n, opts.sscrtSpare ?? 0n, opts.forceRefill ? 100_000n : MIN_REFILL);
+		if (due && amount > 0n) {
 			try {
-				const withRefill = planFee(grants, gasLimit + REFILL_GAS, [...msgTypes, MSG_EXECUTE], native);
+				const extraGas = fromNative ? GAS.buyGasCredit : REFILL_GAS;
+				const withRefill = planFee(grants, gasLimit + extraGas, [...msgTypes, MSG_EXECUTE], fromNative ? native - amount : native);
 				// never let the refill change who pays (that could make the user's own payment fail)
 				if (msgs.length === 0 || withRefill.source === plan.source) {
-					all = [...msgs, ...(await refillMessages(client, address, amount))];
+					all = [...msgs, ...(await refillMessages(client, address, amount, fromNative))];
 					plan = withRefill;
 					refilled = amount;
 				}

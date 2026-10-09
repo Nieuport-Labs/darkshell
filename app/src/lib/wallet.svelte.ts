@@ -20,8 +20,8 @@ import {
 } from './crypto/vault';
 import { nativeBalance, signingClient } from './chain/client';
 import { signPermit, sscrtBalance, sscrtHistory, type HistoryItem } from './chain/sscrt';
-import { sendTx, type TxOutcome } from './chain/tx';
-import { GAS, GAS_PRICE, GAS_VAULT_ADDRESS, SSCRT_ADDRESS } from './config';
+import { isSending, refillDue, sendTx, type TxOutcome } from './chain/tx';
+import { CREDIT_FLOOR, CREDIT_REFILL, GAS, GAS_PRICE, GAS_VAULT_ADDRESS, MIN_REFILL, SSCRT_ADDRESS } from './config';
 import { fetchGrants, forgetGrants } from './gas/feePayer';
 import { readCreditStatus, type CreditStatus } from './gas/gasCredits';
 import { wrapPayment, type PaymentPlan } from './pay/payments';
@@ -425,6 +425,7 @@ export async function refresh(): Promise<void> {
 		wallet.history = history;
 		wallet.credits = credits;
 		void settlePending(s);
+		void autoRefill(s);
 	} catch (e) {
 		wallet.error = e instanceof Error ? e.message : String(e);
 	} finally {
@@ -467,6 +468,8 @@ export async function pay(
 	kind: LoggedTx['kind'],
 	onBroadcast?: (pending: Extract<TxOutcome, { status: 'pending' }>) => void,
 	info: PayInfo = {},
+	/** public SCRT the payment leaves untouched (a refill may use it) */
+	nativeSpare = 0n,
 ): Promise<TxOutcome> {
 	const s = session;
 	if (!s) throw new Error('Wallet is locked');
@@ -474,6 +477,7 @@ export async function pay(
 	const out = await sendTx(s.client, s.wallet.address, plan.msgs, plan.gas, plan.types, {
 		memo: plan.txMemo,
 		sscrtSpare: spare,
+		nativeSpare,
 		onBroadcast: (p) => {
 			// show it as sent right away; the balance drops optimistically until the block confirms
 			if (wallet.balance !== null && wallet.balance >= plan.spends) wallet.balance -= plan.spends;
@@ -524,16 +528,56 @@ export async function refillNow(): Promise<TxOutcome> {
 	return out;
 }
 
-/** Moves public SCRT that arrived on this address into the private balance. */
+/**
+ * Moves public SCRT that arrived on this address into the private balance.
+ * When gas credits are low, up to CREDIT_REFILL of it tops them up first, in
+ * the same transaction.
+ */
 export async function wrapPublic(): Promise<TxOutcome> {
 	const s = session;
 	if (!s || wallet.native === null) throw new Error('Wallet is locked');
 	// keep enough to pay this fee ourselves in case no grant covers it
-	const fee = BigInt(Math.ceil(GAS.wrap * GAS_PRICE)) * 2n;
-	const amount = wallet.native - fee;
-	if (amount <= 0n) throw new Error('Not enough public SCRT to move.');
+	const fee = BigInt(Math.ceil((GAS.wrap + GAS.buyGasCredit) * GAS_PRICE)) * 2n;
+	const available = wallet.native - fee;
+	if (available <= 0n) throw new Error('Not enough public SCRT to move.');
+	const due = await refillDue(s.wallet.address).catch(() => false);
+	const refill = due && available >= MIN_REFILL ? (available < CREDIT_REFILL ? available : CREDIT_REFILL) : 0n;
+	const amount = available - refill;
+	if (amount < 10_000n) {
+		// all of it goes to gas credits
+		const out = await sendTx(s.client, s.wallet.address, [], 0, [], { nativeSpare: refill, forceRefill: true });
+		await log({ hash: out.hash, kind: 'refill', time: Date.now(), refilled: out.refilled.toString(), status: out.status === 'confirmed' ? 'confirmed' : 'pending' });
+		void refresh();
+		return out;
+	}
 	const plan = await wrapPayment(s.client, s.wallet.address, amount);
-	return pay(plan, 'wrap', undefined, { amount: amount.toString(), symbol: 'SCRT' });
+	return pay(plan, 'wrap', undefined, { amount: amount.toString(), symbol: 'SCRT' }, refill);
+}
+
+/**
+ * Keeps gas credits topped up when no payment is going out to carry the
+ * refill: below the floor, one refill transaction from public SCRT or sSCRT.
+ */
+let autoTried = 0;
+async function autoRefill(s: Session): Promise<void> {
+	const c = wallet.credits;
+	if (s.decoy || !c || c.remaining === null || c.remaining >= CREDIT_FLOOR) return;
+	if (isSending() || Date.now() - autoTried < 5 * 60_000) return;
+	const fee = BigInt(Math.ceil((GAS.unwrap + GAS.buyGasCredit) * GAS_PRICE)) * 2n;
+	const native = c.native > fee ? c.native - fee : 0n;
+	const sscrt = wallet.balance ?? 0n;
+	if (native < MIN_REFILL && sscrt < MIN_REFILL) return;
+	if ((await txLog()).some((l) => l.status === 'pending')) return;
+	if (!(await refillDue(s.wallet.address).catch(() => false))) return;
+	autoTried = Date.now();
+	try {
+		const out = await sendTx(s.client, s.wallet.address, [], 0, [], { nativeSpare: native, sscrtSpare: sscrt, forceRefill: true, waitMs: 0 });
+		if (session !== s) return;
+		await log({ hash: out.hash, kind: 'refill', time: Date.now(), refilled: out.refilled.toString(), status: 'pending' });
+		setTimeout(() => void refresh(), 8000);
+	} catch {
+		/* nothing can pay the fee, or busy: try again later */
+	}
 }
 
 /* ---------------------------------- auto-lock --------------------------------- */

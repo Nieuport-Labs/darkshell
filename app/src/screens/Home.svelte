@@ -29,7 +29,8 @@
 		wrapMsg = '';
 		try {
 			const out: TxOutcome = await wrapPublic();
-			wrapMsg = out.status === 'confirmed' ? 'Moved into your private balance.' : 'Sent; waiting for confirmation.';
+			const topped = out.refilled > 0n ? ` ${formatAmount(out.refilled)} SCRT topped up your gas credits.` : '';
+			wrapMsg = (out.status === 'confirmed' ? 'Moved into your private balance.' : 'Sent; waiting for confirmation.') + topped;
 		} catch (e) {
 			wrapMsg = e instanceof Error ? e.message : String(e);
 		} finally {

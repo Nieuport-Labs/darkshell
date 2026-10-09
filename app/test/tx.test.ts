@@ -92,7 +92,23 @@ describe('sendTx', () => {
 		expect(b.signed[0]).toHaveLength(1);
 	}, 20_000);
 
-	it('never drains a small balance into gas credits', async () => {
+	it('keeps credits at 2 SCRT: below the floor, tops up from a partial remainder', async () => {
+		grants = [vaultGrant('1900000')]; // 1.9 SCRT < 2 SCRT floor
+		const { client, signed } = fakeClient();
+		const out = await sendTx(client, ME, [MSG], 100_000, ['/x'], { sscrtSpare: 1_000_000n });
+		expect(out.refilled).toBe(1_000_000n);
+		expect(signed[0]).toHaveLength(3);
+	}, 20_000);
+
+	it('tops up from public SCRT first, without a redeem', async () => {
+		grants = [vaultGrant('500000')];
+		const { client, signed } = fakeClient();
+		const out = await sendTx(client, ME, [MSG], 100_000, ['/x'], { sscrtSpare: 10_000_000n, nativeSpare: 4_000_000n });
+		expect(out.refilled).toBe(2_000_000n);
+		expect(signed[0]).toHaveLength(2); // payment + vault grant
+	}, 20_000);
+
+	it('never sends a dust top-up', async () => {
 		grants = [vaultGrant('900000')];
 		const { client, signed } = fakeClient();
 		const out = await sendTx(client, ME, [MSG], 100_000, ['/x'], { sscrtSpare: 100_000n });
