@@ -37,6 +37,8 @@ export interface Validator {
 	bonded: boolean;
 	website?: string;
 	details?: string;
+	/** Keybase key suffix (for the picture) */
+	identity?: string;
 }
 
 export interface Delegation {
@@ -58,7 +60,7 @@ export interface Unbonding {
 
 type RawValidator = {
 	operator_address?: string;
-	description?: { moniker?: string; website?: string; details?: string };
+	description?: { moniker?: string; website?: string; details?: string; identity?: string };
 	commission?: { commission_rates?: { rate?: string } };
 	tokens?: string;
 	jailed?: boolean;
@@ -75,6 +77,7 @@ function toValidator(v: RawValidator): Validator {
 		bonded: v.status === 'BOND_STATUS_BONDED',
 		website: v.description?.website || undefined,
 		details: v.description?.details || undefined,
+		identity: v.description?.identity || undefined,
 	};
 }
 

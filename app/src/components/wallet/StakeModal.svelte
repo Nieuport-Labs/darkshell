@@ -125,8 +125,8 @@
 		<ul class="-mt-2 flex flex-col">
 			{#each list as x (x.address)}
 				<li>
-					<button type="button" onclick={() => pick(x.address)} class="state-layer -mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-card px-2 py-2.5 text-left">
-						<ValidatorAvatar address={x.address} name={x.moniker} />
+					<button type="button" onclick={() => pick(x.address)} class="state-layer -mx-2 flex w-[calc(100%+1rem)] items-center gap-4 rounded-card px-2 py-3.5 text-left">
+						<ValidatorAvatar address={x.address} name={x.moniker} identity={x.identity} size={44} />
 						<span class="min-w-0 flex-1">
 							<span class="block truncate text-base font-medium">{x.moniker}</span>
 							<span class="block truncate text-label text-text-faint">{pct(x.commission)} commission · {share(x.tokens).toFixed(1)} % of stake</span>
@@ -138,7 +138,7 @@
 		</ul>
 	{:else if step === 'manage'}
 		<div class="flex flex-col items-center gap-2 pt-4 text-center">
-			<ValidatorAvatar address={validator} name={v?.moniker ?? '?'} size={64} />
+			<ValidatorAvatar address={validator} name={v?.moniker ?? '?'} identity={v?.identity} size={72} />
 			<h2 class="text-headline">{v?.moniker ?? validator}</h2>
 			<p class="text-base text-text-muted">
 				{pct(v?.commission ?? 0)} commission{v?.bonded ? ` · ${share(v.tokens).toFixed(1)} % of stake` : ''}
@@ -162,7 +162,7 @@
 		</div>
 	{:else if step === 'amount'}
 		<div class="flex items-center gap-3 rounded-card bg-surface px-3 py-2.5">
-			<ValidatorAvatar address={validator} name={v?.moniker ?? '?'} size={32} />
+			<ValidatorAvatar address={validator} name={v?.moniker ?? '?'} identity={v?.identity} size={32} />
 			<span class="min-w-0 flex-1 truncate text-base font-medium">{v?.moniker ?? validator}</span>
 			{#if !initial || mine > 0n}<button type="button" class="text-label text-accent" onclick={() => (step = initial && mine > 0n ? 'manage' : 'pick')}>Change</button>{/if}
 		</div>

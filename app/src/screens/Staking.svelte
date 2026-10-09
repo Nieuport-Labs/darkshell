@@ -3,7 +3,7 @@
 	// unwrapped and delegated in one transaction; claimed rewards go straight
 	// back into sSCRT; unstaked SCRT comes back public after 21 days and is made
 	// private with one tap.
-	import { ChevronRight, Clock, Landmark, Loader2, Plus, ShieldCheck, Vote } from '@lucide/svelte';
+	import { ChevronRight, Landmark, Loader2, Plus, ShieldCheck } from '@lucide/svelte';
 	import PageHeader from '../components/ui/PageHeader.svelte';
 	import Button from '../components/ui/Button.svelte';
 	import ValidatorAvatar from '../components/wallet/ValidatorAvatar.svelte';
@@ -76,10 +76,10 @@
 	const pct = (x: number) => `${+(x * 100).toFixed(1)} %`;
 </script>
 
-<div class="flex flex-col gap-5">
+<div class="flex flex-col gap-7">
 	<PageHeader title="Staking" />
 
-	<div class="-mt-3 grid grid-cols-2 gap-1 rounded-pill bg-surface p-1" role="tablist">
+	<div class="-mt-5 grid grid-cols-2 gap-1 rounded-pill bg-surface p-1" role="tablist">
 		{#each [['staking', 'Staking'], ['governance', 'Governance']] as [v, label] (v)}
 			<button
 				type="button"
@@ -115,7 +115,7 @@
 					Claim to private
 				</Button>
 			</div>
-			{#if claimMsg}<p class="-mt-3 px-1 text-label text-text-faint">{claimMsg}</p>{/if}
+			{#if claimMsg}<p class="-mt-5 px-1 text-label text-text-faint">{claimMsg}</p>{/if}
 		{/if}
 
 		{#if publicScrt}
@@ -129,7 +129,7 @@
 					Make private
 				</Button>
 			</div>
-			{#if wrapMsg}<p class="-mt-3 px-1 text-label text-text-faint">{wrapMsg}</p>{/if}
+			{#if wrapMsg}<p class="-mt-5 px-1 text-label text-text-faint">{wrapMsg}</p>{/if}
 		{/if}
 
 		<Button block size="lg" onclick={() => open({ name: 'stake' })}>
@@ -145,7 +145,7 @@
 			{#if staking.delegations.length}
 				<section class="flex flex-col">
 					<h2 class="pb-2 text-title">Your validators</h2>
-					<ul class="flex flex-col">
+					<ul class="flex flex-col gap-1">
 						{#each staking.delegations as d (d.validator)}
 							{@const v = validatorOf(d.validator)}
 							{@const r = rewardOf(d.validator)}
@@ -153,9 +153,9 @@
 								<button
 									type="button"
 									onclick={() => open({ name: 'stake', validator: d.validator })}
-									class="state-layer -mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-card px-2 py-3 text-left"
+									class="state-layer -mx-2 flex w-[calc(100%+1rem)] items-center gap-4 rounded-card px-2 py-3.5 text-left"
 								>
-									<ValidatorAvatar address={d.validator} name={validatorName(d.validator)} />
+									<ValidatorAvatar address={d.validator} name={validatorName(d.validator)} identity={v?.identity} size={44} />
 									<span class="min-w-0 flex-1">
 										<span class="block truncate text-base font-medium">{validatorName(d.validator)}</span>
 										<span class="block truncate text-label {v?.jailed || (v && !v.bonded) ? 'text-negative' : 'text-text-faint'}">
@@ -186,8 +186,8 @@
 					<h2 class="pb-2 text-title">Unstaking</h2>
 					<ul class="flex flex-col">
 						{#each staking.unbondings as u, i (`${u.validator}-${i}`)}
-							<li class="flex items-center gap-3 py-2.5">
-								<span class="flex size-10 shrink-0 items-center justify-center rounded-pill bg-surface text-text-muted"><Clock size={17} /></span>
+							<li class="flex items-center gap-4 py-3">
+								<ValidatorAvatar address={u.validator} name={validatorName(u.validator)} identity={validatorOf(u.validator)?.identity} size={44} />
 								<span class="min-w-0 flex-1">
 									<span class="block truncate text-base font-medium">{validatorName(u.validator)}</span>
 									<span class="block text-label text-text-faint">Back {days(u.completesAt)} · {u.completesAt.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}</span>
@@ -207,44 +207,43 @@
 			<div class="flex items-center gap-2 text-base text-text-muted"><Loader2 size={16} class="animate-spin" /> Loading proposals…</div>
 		{:else}
 			{#if staking.loaded && totalStaked() === 0n}
-				<p class="rounded-card border border-border bg-surface-1 px-4 py-3 text-base text-text-muted">Votes are weighted by staked SCRT. Stake first to have a say.</p>
+				<p class="px-1 text-base text-text-muted">Votes are weighted by staked SCRT. Stake first to have a say.</p>
 			{/if}
 			{#snippet proposalRow(p: (typeof staking.proposals)[number])}
 				{@const mine = staking.votes[p.id]}
+				{@const tone =
+					p.status === 'PROPOSAL_STATUS_VOTING_PERIOD'
+						? 'text-accent'
+						: p.status === 'PROPOSAL_STATUS_PASSED'
+							? 'text-positive'
+							: p.status === 'PROPOSAL_STATUS_REJECTED' || p.status === 'PROPOSAL_STATUS_FAILED'
+								? 'text-negative'
+								: 'text-text-faint'}
 				<li>
-					<button type="button" onclick={() => open({ name: 'proposal', id: p.id })} class="state-layer -mx-2 flex w-[calc(100%+1rem)] items-start gap-3 rounded-card px-2 py-3 text-left">
-						<span class="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-pill bg-surface text-label font-medium text-text-muted">#{p.id}</span>
+					<button type="button" onclick={() => open({ name: 'proposal', id: p.id })} class="state-layer -mx-3 flex w-[calc(100%+1.5rem)] items-center gap-4 rounded-card px-3 py-4 text-left">
 						<span class="min-w-0 flex-1">
-							<span class="line-clamp-2 text-base font-medium [overflow-wrap:anywhere]">{p.title}</span>
-							<span class="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-label">
-								<span
-									class={p.status === 'PROPOSAL_STATUS_VOTING_PERIOD'
-										? 'text-accent'
-										: p.status === 'PROPOSAL_STATUS_PASSED'
-											? 'text-positive'
-											: p.status === 'PROPOSAL_STATUS_REJECTED' || p.status === 'PROPOSAL_STATUS_FAILED'
-												? 'text-negative'
-												: 'text-text-faint'}>{STATUS_LABELS[p.status]}</span
-								>
-								{#if timeLeft(p)}<span class="text-text-faint">{timeLeft(p)}</span>{/if}
-								{#if mine}<span class="inline-flex items-center gap-1 rounded-pill bg-accent-soft px-2 py-0.5 text-accent"><Vote size={11} /> {VOTE_LABELS[mine]}</span>{/if}
+							<span class="line-clamp-2 text-base font-medium leading-snug [overflow-wrap:anywhere]">{p.title}</span>
+							<span class="mt-1.5 flex flex-wrap items-center gap-x-1.5 text-label text-text-faint">
+								<span class={tone}>{STATUS_LABELS[p.status]}</span>
+								{#if timeLeft(p)}<span>·</span><span>{timeLeft(p)}</span>{/if}
+								{#if mine}<span>·</span><span class="text-accent">You voted {VOTE_LABELS[mine]}</span>{/if}
 							</span>
 						</span>
-						<ChevronRight size={16} class="mt-3 shrink-0 text-text-faint" />
+						<ChevronRight size={16} class="shrink-0 text-text-faint" />
 					</button>
 				</li>
 			{/snippet}
 			{#if openProposals.length}
 				<section class="flex flex-col">
-					<h2 class="pb-1 text-title">Open</h2>
-					<ul class="flex flex-col">{#each openProposals as p (p.id)}{@render proposalRow(p)}{/each}</ul>
+					<h2 class="pb-1 text-title">Open for voting</h2>
+					<ul class="flex flex-col divide-y divide-border">{#each openProposals as p (p.id)}{@render proposalRow(p)}{/each}</ul>
 				</section>
 			{:else}
 				<p class="text-base text-text-muted">No proposal is open for voting right now.</p>
 			{/if}
 			<section class="flex flex-col">
 				<h2 class="pb-1 text-title">Recent</h2>
-				<ul class="flex flex-col">{#each pastProposals as p (p.id)}{@render proposalRow(p)}{/each}</ul>
+				<ul class="flex flex-col divide-y divide-border">{#each pastProposals as p (p.id)}{@render proposalRow(p)}{/each}</ul>
 			</section>
 		{/if}
 	{/if}
