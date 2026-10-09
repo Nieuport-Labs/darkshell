@@ -15,7 +15,7 @@
 	import { ATOM_TOKEN, lightningPayment } from '../../lib/pay/payments';
 	import { prefetchQuote, quoteInto, type PaddedQuote } from '../../lib/pay/quote';
 	import { close, goTab } from '../../lib/ui.svelte';
-	import { client, cosmosAddress, pay, prefetchForPayment, wallet } from '../../lib/wallet.svelte';
+	import { client, cosmosAddress, pay, prefetchForPayment, spendable, wallet } from '../../lib/wallet.svelte';
 	import Button from '../ui/Button.svelte';
 	import Modal from '../ui/Modal.svelte';
 	import SwipeConfirm from '../ui/SwipeConfirm.svelte';
@@ -132,7 +132,7 @@
 			//    when its padded output is enough (it usually is), else price it again
 			const q = quote && quote.amountOut >= atom ? quote : await quoteInto(client(), SSCRT_ADDRESS, ATOM_TOKEN, atom);
 			if (!q) throw new Error('There is no ShadeSwap route from sSCRT to ATOM right now.');
-			if (wallet.balance !== null && q.amountIn > wallet.balance) throw new Error(`Not enough sSCRT: this needs ${formatAmount(q.amountIn)}.`);
+			if (spendable() !== null && q.amountIn > spendable()!) throw new Error(`Not enough sSCRT: this needs ${formatAmount(q.amountIn)}.`);
 			const plan = await lightningPayment(client(), wallet.address, q, atom, o.from.address, memo);
 			const out = await pay(plan, 'lightning', (p) => {
 				// the network accepted it: show progress at once
@@ -300,11 +300,11 @@
 			<dt class="text-text-faint">Via</dt>
 			<dd class="text-right tabular-nums">{ffPrice.from.amount} ATOM · FixedFloat</dd>
 			<dt class="text-text-faint">Balance</dt>
-			<dd class="text-right tabular-nums">{formatAmount(wallet.balance)} sSCRT</dd>
+			<dd class="text-right tabular-nums">{formatAmount(spendable())} sSCRT</dd>
 		</dl>
-		{#if wallet.balance !== null && quote.amountIn > wallet.balance}<p class="text-base text-negative">Not enough sSCRT.</p>{/if}
+		{#if spendable() !== null && quote.amountIn > spendable()!}<p class="text-base text-negative">Not enough sSCRT.</p>{/if}
 		<div class="mt-auto pt-4">
-			<SwipeConfirm label="Swipe to pay {Number(sats).toLocaleString()} sats" loading={step === 'sending'} disabled={wallet.balance !== null && quote.amountIn > wallet.balance} onconfirm={confirm} />
+			<SwipeConfirm label="Swipe to pay {Number(sats).toLocaleString()} sats" loading={step === 'sending'} disabled={spendable() !== null && quote.amountIn > spendable()!} onconfirm={confirm} />
 		</div>
 	{/if}
 	<PoweredByFF />

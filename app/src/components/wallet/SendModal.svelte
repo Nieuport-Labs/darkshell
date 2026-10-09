@@ -10,7 +10,7 @@
 	import { classify, type Target } from '../../lib/pay/classify';
 	import { assetOf, buildPlan, quoteFor, type QuoteState } from '../../lib/pay/plan';
 	import { close, open, ui } from '../../lib/ui.svelte';
-	import { pay, prefetchForPayment, wallet } from '../../lib/wallet.svelte';
+	import { pay, prefetchForPayment, spendable, wallet } from '../../lib/wallet.svelte';
 	import AmountHero from '../ui/AmountHero.svelte';
 	import Button from '../ui/Button.svelte';
 	import Modal from '../ui/Modal.svelte';
@@ -49,7 +49,7 @@
 		}
 	});
 	const spends = $derived(quote.kind === 'ready' ? quote.quote.amountIn : swapping ? null : base);
-	const amountError = $derived(amount && base === null ? 'Enter a valid amount.' : spends !== null && wallet.balance !== null && spends > wallet.balance ? 'More than your balance.' : '');
+	const amountError = $derived(amount && base === null ? 'Enter a valid amount.' : spends !== null && spendable() !== null && spends > spendable()! ? 'More than your balance.' : '');
 	const recipientError = $derived(target?.kind === 'error' ? target.message : target && 'request' in target && target.request.address === wallet.address ? 'This is your own address.' : '');
 	/** names the recipient when it is one of yours or in the address book */
 	const contactName = $derived.by(() => {
@@ -190,12 +190,12 @@
 		{:else if contactName}<p class="-mt-3 px-5 text-label text-text-muted">{contactName}</p>{/if}
 
 		<div class="flex flex-1 flex-col items-center justify-center gap-2">
-			<AmountHero bind:amount {symbol} fiat={symbol === 'sSCRT'} max={swapping ? undefined : () => wallet.balance !== null && (amount = fromBaseUnits(wallet.balance, 6))} />
+			<AmountHero bind:amount {symbol} fiat={symbol === 'sSCRT'} max={swapping ? undefined : () => spendable() !== null && (amount = fromBaseUnits(spendable()!, 6))} />
 			<p class="text-label text-text-faint">
 				{#if quote.kind === 'ready'}≈ {formatAmount(quote.quote.amountIn)} sSCRT via ShadeSwap
 				{:else if quote.kind === 'loading'}Finding a price…
 				{:else if quote.kind === 'unavailable'}No ShadeSwap route to {symbol}
-				{:else}{formatAmount(wallet.balance)} sSCRT available{/if}
+				{:else}{formatAmount(spendable())} available{/if}
 			</p>
 			{#if amountError}<p class="text-label text-negative" role="alert">{amountError}</p>{/if}
 			{#if target}

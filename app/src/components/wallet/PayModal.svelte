@@ -12,7 +12,7 @@
 	import type { Target } from '../../lib/pay/classify';
 	import { buildPlan, quoteFor, type QuoteState } from '../../lib/pay/plan';
 	import { close } from '../../lib/ui.svelte';
-	import { pay, prefetchForPayment, wallet } from '../../lib/wallet.svelte';
+	import { pay, prefetchForPayment, spendable, wallet } from '../../lib/wallet.svelte';
 	import Button from '../ui/Button.svelte';
 	import Modal from '../ui/Modal.svelte';
 	import SwipeConfirm from '../ui/SwipeConfirm.svelte';
@@ -44,7 +44,7 @@
 				? 'This is your own invoice.'
 				: quote.kind === 'unavailable'
 					? `There is no ShadeSwap route from sSCRT to ${asset.symbol} right now.`
-					: spends !== null && wallet.balance !== null && spends > wallet.balance
+					: spends !== null && spendable() !== null && spends > spendable()!
 						? 'Not enough sSCRT.'
 						: '',
 	);
@@ -111,7 +111,7 @@
 					{/if}
 				</span>
 				<span class="truncate text-label text-text-faint">
-					Balance {formatAmount(wallet.balance)} sSCRT{swapping ? ' · swapped on ShadeSwap' : !asset.private ? ' · unwrapped' : ''}{quote.kind === 'ready'
+					Balance {formatAmount(spendable())} sSCRT{swapping ? ' · swapped on ShadeSwap' : !asset.private ? ' · unwrapped' : ''}{quote.kind === 'ready'
 						? ` · up to ${Number(quote.quote.slippageBps) / 100}% slippage`
 						: ''}
 				</span>

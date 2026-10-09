@@ -77,7 +77,7 @@
 </script>
 
 <div class="flex flex-col gap-7">
-	<PageHeader title="Staking" />
+	<PageHeader title="Earn" />
 
 	<div class="-mt-5 grid grid-cols-2 gap-1 rounded-pill bg-surface p-1" role="tablist">
 		{#each [['staking', 'Staking'], ['governance', 'Governance']] as [v, label] (v)}

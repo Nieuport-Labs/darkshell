@@ -11,7 +11,7 @@
 	import { usdValue } from '../../lib/price.svelte';
 	import { delegationTo, loadStaking, rewardOf, stake, staking, totalStaked, unstake, validatorOf } from '../../lib/staking.svelte';
 	import { close } from '../../lib/ui.svelte';
-	import { prefetchForPayment, wallet } from '../../lib/wallet.svelte';
+	import { prefetchForPayment, spendable, wallet } from '../../lib/wallet.svelte';
 	import AmountHero from '../ui/AmountHero.svelte';
 	import Button from '../ui/Button.svelte';
 	import Modal from '../ui/Modal.svelte';
@@ -48,7 +48,7 @@
 		return staking.validators.filter((x) => x.bonded && !x.jailed && (!q || x.moniker.toLowerCase().includes(q) || x.address.includes(q)));
 	});
 
-	const available = $derived(mode === 'stake' ? wallet.balance : mine);
+	const available = $derived(mode === 'stake' ? spendable() : mine);
 	const base = $derived.by(() => {
 		if (!amount) return null;
 		try {
@@ -59,7 +59,7 @@
 		}
 	});
 	const amountError = $derived(
-		amount && base === null ? 'Enter a valid amount.' : base !== null && available !== null && base > available ? (mode === 'stake' ? 'More than your private balance.' : 'More than you have staked here.') : '',
+		amount && base === null ? 'Enter a valid amount.' : base !== null && available !== null && base > available ? (mode === 'stake' ? 'More than your balance.' : 'More than you have staked here.') : '',
 	);
 	const ready = $derived(!!validator && base !== null && !amountError);
 	const backDate = $derived(new Date(Date.now() + staking.unbondingSeconds * 1000));
@@ -169,7 +169,7 @@
 		<div class="flex flex-1 flex-col items-center justify-center gap-2">
 			<AmountHero bind:amount symbol="SCRT" fiat max={() => available !== null && (amount = fromBaseUnits(available, 6))} />
 			<p class="text-label text-text-faint">
-				{#if mode === 'stake'}{formatAmount(wallet.balance)} sSCRT in your private balance{:else}{formatAmount(mine)} SCRT staked with this validator{/if}
+				{#if mode === 'stake'}{formatAmount(spendable())} available{:else}{formatAmount(mine)} SCRT staked with this validator{/if}
 			</p>
 			{#if amountError}<p class="text-label text-negative" role="alert">{amountError}</p>{/if}
 		</div>

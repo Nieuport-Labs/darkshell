@@ -7,7 +7,7 @@
 	import { kv } from '../lib/storage';
 	import { price, usdValue } from '../lib/price.svelte';
 	import { goTab, open, ui } from '../lib/ui.svelte';
-	import { activeName, refresh, wallet, wrapPublic } from '../lib/wallet.svelte';
+	import { activeName, refresh, totalBalance, wallet, wrapPublic } from '../lib/wallet.svelte';
 	import Button from '../components/ui/Button.svelte';
 	import ActivityList from '../components/wallet/ActivityList.svelte';
 	import GasChip from '../components/wallet/GasChip.svelte';
@@ -21,8 +21,15 @@
 	}
 
 	const publicScrt = $derived(wallet.native !== null && wallet.native > 100_000n ? wallet.native : null);
-	const usd = $derived(usdValue(wallet.balance));
-	const [int, frac] = $derived((wallet.balance === null ? '' : formatAmount(wallet.balance, 6)).split('.'));
+	// sSCRT, public SCRT and pending staking rewards: all of it can be spent (see `pay`)
+	const total = $derived(totalBalance());
+	const usd = $derived(usdValue(total));
+	const [int, frac] = $derived((total === null ? '' : formatAmount(total, 6)).split('.'));
+	const extras = $derived(
+		[wallet.native && wallet.native > 0n ? `${formatAmount(wallet.native, 4)} public` : '', wallet.rewardsShown > 0n ? `${formatAmount(wallet.rewardsShown, 6)} rewards` : '']
+			.filter(Boolean)
+			.join(' · '),
+	);
 
 	async function makePrivate() {
 		wrapping = true;
@@ -60,7 +67,7 @@
 	<div class="flex items-center justify-between">
 		<button type="button" onclick={refresh} class="flex items-center gap-1.5 text-label text-text-muted">
 			<ShieldCheck size={14} class="text-accent" aria-hidden="true" />
-			Private balance
+			Balance
 			{#if wallet.refreshing || wallet.switching}<Loader2 size={12} class="animate-spin text-text-faint" aria-label="Updating" />{/if}
 		</button>
 		<button type="button" onclick={toggleHidden} aria-label={ui.hideBalance ? 'Show balance' : 'Hide balance'} class="state-layer -m-1.5 rounded-pill p-1.5 text-text-faint">
@@ -72,7 +79,7 @@
 		<div class="mt-4 h-[3rem] w-44 animate-pulse rounded-control bg-surface"></div>
 	{:else}
 		<!-- whole sSCRT large; decimals above and the unit below, both small, on the same line -->
-		<div class="mt-4 flex items-stretch gap-1.5" aria-label="{ui.hideBalance ? 'Hidden' : formatAmount(wallet.balance)} sSCRT">
+		<div class="mt-4 flex items-stretch gap-1.5" aria-label="{ui.hideBalance ? 'Hidden' : formatAmount(total)} sSCRT">
 			<span class="text-[3rem] font-semibold leading-[0.9] tracking-[-0.035em] tabular-nums" aria-hidden="true">{ui.hideBalance ? '••••' : int}</span>
 			<span class="flex flex-col justify-between pb-[0.2rem] pt-[0.1rem] text-[0.9375rem] font-semibold leading-none tracking-[-0.01em]" aria-hidden="true">
 				<span class="tabular-nums text-text-muted">{ui.hideBalance ? '' : `.${frac ?? '00'}`}</span>
@@ -84,8 +91,9 @@
 	<p class="mt-2.5 min-h-6 text-base tabular-nums text-text-muted">
 		{#if wallet.error}
 			<button type="button" onclick={refresh} class="text-negative">Couldn't update. Tap to retry</button>
-		{:else if wallet.balance !== null && price.usd !== null}
-			{ui.hideBalance ? '$••••' : usd}
+		{:else if wallet.balance !== null}
+			{#if price.usd !== null}{ui.hideBalance ? '$••••' : usd}{/if}
+			{#if extras && !ui.hideBalance}<span class="text-text-faint">{price.usd !== null ? ' · ' : ''}incl. {extras}</span>{/if}
 		{/if}
 	</p>
 </section>

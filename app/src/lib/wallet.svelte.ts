@@ -2,7 +2,7 @@
 // unlocked; locking drops every reference to them. Nothing here ever sends a
 // transaction on its own — every transaction is one the user confirmed.
 
-import type { Permit, SecretNetworkClient, Wallet } from 'secretjs';
+import type { Msg, Permit, SecretNetworkClient, Wallet } from 'secretjs';
 import { encryptionSeedFor, newMnemonic, walletFromMnemonic } from './crypto/account';
 import { recordFailure, resetFailures, waitMs } from './crypto/lockout';
 import {
@@ -36,6 +36,11 @@ import { pushNotice, startWatcher, stopWatcher, type Target } from './notify/wat
 import { newPermit } from 'secretjs';
 import { CHAIN_ID } from './config';
 import { formatAmount } from './format';
+import { MSG_WITHDRAW_REWARD, queryRestaking, queryRewards, queryWithdrawAddress, type Reward } from './chain/staking';
+import { MsgWithdrawDelegatorReward } from 'secretjs';
+import { snip20Msg } from './chain/sscrt';
+import { planTopUp, ShortError } from './pay/topup';
+import { MSG_EXECUTE } from './gas/feePayer';
 import { startPrice, stopPrice } from './price.svelte';
 
 export type Phase = 'loading' | 'onboarding' | 'locked' | 'unlocked';
@@ -67,6 +72,10 @@ export const wallet = $state({
 	balance: null as bigint | null,
 	native: null as bigint | null,
 	credits: null as CreditStatus | null,
+	/** staking rewards a payment can claim (auto-restaked ones and other withdraw addresses excluded) */
+	rewards: [] as Reward[],
+	/** all pending rewards, estimated forward block by block between reads (for display) */
+	rewardsShown: 0n,
 	history: [] as HistoryItem[],
 	refreshing: false,
 	switching: false,
@@ -125,6 +134,9 @@ async function activate(v: OpenVault, index: number): Promise<void> {
 	wallet.native = null;
 	wallet.credits = null;
 	wallet.history = [];
+	wallet.rewards = [];
+	wallet.rewardsShown = 0n;
+	rewardBase = null;
 }
 
 /** set while opening a decoy session (read by `activate`) */
@@ -146,6 +158,7 @@ async function open(v: OpenVault, asDecoy = false): Promise<void> {
 	void warmUp(session!.client);
 	void startNotifications();
 	startPrice();
+	startRewards();
 }
 
 /** Choices made during onboarding, applied right after the wallet opens. */
@@ -511,6 +524,7 @@ export function lock(): void {
 	session = null;
 	stopWatcher();
 	stopPrice();
+	stopRewards();
 	wallet.accounts = [];
 	wallet.contacts = [];
 	wallet.balance = null;
@@ -543,6 +557,7 @@ export async function refresh(): Promise<void> {
 		wallet.native = native;
 		wallet.history = history;
 		wallet.credits = credits;
+		void readRewards(s);
 		void settlePending(s);
 		void autoRefill(s);
 	} catch (e) {
@@ -550,6 +565,118 @@ export async function refresh(): Promise<void> {
 	} finally {
 		wallet.refreshing = false;
 	}
+}
+
+/* ------------------------------ staking rewards ------------------------------ */
+//
+// Unclaimed staking rewards and public SCRT count as balance: a payment that
+// needs them claims the rewards and wraps both into sSCRT in the same
+// transaction, before it pays (see `pay`). Between reads, the rewards shown
+// grow at the rate the last two reads measured, so the balance moves every block.
+
+/** public SCRT kept back so a fee can still be paid from it if no grant covers one */
+export const NATIVE_RESERVE = 150_000n; // 0.15 SCRT, the fee of the largest payment
+/** a claim covers at most this many validators (the largest rewards) */
+const MAX_CLAIMS = 12;
+const BLOCK_MS = 6_000;
+
+let rewardBase: { total: bigint; at: number; rate: number } | null = null;
+let rewardPoll: ReturnType<typeof setInterval> | undefined;
+let rewardTick: ReturnType<typeof setInterval> | undefined;
+
+async function readRewards(s: Session): Promise<void> {
+	if (s.decoy) return;
+	const me = s.wallet.address;
+	try {
+		const [all, restaking, withdraw] = await Promise.all([
+			queryRewards(s.client, me),
+			queryRestaking(s.client, me).catch(() => [] as string[]),
+			queryWithdrawAddress(s.client, me).catch(() => me),
+		]);
+		if (session !== s) return;
+		const total = all.reduce((t, r) => t + r.amount, 0n);
+		const now = Date.now();
+		// the rate only from two reads in a row that grew (a claim resets the total)
+		const prev = rewardBase;
+		const rate = prev && total >= prev.total && now > prev.at ? Number(total - prev.total) / (now - prev.at) : (prev?.rate ?? 0);
+		rewardBase = { total, at: now, rate };
+		wallet.rewards = withdraw === me ? all.filter((r) => !restaking.includes(r.validator)).sort((a, b) => (b.amount > a.amount ? 1 : -1)).slice(0, MAX_CLAIMS) : [];
+		wallet.rewardsShown = total;
+	} catch {
+		/* no staking, or the node hiccuped: keep what we had */
+	}
+}
+
+function startRewards() {
+	stopRewards();
+	rewardPoll = setInterval(() => {
+		if (session && !document.hidden) void readRewards(session);
+	}, 30_000);
+	rewardTick = setInterval(() => {
+		const b = rewardBase;
+		if (!b || b.rate <= 0 || document.hidden) return;
+		// never run ahead more than a few minutes of an old read
+		const ms = Math.min(Date.now() - b.at, 5 * 60_000);
+		wallet.rewardsShown = b.total + BigInt(Math.floor(b.rate * ms));
+	}, BLOCK_MS);
+}
+
+function stopRewards() {
+	clearInterval(rewardPoll);
+	clearInterval(rewardTick);
+	rewardBase = null;
+}
+
+const claimable = () => wallet.rewards.reduce((t, r) => t + r.amount, 0n);
+const nativeUsable = () => (wallet.native !== null && wallet.native > NATIVE_RESERVE ? wallet.native - NATIVE_RESERVE : 0n);
+
+/** Everything the account holds: sSCRT, public SCRT and pending rewards (shown on Home). */
+export function totalBalance(): bigint | null {
+	return wallet.balance === null ? null : wallet.balance + (wallet.native ?? 0n) + wallet.rewardsShown;
+}
+
+/** What a payment can spend right now: sSCRT, plus public SCRT and claimable rewards wrapped on the way. */
+export function spendable(): bigint | null {
+	return wallet.balance === null ? null : wallet.balance + nativeUsable() + claimable();
+}
+
+interface TopUp {
+	msgs: Msg[];
+	gas: number;
+	types: string[];
+	/** sSCRT the deposit adds */
+	deposit: bigint;
+	fromNative: bigint;
+	claimed: boolean;
+}
+
+/**
+ * Messages that go in front of a payment: claim the rewards and wrap them (and,
+ * when the sSCRT is short, public SCRT) into sSCRT. Only amounts the
+ * transaction can certainly deposit: rewards read earlier only grow until it runs.
+ */
+async function topUp(s: Session, spends: bigint): Promise<TopUp | null> {
+	let t;
+	try {
+		t = planTopUp(spends, wallet.balance ?? 0n, claimable(), nativeUsable());
+	} catch (e) {
+		if (e instanceof ShortError) throw new Error(`Not enough funds: this needs ${formatAmount(spends)} and the account can spend ${formatAmount(spendable())}.`);
+		throw e;
+	}
+	if (t.deposit === 0n) return null;
+	const me = s.wallet.address;
+	const withdraws = t.claim ? wallet.rewards : [];
+	return {
+		msgs: [
+			...withdraws.map((r) => new MsgWithdrawDelegatorReward({ delegator_address: me, validator_address: r.validator })),
+			await snip20Msg(s.client, me, SSCRT_ADDRESS, { deposit: {} }, t.deposit),
+		],
+		gas: GAS.claimReward * withdraws.length + GAS.wrap,
+		types: [...(withdraws.length ? [MSG_WITHDRAW_REWARD] : []), MSG_EXECUTE],
+		deposit: t.deposit,
+		fromNative: t.fromNative,
+		claimed: t.claim,
+	};
 }
 
 /** Adds or updates (by hash) an entry of the local transaction log. */
@@ -592,18 +719,31 @@ export async function pay(
 ): Promise<TxOutcome> {
 	const s = session;
 	if (!s) throw new Error('Wallet is locked');
-	const spare = wallet.balance !== null && wallet.balance > plan.spends ? wallet.balance - plan.spends : 0n;
-	const send = () => sendTx(s.client, s.wallet.address, plan.msgs, plan.gas, plan.types, {
-		memo: plan.txMemo,
-		sscrtSpare: spare,
-		nativeSpare,
-		onBroadcast: (p) => {
-			// show it as sent right away; the balance drops optimistically until the block confirms
-			if (wallet.balance !== null && wallet.balance >= plan.spends) wallet.balance -= plan.spends;
-			void log({ hash: p.hash, kind, time: Date.now(), spent: plan.spends.toString(), status: 'pending', ...info });
-			onBroadcast?.(p);
-		},
-	});
+	// rewards and public SCRT the payment needs (or rewards worth taking along) go in first
+	const top = plan.spends > 0n && !s.decoy ? await topUp(s, plan.spends) : null;
+	const full: PaymentPlan = top ? { ...plan, msgs: [...top.msgs, ...plan.msgs], gas: plan.gas + top.gas, types: [...new Set([...top.types, ...plan.types])] } : plan;
+	const sscrtAfter = (wallet.balance ?? 0n) + (top?.deposit ?? 0n);
+	const spare = sscrtAfter > plan.spends ? sscrtAfter - plan.spends : 0n;
+	const nativeLeft = top ? nativeUsable() - top.fromNative : nativeSpare;
+	const wrapped = top ? top.deposit.toString() : info.wrapped;
+	const send = () =>
+		sendTx(s.client, s.wallet.address, full.msgs, full.gas, full.types, {
+			memo: plan.txMemo,
+			sscrtSpare: spare,
+			nativeSpare: nativeSpare < nativeLeft ? nativeSpare : nativeLeft,
+			onBroadcast: (p) => {
+				// show it as sent right away; the balances move optimistically until the block confirms
+				if (wallet.balance !== null && sscrtAfter >= plan.spends) wallet.balance = sscrtAfter - plan.spends;
+				if (top && wallet.native !== null) wallet.native -= top.fromNative;
+				if (top?.claimed) {
+					wallet.rewards = [];
+					wallet.rewardsShown = 0n;
+					rewardBase = null;
+				}
+				void log({ hash: p.hash, kind, time: Date.now(), spent: plan.spends.toString(), status: 'pending', ...info, wrapped });
+				onBroadcast?.(p);
+			},
+		});
 	// first payment with nothing to pay the fee: ask the faucet once, then try again
 	const out = await send().catch(async (e) => {
 		if (!(e instanceof NoGasError) || !(await faucetGrant(s.wallet.address))) throw e;
@@ -618,6 +758,7 @@ export async function pay(
 		refilled: out.refilled ? out.refilled.toString() : undefined,
 		status: out.status === 'confirmed' ? 'confirmed' : 'pending',
 		...info,
+		wrapped,
 	});
 	setTimeout(() => void refresh(), out.status === 'confirmed' ? 0 : 8000);
 	return out;

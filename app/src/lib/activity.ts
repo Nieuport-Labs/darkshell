@@ -36,7 +36,10 @@ export function linkOf(h: HistoryItem, logged: LoggedTx[]): LoggedTx | undefined
 export function describe(h: HistoryItem, link?: LoggedTx): Described {
 	const out = (title: string, detail: string, icon: Icon = 'out'): Described => ({ title, detail, sign: '−', icon, link });
 	if (h.kind === 'in') return { title: 'Received', detail: h.counterparty ? `from ${shortAddress(h.counterparty, 6, 4)}` : '', sign: '+', icon: 'in' };
-	if (h.kind === 'wrap' && link?.wrapped === h.amount.toString()) return { title: 'Staking rewards', detail: 'claimed privately', sign: '+', icon: 'stake', link };
+	if (h.kind === 'wrap' && link?.wrapped === h.amount.toString()) {
+		if (link.kind === 'stake' || link.kind === 'unstake' || link.kind === 'claim') return { title: 'Staking rewards', detail: 'claimed privately', sign: '+', icon: 'stake', link };
+		return { title: 'Made private', detail: 'rewards and public SCRT, for a payment', sign: '+', icon: 'shield', link };
+	}
 	if (h.kind === 'wrap') return { title: 'Made private', detail: 'from public SCRT', sign: '+', icon: 'shield', link };
 	if (link?.kind === 'stake') return out('Staked', 'SCRT with a validator', 'stake');
 	if (link?.kind === 'lightning') return out('Lightning payment', 'via FixedFloat', 'bolt');
