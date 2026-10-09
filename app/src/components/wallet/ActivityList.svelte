@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { AlertCircle, ArrowDownLeft, ArrowLeftRight, ChevronRight, Fuel, Loader2, Send, ShieldCheck, Zap } from '@lucide/svelte';
+	import { AlertCircle, ArrowDownLeft, ArrowLeftRight, ChevronRight, Fuel, Landmark, Loader2, Send, ShieldCheck, Vote, Zap } from '@lucide/svelte';
 	import type { HistoryItem } from '../../lib/chain/sscrt';
 	import { describe, describeLogged, linkOf, unsettled, type Icon } from '../../lib/activity';
 	import { loadLnOrders, lnOrders } from '../../lib/ff/orders.svelte';
@@ -46,14 +46,14 @@
 	<span class="flex size-10 shrink-0 items-center justify-center rounded-pill bg-surface {icon === 'bolt' ? 'text-accent' : 'text-text-muted'}">
 		{#if icon === 'in'}<ArrowDownLeft size={17} />{:else if icon === 'swap'}<ArrowLeftRight size={17} />{:else if icon === 'gas'}<Fuel size={17} />{:else if icon === 'shield'}<ShieldCheck
 				size={17}
-			/>{:else if icon === 'bolt'}<Zap size={17} />{:else}<Send size={16} />{/if}
+			/>{:else if icon === 'bolt'}<Zap size={17} />{:else if icon === 'stake'}<Landmark size={17} />{:else if icon === 'vote'}<Vote size={17} />{:else}<Send size={16} />{/if}
 	</span>
 {/snippet}
 
 <section class="flex flex-col">
 	<div class="flex items-center justify-between pb-2">
 		<h2 class="text-title">{title}</h2>
-		{#if onseeall && wallet.history.length > (limit ?? 0)}
+		{#if onseeall && (wallet.history.length || inFlight.length)}
 			<button type="button" onclick={onseeall} class="state-layer -mr-2 flex items-center gap-0.5 rounded-pill px-2 py-1 text-base text-text-muted">
 				See all <ChevronRight size={16} />
 			</button>
@@ -71,7 +71,7 @@
 		<ul class="flex flex-col">
 			{#each inFlight as l (l.hash)}
 				{@const d = describeLogged(l)}
-				{@const amount = BigInt(l.spent ?? l.amount ?? '0')}
+				{@const amount = BigInt(l.kind === 'vote' ? '0' : l.spent && l.spent !== '0' ? l.spent : (l.amount ?? '0'))}
 				<li>
 					<button type="button" onclick={() => openLogged(l)} class="state-layer -mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-card px-2 py-3 text-left">
 						{@render glyph(d.icon)}
@@ -84,7 +84,7 @@
 						</span>
 						<span class="flex shrink-0 flex-col items-end">
 							<span class="whitespace-nowrap text-base font-medium tabular-nums {l.status === 'failed' ? 'text-text-faint line-through' : 'text-text'}">
-								{ui.hideBalance ? '••••' : `${d.sign}${formatAmount(amount, 4)}`}
+								{l.kind === 'vote' ? '' : ui.hideBalance ? '••••' : `${d.sign}${formatAmount(amount, 4)}`}
 							</span>
 							<span class="whitespace-nowrap text-label tabular-nums text-text-faint">{date(Math.floor(l.time / 1000))}</span>
 						</span>

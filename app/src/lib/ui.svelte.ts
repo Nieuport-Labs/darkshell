@@ -12,10 +12,13 @@ export type Dialog =
 	| { name: 'settings' }
 	| { name: 'accounts' }
 	| { name: 'contacts' }
+	| { name: 'stake'; validator?: string; mode?: 'stake' | 'unstake' }
+	| { name: 'proposal'; id: string }
 	| { name: 'tx'; item?: HistoryItem; hash?: string }
 	| { name: 'lightning'; target?: Extract<Target, { kind: 'lightning' }>; orderId?: string };
 
-export type Tab = 'home' | 'activity' | 'invoices' | 'settings';
+/** `activity` has no tab of its own: Home's "See all" opens it */
+export type Tab = 'home' | 'activity' | 'invoices' | 'staking' | 'settings';
 
 export const ui = $state({ dialog: null as Dialog | null, scanning: false, tab: 'home' as Tab, hideBalance: false });
 

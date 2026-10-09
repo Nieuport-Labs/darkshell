@@ -1,11 +1,11 @@
 <script lang="ts">
-	import { History, House, ReceiptText, Settings } from '@lucide/svelte';
+	import { House, Landmark, ReceiptText, Settings } from '@lucide/svelte';
 	import { goTab, ui, type Tab } from '../../lib/ui.svelte';
 
 	const TABS: { tab: Tab; label: string; icon: typeof House }[] = [
 		{ tab: 'home', label: 'Home', icon: House },
 		{ tab: 'invoices', label: 'Invoices', icon: ReceiptText },
-		{ tab: 'activity', label: 'Activity', icon: History },
+		{ tab: 'staking', label: 'Staking', icon: Landmark },
 		{ tab: 'settings', label: 'Settings', icon: Settings },
 	];
 </script>

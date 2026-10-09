@@ -7,7 +7,7 @@ import { SHADESWAP_ROUTER } from './chain/shadeSwap';
 import { shortAddress } from './format';
 import type { LoggedTx } from './wallet.svelte';
 
-export type Icon = 'in' | 'out' | 'swap' | 'gas' | 'shield' | 'bolt';
+export type Icon = 'in' | 'out' | 'swap' | 'gas' | 'shield' | 'bolt' | 'stake' | 'vote';
 
 export interface Described {
 	title: string;
@@ -29,14 +29,16 @@ export function linkOf(h: HistoryItem, logged: LoggedTx[]): LoggedTx | undefined
 		const refill = logged.find((l) => l.refilled === amount && near(l));
 		if (refill) return refill;
 	}
-	if (h.kind === 'wrap') return logged.find((l) => l.kind === 'wrap' && near(l));
+	if (h.kind === 'wrap') return logged.find((l) => l.wrapped === amount && near(l)) ?? logged.find((l) => l.kind === 'wrap' && near(l));
 	return logged.find((l) => l.spent === amount && near(l));
 }
 
 export function describe(h: HistoryItem, link?: LoggedTx): Described {
 	const out = (title: string, detail: string, icon: Icon = 'out'): Described => ({ title, detail, sign: '−', icon, link });
 	if (h.kind === 'in') return { title: 'Received', detail: h.counterparty ? `from ${shortAddress(h.counterparty, 6, 4)}` : '', sign: '+', icon: 'in' };
+	if (h.kind === 'wrap' && link?.wrapped === h.amount.toString()) return { title: 'Staking rewards', detail: 'claimed privately', sign: '+', icon: 'stake', link };
 	if (h.kind === 'wrap') return { title: 'Made private', detail: 'from public SCRT', sign: '+', icon: 'shield', link };
+	if (link?.kind === 'stake') return out('Staked', 'SCRT with a validator', 'stake');
 	if (link?.kind === 'lightning') return out('Lightning payment', 'via FixedFloat', 'bolt');
 	if (link?.kind === 'refill' || (h.kind === 'unwrap' && link?.refilled === h.amount.toString())) return out('Gas credits', 'refill', 'gas');
 	if (link?.kind === 'invoice') return out('Paid invoice', link.to ? `to ${shortAddress(link.to, 6, 4)}` : '', h.counterparty === SHADESWAP_ROUTER ? 'swap' : 'out');
@@ -65,7 +67,13 @@ export function describeLogged(l: LoggedTx): Described {
 		wrap: ['Making private', 'shield'],
 		refill: ['Refilling gas credits', 'gas'],
 		lightning: ['Lightning payment', 'bolt'],
+		stake: ['Staking', 'stake'],
+		unstake: ['Unstaking', 'stake'],
+		claim: ['Claiming rewards', 'stake'],
+		vote: ['Voting', 'vote'],
 	};
 	const [title, icon] = map[l.kind];
-	return { title: l.status === 'failed' ? `${title} failed` : title, detail: to, sign: l.kind === 'wrap' ? '+' : '−', icon, link: l };
+	const sign = l.kind === 'wrap' || l.kind === 'claim' ? '+' : l.kind === 'vote' || l.kind === 'unstake' ? '' : '−';
+	const detail = l.kind === 'stake' || l.kind === 'unstake' || l.kind === 'vote' ? '' : to;
+	return { title: l.status === 'failed' ? `${title} failed` : title, detail, sign, icon, link: l };
 }

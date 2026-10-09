@@ -56,6 +56,11 @@ export const GAS = {
 	unwrap: withGasBuffer(110_000),
 	ibcTransfer: withGasBuffer(150_000),
 	buyGasCredit: withGasBuffer(400_000),
+	delegate: withGasBuffer(250_000),
+	undelegate: withGasBuffer(250_000),
+	/** per validator */
+	claimReward: withGasBuffer(90_000),
+	vote: withGasBuffer(120_000),
 } as const;
 
 /**

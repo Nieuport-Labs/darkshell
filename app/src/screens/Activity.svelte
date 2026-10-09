@@ -3,7 +3,7 @@
 	import PageHeader from '../components/ui/PageHeader.svelte';
 	import ActivityList from '../components/wallet/ActivityList.svelte';
 	import { isFinal, loadLnOrders, lnOrders, STATUS_TEXT } from '../lib/ff/orders.svelte';
-	import { open } from '../lib/ui.svelte';
+	import { goTab, open } from '../lib/ui.svelte';
 	import { wallet } from '../lib/wallet.svelte';
 
 	$effect(() => {
@@ -13,7 +13,7 @@
 </script>
 
 <div class="flex flex-col gap-2">
-	<PageHeader title="Activity" />
+	<PageHeader title="Activity" onback={() => goTab('home')} />
 
 	{#if lnOrders.list.length}
 		<section class="flex flex-col pb-4">

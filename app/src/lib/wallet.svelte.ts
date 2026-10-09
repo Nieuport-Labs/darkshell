@@ -78,11 +78,13 @@ export const wallet = $state({
 /** Our own sends, so activity can label them (e.g. which redeem was a gas refill). */
 export interface LoggedTx {
 	hash: string;
-	kind: 'send' | 'invoice' | 'ibc' | 'wrap' | 'refill' | 'lightning';
+	kind: 'send' | 'invoice' | 'ibc' | 'wrap' | 'refill' | 'lightning' | 'stake' | 'unstake' | 'claim' | 'vote';
 	time: number;
 	/** sSCRT the payment itself spent, base units */
 	spent?: string;
 	refilled?: string;
+	/** public SCRT (staking rewards) deposited into sSCRT in the same transaction */
+	wrapped?: string;
 	/** what the payment was, for the activity detail */
 	to?: string;
 	amount?: string;
@@ -93,7 +95,7 @@ export interface LoggedTx {
 }
 
 /** Recipient, amount and memo of a payment, kept with its log entry. */
-export type PayInfo = Pick<LoggedTx, 'to' | 'amount' | 'symbol' | 'memo'>;
+export type PayInfo = Pick<LoggedTx, 'to' | 'amount' | 'symbol' | 'memo' | 'wrapped'>;
 
 export async function init(): Promise<void> {
 	if (await hasVault()) {

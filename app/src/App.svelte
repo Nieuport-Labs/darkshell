@@ -15,6 +15,9 @@
 	import TxDetailModal from './components/wallet/TxDetailModal.svelte';
 	import { kv } from './lib/storage';
 	import Activity from './screens/Activity.svelte';
+	import Staking from './screens/Staking.svelte';
+	import StakeModal from './components/wallet/StakeModal.svelte';
+	import ProposalModal from './components/wallet/ProposalModal.svelte';
 	import Home from './screens/Home.svelte';
 	import Invoices from './screens/Invoices.svelte';
 	import Onboarding from './screens/Onboarding.svelte';
@@ -67,6 +70,7 @@
 					{#if ui.tab === 'home'}<Home />
 					{:else if ui.tab === 'activity'}<Activity />
 					{:else if ui.tab === 'invoices'}<Invoices />
+					{:else if ui.tab === 'staking'}<Staking />
 					{:else}<SettingsModal page />{/if}
 					{#snippet failed(error, reset)}
 						<div class="card mt-6 flex flex-col gap-3 p-4">
@@ -98,6 +102,10 @@
 		<AccountsModal />
 	{:else if ui.dialog?.name === 'contacts'}
 		<AddressBookModal />
+	{:else if ui.dialog?.name === 'stake'}
+		{#key `${ui.dialog.validator}-${ui.dialog.mode}`}<StakeModal validator={ui.dialog.validator} mode={ui.dialog.mode} />{/key}
+	{:else if ui.dialog?.name === 'proposal'}
+		{#key ui.dialog.id}<ProposalModal id={ui.dialog.id} />{/key}
 	{:else if ui.dialog?.name === 'tx'}
 		{#key ui.dialog.item?.id ?? ui.dialog.hash}<TxDetailModal item={ui.dialog.item} hash={ui.dialog.hash} />{/key}
 	{:else if ui.dialog?.name === 'lightning'}

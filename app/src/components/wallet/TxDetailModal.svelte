@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { validatorName } from '../../lib/staking.svelte';
 	// One activity entry, opened: who, how much, the private memo, when, and
 	// the transaction itself (decrypted where this wallet sent it).
 	import { AlertCircle, ArrowDownLeft, ArrowLeftRight, Check, CheckCircle2, ChevronDown, Copy, ExternalLink, Fuel, Loader2, ReceiptText, Send, ShieldCheck, Zap } from '@lucide/svelte';
@@ -68,6 +69,7 @@
 		if (own) return { label: own.name, address };
 		if (address === SHADESWAP_ROUTER) return { label: 'ShadeSwap', address };
 		if (address === GAS_VAULT_ADDRESS) return { label: 'Gas credits', address };
+		if (address.startsWith('secretvaloper')) return { label: `Validator · ${validatorName(address)}`, address };
 		return { label: '', address };
 	}
 
@@ -86,7 +88,7 @@
 		return party(item.counterparty);
 	});
 	/** what the recipient got, when it was not sSCRT (swapped invoice, IBC, Lightning) */
-	const delivered = $derived(link?.amount && link.symbol && link.symbol !== 'sSCRT' ? `${formatAmount(BigInt(link.amount))} ${link.symbol}` : null);
+	const delivered = $derived(link?.amount && link.symbol && link.symbol !== 'sSCRT' && !['stake', 'unstake', 'claim'].includes(link.kind) ? `${formatAmount(BigInt(link.amount))} ${link.symbol}` : null);
 	const when = $derived(
 		item?.time
 			? new Date(item.time * 1000)
