@@ -9,6 +9,7 @@
 	import type { HistoryItem } from '../../lib/chain/sscrt';
 	import { describe, describeChain, describeLogged, linkOf } from '../../lib/activity';
 	import type { ChainActivity } from '../../lib/chain/activity';
+	import { DECIMALS, fromBase, type Coin } from '../../lib/pay/external';
 	import { SHADESWAP_ROUTER } from '../../lib/chain/shadeSwap';
 	import { explorerTx, GAS_VAULT_ADDRESS } from '../../lib/config';
 	import { loadLnOrders, lnOrders } from '../../lib/ff/orders.svelte';
@@ -98,7 +99,13 @@
 		return party(item.counterparty);
 	});
 	/** what the recipient got, when it was not sSCRT (swapped invoice, IBC, Lightning) */
-	const delivered = $derived(link?.amount && link.symbol && link.symbol !== 'sSCRT' && !['stake', 'unstake', 'claim'].includes(link.kind) ? `${formatAmount(BigInt(link.amount))} ${link.symbol}` : null);
+	const delivered = $derived(
+		link?.kind === 'external' && link.amount && link.symbol && link.symbol in DECIMALS
+			? `${fromBase(BigInt(link.amount), DECIMALS[link.symbol as Coin])} ${link.symbol}`
+			: link?.amount && link.symbol && link.symbol !== 'sSCRT' && !['stake', 'unstake', 'claim', 'external'].includes(link.kind)
+				? `${formatAmount(BigInt(link.amount))} ${link.symbol}`
+				: null,
+	);
 	const when = $derived(
 		item?.time
 			? new Date(item.time * 1000)
@@ -136,6 +143,7 @@
 		}
 		// the last leg of a Lightning payment happens off Secret
 		if (link?.kind === 'lightning') return [...list, { title: 'FixedFloat pays the Lightning invoice', detail: 'off Secret Network; FixedFloat sees it', privacy: 'public' }];
+		if (link?.kind === 'external') return [...list, { title: `${link.symbol ?? 'The coin'} delivered on the other chain`, detail: link.to ? `to ${shortAddress(link.to, 8, 6)}, by Skip or FixedFloat; public there` : 'public there', privacy: 'public' }];
 		return list;
 	});
 	const overall = $derived(steps.length ? overallOf(steps) : item ? (item.kind === 'wrap' || item.kind === 'unwrap' ? 'public' : 'private') : null);

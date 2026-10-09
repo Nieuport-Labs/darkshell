@@ -94,7 +94,7 @@ export const wallet = $state({
 /** Our own sends, so activity can label them (e.g. which redeem was a gas refill). */
 export interface LoggedTx {
 	hash: string;
-	kind: 'send' | 'invoice' | 'ibc' | 'wrap' | 'refill' | 'lightning' | 'stake' | 'unstake' | 'claim' | 'vote';
+	kind: 'send' | 'invoice' | 'ibc' | 'wrap' | 'refill' | 'lightning' | 'external' | 'stake' | 'unstake' | 'claim' | 'vote';
 	time: number;
 	/** sSCRT the payment itself spent, base units */
 	spent?: string;

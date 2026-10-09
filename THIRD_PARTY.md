@@ -48,7 +48,7 @@ secretjs (MIT), @scure/bip39 (MIT), hash-wasm (MIT), qrcode-generator (MIT), bar
 
 ## Round 4 dependencies
 
-- [@noble/ciphers](https://github.com/paulmillr/noble-ciphers) and [@noble/hashes](https://github.com/paulmillr/noble-hashes) (MIT, Paul Miller): ChaCha20-Poly1305 and HMAC-SHA256 for SNIP-52 notifications.
+- [@noble/ciphers](https://github.com/paulmillr/noble-ciphers) and [@noble/hashes](https://github.com/paulmillr/noble-hashes) (MIT, Paul Miller): ChaCha20-Poly1305 and HMAC-SHA256 for SNIP-52 notifications; keccak-256 and SHA-256 for Ethereum, Bitcoin and Monero address checksums.
 - [@capgo/capacitor-native-biometric](https://github.com/Cap-go/capacitor-native-biometric) (MIT): fingerprint unlock.
 - [@capacitor/local-notifications](https://github.com/ionic-team/capacitor-plugins) (MIT, Ionic): phone notifications from the app. Its exact-alarm permission is removed from the merged Android manifest.
 - [OkHttp](https://github.com/square/okhttp) (Apache-2.0, Square): the payment watcher's WebSocket.

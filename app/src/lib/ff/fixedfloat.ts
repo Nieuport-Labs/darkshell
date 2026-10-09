@@ -9,6 +9,7 @@
 import { Capacitor, CapacitorHttp } from '@capacitor/core';
 import { te } from '../crypto/bytes';
 import { ffCredentials } from '../wallet.svelte';
+import { tor } from '../tor.svelte';
 
 const BASE = 'https://ff.io/api/v2/';
 
@@ -66,14 +67,24 @@ export async function ffCall<T>(
 async function post(url: string, headers: Record<string, string>, body: string): Promise<unknown> {
 	if (Capacitor.isNativePlatform()) {
 		const r = await CapacitorHttp.post({ url, headers, data: body, responseType: 'json', connectTimeout: 15_000, readTimeout: 20_000 });
-		return typeof r.data === 'string' ? JSON.parse(r.data) : r.data;
+		if (typeof r.data !== 'string') return r.data;
+		try {
+			return JSON.parse(r.data);
+		} catch {
+			// a web page instead of the API: ff.io's bot check, which it shows to Tor exits
+			throw new FfError(
+				tor.enabled
+					? 'FixedFloat turned the request away. It blocks many Tor exits; try again in a minute (Tor picks another route), or turn Tor off for this payment in Settings.'
+					: `FixedFloat sent a web page instead of an answer (HTTP ${r.status}). Try again later.`,
+			);
+		}
 	}
 	try {
 		const r = await fetch(url, { method: 'POST', headers, body });
 		return await r.json();
 	} catch {
 		// ff.io sends no CORS headers, so browsers block it; the Android app uses native HTTP
-		throw new FfError('Lightning payments work in the DarkShell Android app (FixedFloat cannot be reached from a browser).');
+		throw new FfError('Payments through FixedFloat work in the DarkShell Android app (FixedFloat cannot be reached from a browser).');
 	}
 }
 

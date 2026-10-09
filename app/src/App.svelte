@@ -12,6 +12,7 @@
 	import AddressBookModal from './components/wallet/AddressBookModal.svelte';
 	import BottomNav from './components/wallet/BottomNav.svelte';
 	import LightningModal from './components/wallet/LightningModal.svelte';
+	import ExternalModal from './components/wallet/ExternalModal.svelte';
 	import TxDetailModal from './components/wallet/TxDetailModal.svelte';
 	import { kv } from './lib/storage';
 	import Activity from './screens/Activity.svelte';
@@ -113,6 +114,8 @@
 		{#key ui.dialog.item?.id ?? ui.dialog.hash}<TxDetailModal item={ui.dialog.item} hash={ui.dialog.hash} entry={ui.dialog.chain} />{/key}
 	{:else if ui.dialog?.name === 'lightning'}
 		<LightningModal target={ui.dialog.target} orderId={ui.dialog.orderId} />
+	{:else if ui.dialog?.name === 'external'}
+		{#key ui.dialog.orderId ?? ui.dialog.target?.address}<ExternalModal target={ui.dialog.target} orderId={ui.dialog.orderId} />{/key}
 	{/if}
 	{#if ui.scanning}
 		<Scanner

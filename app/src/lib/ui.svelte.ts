@@ -18,7 +18,9 @@ export type Dialog =
 	/** a one-tap transaction (collect rewards, make private, refill gas credits): recap, then swipe */
 	| { name: 'action'; action: 'claim' | 'wrap' | 'refill' }
 	| { name: 'tx'; item?: HistoryItem; hash?: string; chain?: ChainActivity }
-	| { name: 'lightning'; target?: Extract<Target, { kind: 'lightning' }>; orderId?: string };
+	| { name: 'lightning'; target?: Extract<Target, { kind: 'lightning' }>; orderId?: string }
+	/** ETH / BTC / XMR to an address on another chain (via Skip or FixedFloat) */
+	| { name: 'external'; target?: Extract<Target, { kind: 'external' }>; orderId?: string };
 
 /** `activity` has no tab of its own: Home's "See all" opens it */
 export type Tab = 'home' | 'activity' | 'invoices' | 'staking' | 'settings';
@@ -46,6 +48,7 @@ export function openPayment(raw: string): void {
 	const target = classify(raw);
 	if (target.kind === 'secret' && target.request.amount !== undefined) open({ name: 'pay', target, raw });
 	else if (target.kind === 'lightning') open({ name: 'lightning', target });
+	else if (target.kind === 'external') open({ name: 'external', target });
 	else open({ name: 'send', target, raw });
 }
 

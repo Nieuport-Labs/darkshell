@@ -46,6 +46,7 @@ export function describe(h: HistoryItem, link?: LoggedTx): Described {
 	if (h.kind === 'wrap') return { title: 'Made private', detail: 'from public SCRT', sign: '+', icon: 'shield', link };
 	if (link?.kind === 'stake') return out('Staked', 'SCRT with a validator', 'stake');
 	if (link?.kind === 'lightning') return out('Lightning payment', 'via FixedFloat', 'bolt');
+	if (link?.kind === 'external') return out(`Sent ${link.symbol ?? ''}`.trim(), link.to ? `to ${shortAddress(link.to, 6, 4)}` : 'to another chain');
 	if (link?.kind === 'refill' || (h.kind === 'unwrap' && link?.refilled === h.amount.toString())) return out('Gas credits', 'refill', 'gas');
 	if (link?.kind === 'invoice') return out('Paid invoice', link.to ? `to ${shortAddress(link.to, 6, 4)}` : '', h.counterparty === SHADESWAP_ROUTER ? 'swap' : 'out');
 	if (link?.kind === 'ibc') return out('Sent', 'to another chain');
@@ -73,6 +74,7 @@ export function describeLogged(l: LoggedTx, settled = false): Described {
 		wrap: ['Making private', 'shield'],
 		refill: ['Refilling gas credits', 'gas'],
 		lightning: ['Lightning payment', 'bolt'],
+		external: [`Sending ${l.symbol ?? ''}`.trim(), 'out'],
 		stake: ['Staking', 'stake'],
 		unstake: ['Unstaking', 'stake'],
 		claim: ['Claiming rewards', 'stake'],
@@ -85,6 +87,7 @@ export function describeLogged(l: LoggedTx, settled = false): Described {
 		wrap: 'Made private',
 		refill: 'Gas credits',
 		lightning: 'Lightning payment',
+		external: `Sent ${l.symbol ?? ''}`.trim(),
 		stake: 'Staked',
 		unstake: 'Unstaked',
 		claim: 'Staking rewards',

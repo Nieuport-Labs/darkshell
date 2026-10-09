@@ -7,6 +7,7 @@
 	import type { Overall } from '../../lib/txSteps';
 	import { loadStaking, staking, validatorName } from '../../lib/staking.svelte';
 	import { loadLnOrders, lnOrders } from '../../lib/ff/orders.svelte';
+	import { loadXOrders, xOrders } from '../../lib/pay/xorders.svelte';
 	import { formatAmount } from '../../lib/format';
 	import { open, ui } from '../../lib/ui.svelte';
 	import { usdValue } from '../../lib/price.svelte';
@@ -23,6 +24,7 @@
 	$effect(() => {
 		void wallet.address;
 		void loadLnOrders();
+		void loadXOrders();
 	});
 	// validator names for staking entries (once: a failed load is not retried from here)
 	let namesAsked = false;
@@ -39,13 +41,17 @@
 	/** A Lightning payment opens on its own progress page; everything else on the detail. */
 	function openItem(h: HistoryItem, link?: LoggedTx) {
 		const order = link?.kind === 'lightning' ? lnOrders.list.find((o) => o.hash === link.hash) : undefined;
+		const x = link?.kind === 'external' ? xOrders.list.find((o) => o.hash === link.hash) : undefined;
 		if (order) open({ name: 'lightning', orderId: order.id });
+		else if (x) open({ name: 'external', orderId: x.id });
 		else open({ name: 'tx', item: $state.snapshot(h) as HistoryItem });
 	}
 
 	function openLogged(l: LoggedTx) {
 		const order = l.kind === 'lightning' ? lnOrders.list.find((o) => o.hash === l.hash) : undefined;
+		const x = l.kind === 'external' ? xOrders.list.find((o) => o.hash === l.hash) : undefined;
 		if (order) open({ name: 'lightning', orderId: order.id });
+		else if (x) open({ name: 'external', orderId: x.id });
 		else open({ name: 'tx', hash: l.hash });
 	}
 

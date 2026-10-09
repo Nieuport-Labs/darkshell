@@ -70,6 +70,7 @@
 		// a request with an amount is an invoice: pay it, don't edit it
 		if (t.kind === 'secret' && t.request.amount !== undefined) return open({ name: 'pay', target: t, raw: value });
 		if (t.kind === 'lightning') return open({ name: 'lightning', target: t });
+		if (t.kind === 'external') return open({ name: 'external', target: t });
 		target = t;
 		if (t.kind === 'secret' && (t.request.memo || t.request.id)) memo = t.request.memo ?? t.request.id ?? '';
 	}

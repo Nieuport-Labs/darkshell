@@ -4,11 +4,13 @@ import { decode as decodeBolt11 } from 'light-bolt11-decoder';
 import { parsePayment, type ParseErrorCode, type PaymentRequest } from 'secret-pay';
 import { ibcDestinationFor, type IbcDestination } from '../chain/ibc';
 import { invoiceAsset, type InvoiceAsset } from '../tokens';
+import { ExternalError, parseExternal, type ExternalTarget } from './external';
 
 export type Target =
 	| { kind: 'secret'; request: PaymentRequest; asset: InvoiceAsset }
 	| { kind: 'ibc'; address: string; dest: IbcDestination }
 	| { kind: 'lightning'; invoice: string; sats?: bigint; msat?: bigint; description?: string; expiresAt?: number; network: 'mainnet' | 'testnet' }
+	| ExternalTarget
 	| { kind: 'error'; message: string };
 
 const MESSAGES: Record<ParseErrorCode, string> = {
@@ -60,6 +62,16 @@ function lightning(raw: string): Target | null {
 export function classify(input: string): Target {
 	const ln = lightning(input);
 	if (ln) return ln;
+
+	// Ethereum / Bitcoin / Monero (a BIP-21 request with a Lightning invoice pays that)
+	try {
+		const x = parseExternal(input);
+		if (x && 'lightning' in x) return lightning(x.lightning) ?? { kind: 'error', message: 'The Lightning invoice in this request could not be read.' };
+		if (x) return x;
+	} catch (e) {
+		if (e instanceof ExternalError) return { kind: 'error', message: e.message };
+		throw e;
+	}
 
 	const r = parsePayment(input);
 	if (r.ok) {
