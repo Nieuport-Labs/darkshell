@@ -1,6 +1,6 @@
 <script lang="ts">
 	// After Secret_Dashboard src/components/wallet/SendPanel.tsx.
-	import { ArrowLeftRight, Eye, ScanLine, ShieldCheck } from '@lucide/svelte';
+	import { ArrowLeftRight, BookUser, Eye, ScanLine, ShieldCheck } from '@lucide/svelte';
 	import { fromBaseUnits, toBaseUnits } from 'secret-pay';
 	import { untrack } from 'svelte';
 	import { BusyError, type TxOutcome } from '../../lib/chain/tx';
@@ -16,6 +16,7 @@
 	import Modal from '../ui/Modal.svelte';
 	import SwipeConfirm from '../ui/SwipeConfirm.svelte';
 	import { usdValue } from '../../lib/price.svelte';
+	import ContactList from './ContactList.svelte';
 	import TxResult from './TxResult.svelte';
 
 	let { target: initial, raw: initialRaw = '' }: { target?: Target; raw?: string } = $props();
@@ -30,15 +31,18 @@
 	let outcome = $state<TxOutcome | null>(null);
 	/** the last step: what is about to be sent, confirmed with a swipe */
 	let reviewing = $state(false);
+	/** choosing the recipient from the address book */
+	let picking = $state(false);
 	let quote = $state<QuoteState>({ kind: 'none' });
 
 	const asset = $derived(target ? assetOf(target) : undefined);
 	const symbol = $derived(asset?.symbol ?? 'sSCRT');
 	const swapping = $derived(!!asset && asset.token.address !== SSCRT_ADDRESS);
 	const base = $derived.by(() => {
-		if (!amount || !asset) return null;
+		if (!amount) return null;
 		try {
-			const v = toBaseUnits(amount.replace(',', '.'), asset.decimals);
+			// no recipient yet: read the amount as sSCRT (6 decimals) rather than call it invalid
+			const v = toBaseUnits(amount.replace(',', '.'), asset?.decimals ?? 6);
 			return v > 0n ? v : null;
 		} catch {
 			return null;
@@ -47,6 +51,15 @@
 	const spends = $derived(quote.kind === 'ready' ? quote.quote.amountIn : swapping ? null : base);
 	const amountError = $derived(amount && base === null ? 'Enter a valid amount.' : spends !== null && wallet.balance !== null && spends > wallet.balance ? 'More than your balance.' : '');
 	const recipientError = $derived(target?.kind === 'error' ? target.message : target && 'request' in target && target.request.address === wallet.address ? 'This is your own address.' : '');
+	/** names the recipient when it is one of yours or in the address book */
+	const contactName = $derived.by(() => {
+		const a = toAddressOf(target);
+		if (!a) return '';
+		return wallet.accounts.find((x) => x.address === a)?.name ?? wallet.contacts.find((c) => c.address === a)?.name ?? '';
+	});
+	function toAddressOf(t: Target | null): string {
+		return t?.kind === 'ibc' ? t.address : t?.kind === 'secret' ? t.request.address : '';
+	}
 	const ready = $derived(!!target && (target.kind === 'secret' || target.kind === 'ibc') && base !== null && !amountError && !recipientError && (!swapping || quote.kind === 'ready'));
 
 	function read(value: string) {
@@ -109,8 +122,20 @@
 	prefetchForPayment();
 </script>
 
-<Modal full title={reviewing && !outcome ? 'Confirm' : 'Send'} onclose={close} onback={reviewing && !outcome && !sending ? () => ((reviewing = false), (failure = '')) : undefined}>
-	{#if outcome}
+<Modal
+	full
+	title={picking ? 'Choose recipient' : reviewing && !outcome ? 'Confirm' : 'Send'}
+	onclose={close}
+	onback={picking ? () => (picking = false) : reviewing && !outcome && !sending ? () => ((reviewing = false), (failure = '')) : undefined}
+>
+	{#if picking}
+		<ContactList
+			onpick={(a) => {
+				picking = false;
+				read(a);
+			}}
+		/>
+	{:else if outcome}
 		<TxResult {outcome} summary="Sent {amount} {symbol} to {shortAddress(target && 'request' in target ? target.request.address : recipient.trim())}." ondone={close} />
 	{:else if reviewing}
 		<div class="flex flex-col items-center gap-1 pt-6 text-center">
@@ -123,7 +148,7 @@
 		</div>
 		<dl class="flex flex-col divide-y divide-border rounded-card border border-border bg-surface-1 text-base">
 			<div class="flex flex-col gap-1 px-4 py-3.5">
-				<dt class="text-text-faint">To{target?.kind === 'ibc' ? ` · ${target.dest.name}` : ''}</dt>
+				<dt class="text-text-faint">To{contactName ? ` · ${contactName}` : ''}{target?.kind === 'ibc' ? ` · ${target.dest.name}` : ''}</dt>
 				<dd class="break-all font-mono text-[0.875rem]">{toAddress}</dd>
 			</div>
 			{#if memo.trim()}
@@ -154,11 +179,15 @@
 				autocapitalize="none"
 				class="min-w-0 flex-1 bg-transparent py-2 font-mono text-sm outline-none placeholder:font-sans placeholder:text-base placeholder:text-text-faint"
 			/>
+			<button type="button" class="state-layer flex size-10 shrink-0 items-center justify-center rounded-pill bg-surface-3" aria-label="Address book" onclick={() => (picking = true)}>
+				<BookUser size={18} />
+			</button>
 			<button type="button" class="state-layer flex size-10 shrink-0 items-center justify-center rounded-pill bg-surface-3" aria-label="Scan QR code" onclick={() => (ui.scanning = true)}>
 				<ScanLine size={18} />
 			</button>
 		</div>
-		{#if recipientError}<p class="-mt-3 px-5 text-label text-negative" role="alert">{recipientError}</p>{/if}
+		{#if recipientError}<p class="-mt-3 px-5 text-label text-negative" role="alert">{recipientError}</p>
+		{:else if contactName}<p class="-mt-3 px-5 text-label text-text-muted">{contactName}</p>{/if}
 
 		<div class="flex flex-1 flex-col items-center justify-center gap-2">
 			<AmountHero bind:amount {symbol} fiat={symbol === 'sSCRT'} max={swapping ? undefined : () => wallet.balance !== null && (amount = fromBaseUnits(wallet.balance, 6))} />

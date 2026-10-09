@@ -11,6 +11,7 @@ export type Dialog =
 	| { name: 'invoice'; fromReceive?: boolean; id?: string }
 	| { name: 'settings' }
 	| { name: 'accounts' }
+	| { name: 'contacts' }
 	| { name: 'tx'; item?: HistoryItem; hash?: string }
 	| { name: 'lightning'; target?: Extract<Target, { kind: 'lightning' }>; orderId?: string };
 

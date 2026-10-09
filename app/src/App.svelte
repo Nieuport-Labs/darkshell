@@ -9,6 +9,7 @@
 	import { initNative, isNative, takeNativeLink } from './lib/native';
 	import { init, wallet } from './lib/wallet.svelte';
 	import AccountsModal from './components/wallet/AccountsModal.svelte';
+	import AddressBookModal from './components/wallet/AddressBookModal.svelte';
 	import BottomNav from './components/wallet/BottomNav.svelte';
 	import LightningModal from './components/wallet/LightningModal.svelte';
 	import TxDetailModal from './components/wallet/TxDetailModal.svelte';
@@ -95,6 +96,8 @@
 		<SettingsModal />
 	{:else if ui.dialog?.name === 'accounts'}
 		<AccountsModal />
+	{:else if ui.dialog?.name === 'contacts'}
+		<AddressBookModal />
 	{:else if ui.dialog?.name === 'tx'}
 		{#key ui.dialog.item?.id ?? ui.dialog.hash}<TxDetailModal item={ui.dialog.item} hash={ui.dialog.hash} />{/key}
 	{:else if ui.dialog?.name === 'lightning'}

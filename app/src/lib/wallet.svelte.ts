@@ -15,6 +15,7 @@ import {
 	vaultKind,
 	WrongPasswordError,
 	type AccountEntry,
+	type Contact,
 	type OpenVault,
 	type SecretKind,
 } from './crypto/vault';
@@ -60,6 +61,8 @@ export const wallet = $state({
 	kind: 'pin' as SecretKind,
 	address: '' as string,
 	accounts: [] as AccountView[],
+	/** the address book, shared by all accounts */
+	contacts: [] as Contact[],
 	active: 0,
 	balance: null as bigint | null,
 	native: null as bigint | null,
@@ -130,6 +133,7 @@ async function open(v: OpenVault, asDecoy = false): Promise<void> {
 	session = null;
 	const list = accountList(v);
 	wallet.accounts = list.map((a) => ({ ...a, address: walletFromMnemonic(v.secrets.mnemonic, a.index).address }));
+	wallet.contacts = v.secrets.contacts ?? [];
 	await migrateLegacy(wallet.accounts.find((a) => a.index === 0)?.address ?? wallet.accounts[0]!.address);
 	const active = list.some((a) => a.index === v.secrets.active) ? v.secrets.active! : list[0]!.index;
 	await activate(v, active);
@@ -146,6 +150,8 @@ async function open(v: OpenVault, asDecoy = false): Promise<void> {
 export interface SetupChoices {
 	biometric?: boolean;
 	emergency?: { pin: string; to?: string };
+	/** a restored phrase: add its other accounts that hold funds */
+	discover?: boolean;
 }
 
 export async function createWallet(mnemonic: string, pin: string, choices: SetupChoices = {}): Promise<void> {
@@ -155,6 +161,31 @@ export async function createWallet(mnemonic: string, pin: string, choices: Setup
 	await open(v);
 	if (choices.biometric) await enableBiometric(pin).catch(() => {});
 	if (choices.emergency) await installDuress(choices.emergency.pin, choices.emergency.to);
+	if (choices.discover) void addFundedAccounts();
+}
+
+/** Adds every other account of the phrase that holds something (after a restore). */
+async function addFundedAccounts(): Promise<void> {
+	const s = session;
+	if (!s) return;
+	try {
+		const { scanAccounts } = await import('./accountScan');
+		const found = await scanAccounts(s.vault.secrets.mnemonic, wallet.accounts.map((a) => a.index));
+		if (session !== s || !found.length) return;
+		for (const f of found) wallet.accounts = [...wallet.accounts, { index: f.index, name: `Account ${f.index + 1}`, address: f.address }];
+		wallet.accounts = [...wallet.accounts].sort((a, b) => a.index - b.index);
+		await persist();
+		void startNotifications();
+	} catch {
+		/* the user can still add them from Accounts */
+	}
+}
+
+/** Funded accounts of this phrase that are not in the wallet yet. */
+export async function findAccounts(onFound?: (a: import('./accountScan').FoundAccount) => void) {
+	if (!session) return [];
+	const { scanAccounts } = await import('./accountScan');
+	return scanAccounts(session.vault.secrets.mnemonic, wallet.accounts.map((a) => a.index), onFound);
 }
 
 export class LockedOutError extends Error {
@@ -379,6 +410,7 @@ export async function changePin(current: string, pin: string): Promise<void> {
 async function persist(): Promise<void> {
 	if (!session || session.decoy) return;
 	session.vault.secrets.accounts = wallet.accounts.map(({ index, name }) => ({ index, name }));
+	session.vault.secrets.contacts = wallet.contacts.map(({ name, address }) => ({ name, address }));
 	session.vault.secrets.active = wallet.active;
 	const dr = session.vault.secrets.duress;
 	if (dr && !dr.decoy) dr.decoy = newMnemonic();
@@ -400,14 +432,49 @@ export async function switchAccount(index: number): Promise<void> {
 	}
 }
 
-export async function addAccount(name: string): Promise<void> {
+/** Adds the account at `index` (default: the next unused one) and switches to it. */
+export async function addAccount(name: string, index?: number): Promise<void> {
 	if (!session) return;
-	const index = Math.max(-1, ...wallet.accounts.map((a) => a.index)) + 1;
+	if (index === undefined) {
+		index = 0;
+		while (wallet.accounts.some((a) => a.index === index)) index++;
+	}
+	if (wallet.accounts.some((a) => a.index === index)) return switchAccount(index);
 	const address = walletFromMnemonic(session.vault.secrets.mnemonic, index).address;
-	wallet.accounts = [...wallet.accounts, { index, name: name.trim() || `Account ${wallet.accounts.length + 1}`, address }];
+	wallet.accounts = [...wallet.accounts, { index, name: name.trim().slice(0, 32) || `Account ${index + 1}`, address }].sort((a, b) => a.index - b.index);
 	await persist();
 	await switchAccount(index);
 	void startNotifications();
+}
+
+/**
+ * Removes an account from this wallet. Its funds stay at its address and the
+ * phrase still controls it: adding it again (Accounts → Add) brings it back.
+ */
+export async function removeAccount(index: number): Promise<void> {
+	if (!session || wallet.accounts.length < 2 || !wallet.accounts.some((a) => a.index === index)) return;
+	if (index === wallet.active) {
+		const next = wallet.accounts.find((a) => a.index !== index)!;
+		await switchAccount(next.index);
+	}
+	wallet.accounts = wallet.accounts.filter((a) => a.index !== index);
+	await persist();
+	void startNotifications();
+}
+
+/* -------------------------------- address book -------------------------------- */
+
+export async function saveContact(c: Contact, replacing?: string): Promise<void> {
+	const entry = { name: c.name.trim().slice(0, 40), address: c.address.trim() };
+	if (!entry.name || !entry.address) return;
+	const rest = wallet.contacts.filter((x) => x.address !== entry.address && x.address !== replacing);
+	wallet.contacts = [...rest, entry].sort((a, b) => a.name.localeCompare(b.name));
+	await persist();
+}
+
+export async function removeContact(address: string): Promise<void> {
+	wallet.contacts = wallet.contacts.filter((c) => c.address !== address);
+	await persist();
 }
 
 export async function renameAccount(index: number, name: string): Promise<void> {
@@ -443,6 +510,7 @@ export function lock(): void {
 	stopWatcher();
 	stopPrice();
 	wallet.accounts = [];
+	wallet.contacts = [];
 	wallet.balance = null;
 	wallet.native = null;
 	wallet.credits = null;

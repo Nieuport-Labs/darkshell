@@ -142,6 +142,8 @@
 	async function finish(withEmergency: boolean) {
 		if (withEmergency && safeError) return;
 		if (withEmergency) choices.emergency = { pin: ePin, ...(safe.trim() ? { to: safe.trim() } : {}) };
+		// a restored phrase may have more accounts with money on them (e.g. from Keplr)
+		choices.discover = mode === 'import';
 		busy = true;
 		error = '';
 		try {

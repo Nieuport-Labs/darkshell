@@ -24,9 +24,17 @@ export interface AccountEntry {
 	name: string;
 }
 
+/** An address book entry. Shared by every account of the wallet. */
+export interface Contact {
+	name: string;
+	address: string;
+}
+
 export interface WalletSecrets {
 	mnemonic: string;
 	accounts?: AccountEntry[];
+	/** the address book (names are as private as the seed's accounts) */
+	contacts?: Contact[];
 	active?: number;
 	/** user's own FixedFloat API credentials (override the built-in ones) */
 	ff?: { key: string; secret: string };
