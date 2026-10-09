@@ -61,7 +61,7 @@
 </header>
 
 <!-- the balance is the page: big, with air around it -->
-<section class="px-1 pb-8 pt-10">
+<section class="px-1 pb-7 pt-8">
 	<div class="flex items-center justify-between">
 		<button type="button" onclick={refresh} class="flex items-center gap-1.5 text-base text-text-muted">
 			Balance
@@ -73,12 +73,12 @@
 	</div>
 
 	{#if wallet.balance === null}
-		<div class="mt-3 h-[4.5rem] w-52 animate-pulse rounded-control bg-surface"></div>
+		<div class="mt-3 h-[3.75rem] w-48 animate-pulse rounded-control bg-surface"></div>
 	{:else}
 		<!-- whole sSCRT very large, the decimals smaller beside them -->
 		<div class="mt-2 flex items-baseline" aria-label="{ui.hideBalance ? 'Hidden' : formatAmount(total)} sSCRT">
-			<span class="{(int?.length ?? 0) > 6 ? 'text-[3.5rem]' : 'text-[4.5rem]'} font-semibold leading-none tracking-[-0.045em] tabular-nums" aria-hidden="true">{ui.hideBalance ? '••••' : int}</span>
-			{#if !ui.hideBalance}<span class="text-[2rem] font-semibold leading-none tracking-[-0.03em] tabular-nums text-text-faint" aria-hidden="true">.{frac ?? '00'}</span>{/if}
+			<span class="{(int?.length ?? 0) > 6 ? 'text-[3rem]' : 'text-[3.75rem]'} font-semibold leading-none tracking-[-0.04em] tabular-nums" aria-hidden="true">{ui.hideBalance ? '••••' : int}</span>
+			{#if !ui.hideBalance}<span class="text-[1.625rem] font-semibold leading-none tracking-[-0.025em] tabular-nums text-text-faint" aria-hidden="true">.{frac ?? '00'}</span>{/if}
 		</div>
 	{/if}
 
