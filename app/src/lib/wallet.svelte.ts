@@ -22,7 +22,7 @@ import { nativeBalance, signingClient } from './chain/client';
 import { signPermit, sscrtBalance, sscrtHistory, type HistoryItem } from './chain/sscrt';
 import { isSending, refillDue, sendTx, type TxOutcome } from './chain/tx';
 import { CREDIT_FLOOR, CREDIT_REFILL, GAS, GAS_PRICE, GAS_VAULT_ADDRESS, MIN_REFILL, SSCRT_ADDRESS } from './config';
-import { fetchGrants, forgetGrants } from './gas/feePayer';
+import { fetchGrants, forgetGrants, NoGasError } from './gas/feePayer';
 import { readCreditStatus, type CreditStatus } from './gas/gasCredits';
 import { wrapPayment, type PaymentPlan } from './pay/payments';
 import { addrKey, kv, migrateLegacy } from './storage';
@@ -523,7 +523,7 @@ export async function pay(
 	const s = session;
 	if (!s) throw new Error('Wallet is locked');
 	const spare = wallet.balance !== null && wallet.balance > plan.spends ? wallet.balance - plan.spends : 0n;
-	const out = await sendTx(s.client, s.wallet.address, plan.msgs, plan.gas, plan.types, {
+	const send = () => sendTx(s.client, s.wallet.address, plan.msgs, plan.gas, plan.types, {
 		memo: plan.txMemo,
 		sscrtSpare: spare,
 		nativeSpare,
@@ -533,6 +533,11 @@ export async function pay(
 			void log({ hash: p.hash, kind, time: Date.now(), spent: plan.spends.toString(), status: 'pending', ...info });
 			onBroadcast?.(p);
 		},
+	});
+	// first payment with nothing to pay the fee: ask the faucet once, then try again
+	const out = await send().catch(async (e) => {
+		if (!(e instanceof NoGasError) || !(await faucetGrant(s.wallet.address))) throw e;
+		return send();
 	});
 	forgetGrants(s.wallet.address);
 	await log({
@@ -620,13 +625,39 @@ async function autoRefill(s: Session): Promise<void> {
 	if (!(await refillDue(s.wallet.address).catch(() => false))) return;
 	autoTried = Date.now();
 	try {
-		const out = await sendTx(s.client, s.wallet.address, [], 0, [], { nativeSpare: native, sscrtSpare: sscrt, forceRefill: true, waitMs: 0 });
+		const send = () => sendTx(s.client, s.wallet.address, [], 0, [], { nativeSpare: native, sscrtSpare: sscrt, forceRefill: true, waitMs: 0 });
+		// nothing pays the fee yet (first use, no SCRT): the faucet's grant pays it
+		const out = await send().catch(async (e) => {
+			if (!(e instanceof NoGasError) || !(await faucetGrant(s.wallet.address))) throw e;
+			return send();
+		});
 		if (session !== s) return;
 		await log({ hash: out.hash, kind: 'refill', time: Date.now(), refilled: out.refilled.toString(), status: 'pending' });
 		setTimeout(() => void refresh(), 8000);
 	} catch {
 		/* nothing can pay the fee, or busy: try again later */
 	}
+}
+
+/**
+ * Asks the fee-grant faucet for this address and waits until the grant can be
+ * read on chain. True when a fee can now be paid from it.
+ */
+async function faucetGrant(address: string): Promise<boolean> {
+	const { claimFaucet, faucetConfigured } = await import('./gas/faucet');
+	if (!faucetConfigured() || session?.decoy) return false;
+	try {
+		await claimFaucet(address);
+	} catch {
+		return false;
+	}
+	// the grant lands in the faucet's next block
+	for (let i = 0; i < 10; i++) {
+		await new Promise((r) => setTimeout(r, 2500));
+		forgetGrants(address);
+		if ((await fetchGrants(address, 0)).length) return true;
+	}
+	return false;
 }
 
 /* ---------------------------------- auto-lock --------------------------------- */

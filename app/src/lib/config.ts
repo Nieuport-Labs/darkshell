@@ -32,6 +32,13 @@ export const EXPLORER_TX = 'https://www.mintscan.io/secret/tx/{hash}';
  */
 export const PAY_LINK_ORIGIN: string = import.meta.env.VITE_PAY_ORIGIN || 'https://dashboard.nieuportlabs.cz';
 
+/**
+ * Fee-grant faucet (FeeGrantFaucet2.0) for a wallet's very first refill, so
+ * no SCRT is ever needed: its grant pays the fee of buying gas credits with
+ * sSCRT. VITE_FAUCET_URL overrides it; an empty value turns it off.
+ */
+export const FAUCET_URL: string = import.meta.env.VITE_FAUCET_URL ?? 'https://faucet.libertarianskastrana.cz';
+
 export const GAS_BUFFER = 1.2;
 export function withGasBuffer(gas: number): number {
 	return Math.ceil(gas * GAS_BUFFER);

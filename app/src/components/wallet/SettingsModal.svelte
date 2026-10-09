@@ -193,7 +193,7 @@
 			: {
 					warm: 'Healthy. Network fees are paid from your gas credits.',
 					low: `Below ${formatAmount(CREDIT_FLOOR)} SCRT. DarkShell is adding ${formatAmount(CREDIT_REFILL)} SCRT automatically.`,
-					cold: 'Empty. The first top-up needs a little public SCRT (see below).',
+					cold: 'Empty. When sSCRT arrives, DarkShell asks the fee faucet to pay the fee of the first top-up — no SCRT needed.',
 					unknown: 'Could not be read right now. Nothing is lost.',
 				}[c.state],
 	);
@@ -350,7 +350,7 @@
 		</p>
 		{#if c?.state === 'cold'}
 			<p class="text-label text-text-faint">
-				<strong class="text-text-muted">First top-up:</strong> send about 0.2 public SCRT to your address; it pays the fee of the first refill. Or have someone buy credits for your address at the vault.
+				<strong class="text-text-muted">First top-up:</strong> a fee faucet pays the fee of the first refill from your sSCRT (once a day). If it is unavailable, send about 0.1 public SCRT to your address instead.
 			</p>
 		{/if}
 		{#if refillError}<p class="text-base text-negative">{refillError}</p>{/if}
