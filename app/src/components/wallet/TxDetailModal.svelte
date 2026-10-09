@@ -2,7 +2,9 @@
 	import { validatorName } from '../../lib/staking.svelte';
 	// One activity entry, opened: who, how much, the private memo, when, and
 	// the transaction itself (decrypted where this wallet sent it).
-	import { AlertCircle, ArrowDownLeft, ArrowLeftRight, Check, CheckCircle2, ChevronDown, Copy, ExternalLink, Fuel, Loader2, ReceiptText, Send, ShieldCheck, Zap } from '@lucide/svelte';
+	import { AlertCircle, Check, CheckCircle2, ChevronDown, Copy, ExternalLink, Eye, Loader2, ReceiptText, ShieldCheck, ShieldHalf, Zap } from '@lucide/svelte';
+	import ActivityIcon from './ActivityIcon.svelte';
+	import { fromChain, OVERALL_LABEL, overallOf, stepsOf, type Step } from '../../lib/txSteps';
 	import { untrack } from 'svelte';
 	import type { HistoryItem } from '../../lib/chain/sscrt';
 	import { describe, describeLogged, linkOf } from '../../lib/activity';
@@ -105,6 +107,30 @@
 		setTimeout(() => copied === what && (copied = ''), 1500);
 	}
 
+	/** what the transaction did, step by step: from the chain when we have it, else as it was sent */
+	const steps = $derived.by((): Step[] => {
+		if (item?.kind === 'in') return [{ title: 'Private sSCRT transfer', detail: 'received', privacy: 'private' }];
+		let list = chain ? stepsOf(fromChain(chain.messages), { validator: validatorName }) : (link?.steps ?? []);
+		// no transaction to read: what the private history itself says
+		if (!list.length && item) {
+			const amt = formatAmount(item.amount);
+			list = [
+				item.kind === 'unwrap'
+					? { title: 'Unwrap sSCRT → public SCRT', detail: `${amt} SCRT, visible on chain`, privacy: 'public' }
+					: item.kind === 'wrap'
+						? { title: 'Wrap SCRT → sSCRT', detail: `${amt} SCRT, visible on chain`, privacy: 'public' }
+						: item.counterparty === SHADESWAP_ROUTER
+							? { title: 'Swap on ShadeSwap', detail: `${amt} sSCRT in`, privacy: 'private' }
+							: { title: 'Private sSCRT transfer', detail: `${amt} sSCRT`, privacy: 'private' },
+			];
+		}
+		// the last leg of a Lightning payment happens off Secret
+		if (link?.kind === 'lightning') return [...list, { title: 'FixedFloat pays the Lightning invoice', detail: 'off Secret Network; FixedFloat sees it', privacy: 'public' }];
+		return list;
+	});
+	const overall = $derived(steps.length ? overallOf(steps) : item ? (item.kind === 'wrap' || item.kind === 'unwrap' ? 'public' : 'private') : null);
+	const isVote = $derived(link?.kind === 'vote');
+
 	const json = (v: unknown) => JSON.stringify(v, (_, x) => (typeof x === 'bigint' ? x.toString() : x instanceof Uint8Array ? `0x${[...x].map((b) => b.toString(16).padStart(2, '0')).join('')}` : x), 2);
 	const hidden = $derived(ui.hideBalance);
 </script>
@@ -139,11 +165,10 @@
 <Modal full title={d?.title ?? 'Transaction'} onclose={close}>
 	{#if d}
 		<div class="flex flex-col items-center gap-2 pt-4 text-center">
-			<span class="mb-1 flex size-14 items-center justify-center rounded-pill bg-surface {d.icon === 'in' ? 'text-positive' : d.icon === 'bolt' ? 'text-accent' : 'text-text'}">
-				{#if d.icon === 'in'}<ArrowDownLeft size={24} />{:else if d.icon === 'swap'}<ArrowLeftRight size={22} />{:else if d.icon === 'gas'}<Fuel size={22} />{:else if d.icon === 'shield'}<ShieldCheck
-						size={22}
-					/>{:else if d.icon === 'bolt'}<Zap size={22} />{:else}<Send size={21} />{/if}
-			</span>
+			<span class="mb-1"><ActivityIcon icon={d.icon} size={56} /></span>
+			{#if isVote}
+				<p class="text-title">{link?.memo ?? 'Vote'}</p>
+			{:else}
 			<div class="flex items-baseline gap-2">
 				<span class="text-[2.5rem] font-semibold leading-tight tracking-[-0.03em] tabular-nums {d.sign === '+' ? 'text-positive' : ''} {status === 'failed' ? 'text-text-faint line-through' : ''}"
 					>{hidden ? '••••' : `${d.sign}${formatAmount(amount)}`}</span
@@ -151,6 +176,7 @@
 				<span class="text-title text-text-muted">sSCRT</span>
 			</div>
 			{#if !hidden && usdValue(amount)}<span class="-mt-1 text-base tabular-nums text-text-faint">≈ {usdValue(amount)}</span>{/if}
+			{/if}
 			<span
 				class="mt-1 inline-flex items-center gap-1.5 rounded-pill px-3 py-1 text-label {status === 'confirmed'
 					? 'bg-[rgb(52_199_89/0.12)] text-positive'
@@ -198,8 +224,36 @@
 			{#if item?.height || chain?.height}{@render row('Block', (chain?.height ?? item?.height ?? 0).toLocaleString())}{/if}
 			{#if chain?.fee}{@render row('Network fee', chain.fee, { sub: item?.kind === 'in' ? 'paid by the sender' : chain.feePayer === GAS_VAULT_ADDRESS ? 'paid from gas credits' : chain.feePayer ? 'paid by a fee grant' : 'paid from your public SCRT' })}{/if}
 			{#if chain}{@render row('Gas', `${chain.gasUsed.toLocaleString()} / ${chain.gasWanted.toLocaleString()}`)}{/if}
-			{#if item}{@render row('Privacy', 'Private', { sub: 'Only you and the other side see the amount and memo' })}{/if}
 		</dl>
+
+		{#if steps.length && overall}
+			<section class="flex flex-col gap-2">
+				<div class="flex items-center justify-between px-1">
+					<h3 class="text-title">Steps</h3>
+					<span class="inline-flex items-center gap-1.5 text-label {overall === 'public' ? 'text-text-muted' : 'text-accent'}">
+						{#if overall === 'private'}<ShieldCheck size={13} />{:else if overall === 'partial'}<ShieldHalf size={13} />{:else}<Eye size={13} />{/if}
+						{OVERALL_LABEL[overall]}
+					</span>
+				</div>
+				<ol class="flex flex-col rounded-card border border-border bg-surface-1">
+					{#each steps as st, n (n)}
+						<li class="flex items-start gap-3 px-4 py-3.5 {n ? 'border-t border-border' : ''}">
+							<span class="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-pill bg-surface-3 text-[0.75rem] font-medium text-text-muted">{n + 1}</span>
+							<span class="min-w-0 flex-1">
+								<span class="block text-base">{st.title}{#if st.upkeep}<span class="text-text-faint"> · upkeep</span>{/if}</span>
+								{#if st.detail && !hidden}<span class="block break-words text-label text-text-faint">{st.detail}</span>{/if}
+							</span>
+							<span class="mt-0.5 inline-flex shrink-0 items-center gap-1 text-label {st.privacy === 'private' ? 'text-accent' : 'text-text-faint'}">
+								{#if st.privacy === 'private'}<ShieldCheck size={12} /> Private{:else}<Eye size={12} /> Public{/if}
+							</span>
+						</li>
+					{/each}
+				</ol>
+				<p class="px-1 text-label text-text-faint">
+					Private steps hide the amount, recipient and memo from everyone but the two sides. Public steps — unwrapping, wrapping, staking, sends of public coins and transfers to other chains — are visible to anyone.
+				</p>
+			</section>
+		{/if}
 
 		{#if hash}
 			<div class="flex flex-col rounded-card border border-border bg-surface-1">

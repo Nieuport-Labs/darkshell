@@ -1,7 +1,7 @@
 <script lang="ts">
 	// Layout after Vizor (account header, balance card, Send/Receive, recent
 	// activity); components and tokens from Secret_Dashboard.
-	import { ArrowDownToLine, ChevronDown, Eye, EyeOff, Loader2, ScanLine, Send, ShieldCheck } from '@lucide/svelte';
+	import { ArrowDownToLine, ChevronDown, Eye, EyeOff, Loader2, Lock, ScanLine, Send, ShieldCheck } from '@lucide/svelte';
 	import type { TxOutcome } from '../lib/chain/tx';
 	import { formatAmount, shortAddress } from '../lib/format';
 	import { kv } from '../lib/storage';
@@ -25,11 +25,7 @@
 	const total = $derived(totalBalance());
 	const usd = $derived(usdValue(total));
 	const [int, frac] = $derived((total === null ? '' : formatAmount(total, 6)).split('.'));
-	const extras = $derived(
-		[wallet.native && wallet.native > 0n ? `${formatAmount(wallet.native, 4)} public` : '', wallet.rewardsShown > 0n ? `${formatAmount(wallet.rewardsShown, 6)} rewards` : '']
-			.filter(Boolean)
-			.join(' · '),
-	);
+	const publicPart = $derived(wallet.native && wallet.native > 0n ? `incl. ${formatAmount(wallet.native, 4)} public` : '');
 
 	async function makePrivate() {
 		wrapping = true;
@@ -93,9 +89,16 @@
 			<button type="button" onclick={refresh} class="text-negative">Couldn't update. Tap to retry</button>
 		{:else if wallet.balance !== null}
 			{#if price.usd !== null}{ui.hideBalance ? '$••••' : usd}{/if}
-			{#if extras && !ui.hideBalance}<span class="text-text-faint">{price.usd !== null ? ' · ' : ''}incl. {extras}</span>{/if}
+			{#if publicPart && !ui.hideBalance}<span class="text-text-faint">{price.usd !== null ? ' · ' : ''}{publicPart}</span>{/if}
 		{/if}
 	</p>
+	{#if wallet.staked > 0n}
+		<!-- staked SCRT is locked: not in the balance above, its rewards are -->
+		<button type="button" onclick={() => goTab('staking')} class="-mt-1 inline-flex items-center gap-1.5 text-base tabular-nums text-text-muted">
+			<Lock size={14} class="text-accent" aria-hidden="true" />
+			{ui.hideBalance ? '••••' : formatAmount(wallet.staked, 2)} SCRT staked
+		</button>
+	{/if}
 </section>
 
 <div class="mt-4 grid grid-cols-2 gap-3">

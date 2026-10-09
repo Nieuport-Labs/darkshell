@@ -6,6 +6,7 @@ import type { HistoryItem } from './chain/sscrt';
 import { SHADESWAP_ROUTER } from './chain/shadeSwap';
 import { shortAddress } from './format';
 import type { LoggedTx } from './wallet.svelte';
+import type { Overall } from './txSteps';
 
 export type Icon = 'in' | 'out' | 'swap' | 'gas' | 'shield' | 'bolt' | 'stake' | 'vote';
 
@@ -79,4 +80,16 @@ export function describeLogged(l: LoggedTx): Described {
 	const sign = l.kind === 'wrap' || l.kind === 'claim' ? '+' : l.kind === 'vote' || l.kind === 'unstake' ? '' : '−';
 	const detail = l.kind === 'stake' || l.kind === 'unstake' || l.kind === 'vote' ? '' : to;
 	return { title: l.status === 'failed' ? `${title} failed` : title, detail, sign, icon, link: l };
+}
+
+/**
+ * How private an entry was, for the list (the detail page has the steps).
+ * Our own sends carry it from when they were built; history alone tells the
+ * rest: transfers and swaps are private, wrapping and unwrapping are not.
+ */
+export function privacyOf(h: HistoryItem | undefined, link: LoggedTx | undefined): Overall {
+	if (link?.privacy) return link.privacy;
+	if (!h) return 'public';
+	if (h.kind === 'wrap' || h.kind === 'unwrap') return 'public';
+	return 'private';
 }

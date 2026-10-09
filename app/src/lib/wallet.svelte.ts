@@ -40,6 +40,8 @@ import { MSG_WITHDRAW_REWARD, queryRestaking, queryRewards, queryWithdrawAddress
 import { MsgWithdrawDelegatorReward } from 'secretjs';
 import { snip20Msg } from './chain/sscrt';
 import { planTopUp, ShortError } from './pay/topup';
+import { fromPlan, overallOf, stepsOf, type Overall, type Step } from './txSteps';
+import { queryDelegations } from './chain/staking';
 import { MSG_EXECUTE } from './gas/feePayer';
 import { startPrice, stopPrice } from './price.svelte';
 
@@ -76,6 +78,8 @@ export const wallet = $state({
 	rewards: [] as Reward[],
 	/** all pending rewards, estimated forward block by block between reads (for display) */
 	rewardsShown: 0n,
+	/** SCRT staked (delegated), shown on Home but not spendable */
+	staked: 0n,
 	history: [] as HistoryItem[],
 	refreshing: false,
 	switching: false,
@@ -101,6 +105,9 @@ export interface LoggedTx {
 	memo?: string;
 	status?: 'pending' | 'confirmed' | 'failed';
 	error?: string;
+	/** what the transaction did, step by step, and how private each step was */
+	steps?: Step[];
+	privacy?: Overall;
 }
 
 /** Recipient, amount and memo of a payment, kept with its log entry. */
@@ -136,6 +143,7 @@ async function activate(v: OpenVault, index: number): Promise<void> {
 	wallet.history = [];
 	wallet.rewards = [];
 	wallet.rewardsShown = 0n;
+	wallet.staked = 0n;
 	rewardBase = null;
 }
 
@@ -588,12 +596,14 @@ async function readRewards(s: Session): Promise<void> {
 	if (s.decoy) return;
 	const me = s.wallet.address;
 	try {
-		const [all, restaking, withdraw] = await Promise.all([
+		const [all, restaking, withdraw, dels] = await Promise.all([
 			queryRewards(s.client, me),
 			queryRestaking(s.client, me).catch(() => [] as string[]),
 			queryWithdrawAddress(s.client, me).catch(() => me),
+			queryDelegations(s.client, me).catch(() => null),
 		]);
 		if (session !== s) return;
+		if (dels) wallet.staked = dels.reduce((t, d) => t + d.amount, 0n);
 		const total = all.reduce((t, r) => t + r.amount, 0n);
 		const now = Date.now();
 		// the rate only from two reads in a row that grew (a claim resets the total)
@@ -726,6 +736,8 @@ export async function pay(
 	const spare = sscrtAfter > plan.spends ? sscrtAfter - plan.spends : 0n;
 	const nativeLeft = top ? nativeUsable() - top.fromNative : nativeSpare;
 	const wrapped = top ? top.deposit.toString() : info.wrapped;
+	const steps = stepsOf(fromPlan(full.msgs));
+	const privacy = overallOf(steps);
 	const send = () =>
 		sendTx(s.client, s.wallet.address, full.msgs, full.gas, full.types, {
 			memo: plan.txMemo,
@@ -740,7 +752,7 @@ export async function pay(
 					wallet.rewardsShown = 0n;
 					rewardBase = null;
 				}
-				void log({ hash: p.hash, kind, time: Date.now(), spent: plan.spends.toString(), status: 'pending', ...info, wrapped });
+				void log({ hash: p.hash, kind, time: Date.now(), spent: plan.spends.toString(), status: 'pending', ...info, wrapped, steps, privacy });
 				onBroadcast?.(p);
 			},
 		});
@@ -759,6 +771,8 @@ export async function pay(
 		status: out.status === 'confirmed' ? 'confirmed' : 'pending',
 		...info,
 		wrapped,
+		steps,
+		privacy,
 	});
 	setTimeout(() => void refresh(), out.status === 'confirmed' ? 0 : 8000);
 	return out;
