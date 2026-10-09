@@ -1,6 +1,10 @@
 import { mount } from 'svelte';
+import { gateNetwork } from './lib/tor.svelte';
 import App from './App.svelte';
 import './design/index.css';
+
+// with Tor on, nothing goes out before Tor is connected (lib/tor.svelte.ts)
+gateNetwork();
 
 export default mount(App, { target: document.getElementById('app')! });
 

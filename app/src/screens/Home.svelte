@@ -11,6 +11,7 @@
 	import Button from '../components/ui/Button.svelte';
 	import ActivityList from '../components/wallet/ActivityList.svelte';
 	import GasChip from '../components/wallet/GasChip.svelte';
+	import TorIcon from '../components/wallet/TorIcon.svelte';
 
 	let wrapping = $state(false);
 	let wrapMsg = $state('');
@@ -51,6 +52,7 @@
 		</span>
 	</button>
 	<div class="flex shrink-0 items-center gap-1">
+		<TorIcon onclick={() => goTab('settings')} />
 		<GasChip onclick={() => goTab('settings')} />
 		<button type="button" onclick={() => (ui.scanning = true)} aria-label="Scan QR code" class="state-layer rounded-pill p-2 text-text-muted">
 			<ScanLine size={20} />
@@ -84,21 +86,24 @@
 		</div>
 	{/if}
 
-	<p class="mt-2.5 min-h-6 text-base tabular-nums text-text-muted">
-		{#if wallet.error}
-			<button type="button" onclick={refresh} class="text-negative">Couldn't update. Tap to retry</button>
-		{:else if wallet.balance !== null}
-			{#if price.usd !== null}{ui.hideBalance ? '$••••' : usd}{/if}
-			{#if publicPart && !ui.hideBalance}<span class="text-text-faint">{price.usd !== null ? ' · ' : ''}{publicPart}</span>{/if}
+	<!-- USD (and the public part) on the left, staked SCRT on the right: one line -->
+	<div class="mt-2.5 flex min-h-6 items-center justify-between gap-3 text-base tabular-nums text-text-muted">
+		<p class="min-w-0 truncate">
+			{#if wallet.error}
+				<button type="button" onclick={refresh} class="text-negative">Couldn't update. Tap to retry</button>
+			{:else if wallet.balance !== null}
+				{#if price.usd !== null}{ui.hideBalance ? '$••••' : usd}{/if}
+				{#if publicPart && !ui.hideBalance}<span class="text-text-faint">{price.usd !== null ? ' · ' : ''}{publicPart}</span>{/if}
+			{/if}
+		</p>
+		{#if wallet.staked > 0n}
+			<!-- staked SCRT is locked: not in the balance above, its rewards are -->
+			<button type="button" onclick={() => goTab('staking')} class="inline-flex shrink-0 items-center gap-1.5" aria-label="{ui.hideBalance ? 'Hidden' : formatAmount(wallet.staked, 2)} SCRT staked">
+				<Lock size={14} class="text-accent" aria-hidden="true" />
+				{ui.hideBalance ? '••••' : formatAmount(wallet.staked, 2)} SCRT
+			</button>
 		{/if}
-	</p>
-	{#if wallet.staked > 0n}
-		<!-- staked SCRT is locked: not in the balance above, its rewards are -->
-		<button type="button" onclick={() => goTab('staking')} class="-mt-1 inline-flex items-center gap-1.5 text-base tabular-nums text-text-muted">
-			<Lock size={14} class="text-accent" aria-hidden="true" />
-			{ui.hideBalance ? '••••' : formatAmount(wallet.staked, 2)} SCRT staked
-		</button>
-	{/if}
+	</div>
 </section>
 
 <div class="mt-4 grid grid-cols-2 gap-3">

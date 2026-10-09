@@ -16,6 +16,7 @@ import { MSG_EXECUTE, fetchGrants, planFee, type FeePlan } from '../gas/feePayer
 import { availableFee, type FeeGrant } from '../gas/feegrant-sdk';
 import { addrKey, kv } from '../storage';
 import { codeHash, nativeBalance } from './client';
+import { torReady } from '../tor.svelte';
 
 export class TxFailedError extends Error {
 	constructor(
@@ -132,6 +133,8 @@ export async function sendTx(
 	opts: SendOptions = {},
 ): Promise<TxOutcome> {
 	if (inFlight) throw new BusyError();
+	// with Tor on, the network waits for Tor; a payment should not hang on it
+	if (!torReady()) throw new Error('Tor is still connecting. Try again once the onion at the top turns green.');
 	inFlight = true;
 	try {
 		const [grants, native] = await Promise.all([fetchGrants(address), nativeBalance(client, address)]);

@@ -53,5 +53,6 @@ secretjs (MIT), @scure/bip39 (MIT), hash-wasm (MIT), qrcode-generator (MIT), bar
 - [@capacitor/local-notifications](https://github.com/ionic-team/capacitor-plugins) (MIT, Ionic): phone notifications from the app. Its exact-alarm permission is removed from the merged Android manifest.
 - [OkHttp](https://github.com/square/okhttp) (Apache-2.0, Square): the payment watcher's WebSocket.
 - [tor-android](https://github.com/guardianproject/tor-android) (BSD-3-Clause, Guardian Project; bundles Tor, BSD-3-Clause, The Tor Project) and [jtorctl](https://github.com/guardianproject/jtorctl) (BSD-3-Clause): Tor inside the Android app.
+- Tor onion logo (`app/src/components/wallet/TorIcon.svelte`, from Tor-logo-2011-flat.svg on Wikimedia Commons, reduced to one colour): a trademark of The Tor Project, Inc., used to show that the app is connected through Tor.
 - [AndroidX WebKit](https://developer.android.com/jetpack/androidx/releases/webkit) (Apache-2.0): routing the WebView through Tor.
 - SNIP-52 algorithms follow the specification in [SolarRepublic/SNIPs](https://github.com/SolarRepublic/SNIPs/blob/master/SNIP-52.md).
