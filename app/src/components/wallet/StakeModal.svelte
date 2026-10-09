@@ -1,11 +1,13 @@
 <script lang="ts">
-	// Stake (from sSCRT) or unstake with one validator: pick a validator, see
-	// your stake with it, enter an amount, review, swipe. One transaction each.
+	// Stake (from sSCRT) or unstake: enter an amount, review, swipe. One
+	// transaction each. Staking suggests a validator (changeable); unstaking
+	// with a single validator goes straight to the amount. Opened on a
+	// validator, it shows your stake there first.
 	import { ExternalLink, Search, ShieldCheck } from '@lucide/svelte';
 	import { fromBaseUnits, toBaseUnits } from 'secret-pay';
 	import { untrack } from 'svelte';
 	import { BusyError, type TxOutcome } from '../../lib/chain/tx';
-	import { MIN_WRAP_REWARD } from '../../lib/chain/staking';
+	import { MIN_WRAP_REWARD, suggestValidator } from '../../lib/chain/staking';
 	import { formatAmount } from '../../lib/format';
 	import { NoGasError } from '../../lib/gas/feePayer';
 	import { usdValue } from '../../lib/price.svelte';
@@ -24,7 +26,24 @@
 	type Step = 'pick' | 'manage' | 'amount' | 'review';
 	let validator = $state(untrack(() => initial ?? ''));
 	let mode = $state<'stake' | 'unstake'>(untrack(() => initialMode ?? 'stake'));
-	let step = $state<Step>(untrack(() => (!initial ? 'pick' : initialMode ? 'amount' : 'manage')));
+	// no validator given: straight to the amount (one is suggested, or the only one you use)
+	let step = $state<Step>(untrack(() => (initial && !initialMode ? 'manage' : 'amount')));
+	/** the validator was chosen for the user, not by them */
+	let suggested = $state(false);
+
+	$effect(() => {
+		if (validator || step !== 'amount' || !staking.loaded) return;
+		if (mode === 'unstake') {
+			if (staking.delegations.length === 1) validator = staking.delegations[0].validator;
+			else step = 'pick';
+			return;
+		}
+		const s = suggestValidator(staking.validators, staking.delegations.map((d) => d.validator), wallet.address);
+		if (s) {
+			validator = s.address;
+			suggested = true;
+		} else if (staking.validators.length) step = 'pick';
+	});
 	let query = $state('');
 	let amount = $state('');
 	let sending = $state(false);
@@ -45,7 +64,9 @@
 
 	const list = $derived.by(() => {
 		const q = query.trim().toLowerCase();
-		return staking.validators.filter((x) => x.bonded && !x.jailed && (!q || x.moniker.toLowerCase().includes(q) || x.address.includes(q)));
+		// unstaking: only the validators you use
+		const pool = mode === 'unstake' ? staking.delegations.map((d) => validatorOf(d.validator)).filter((x) => !!x) : staking.validators.filter((x) => x.bonded && !x.jailed);
+		return pool.filter((x) => !q || x.moniker.toLowerCase().includes(q) || x.address.includes(q));
 	});
 
 	const available = $derived(mode === 'stake' ? spendable() : mine);
@@ -66,8 +87,9 @@
 
 	function pick(address: string) {
 		validator = address;
-		step = delegationTo(address) > 0n ? 'manage' : 'amount';
-		mode = 'stake';
+		suggested = false;
+		amount = '';
+		step = 'amount';
 	}
 
 	function startAmount(m: 'stake' | 'unstake') {
@@ -97,11 +119,14 @@
 	const back = $derived.by(() => {
 		if (outcome || sending) return undefined;
 		if (step === 'review') return () => ((step = 'amount'), (failure = ''));
-		if (step === 'amount') return mine > 0n ? () => (step = 'manage') : initial ? undefined : () => (step = 'pick');
+		if (step === 'amount') return initial && !initialMode ? () => (step = 'manage') : undefined;
+		if (step === 'pick' && validator) return () => (step = 'amount');
 		if (step === 'manage' && !initial) return () => (step = 'pick');
 		return undefined;
 	});
-	const title = $derived(outcome ? (mode === 'stake' ? 'Staked' : 'Unstaking') : step === 'pick' ? 'Choose a validator' : step === 'review' ? 'Confirm' : mode === 'unstake' && step === 'amount' ? 'Unstake' : step === 'amount' ? 'Stake' : (v?.moniker ?? 'Validator'));
+	const title = $derived(
+		outcome ? (mode === 'stake' ? 'Staked' : 'Unstaking') : step === 'pick' ? (mode === 'unstake' ? 'Unstake from' : 'Choose a validator') : step === 'review' ? 'Confirm' : step === 'amount' ? (mode === 'unstake' ? 'Unstake' : 'Stake') : (v?.moniker ?? 'Validator'),
+	);
 </script>
 
 <Modal full {title} onclose={close} onback={back}>
@@ -118,7 +143,7 @@
 			<Search size={16} class="shrink-0 text-text-faint" />
 			<input bind:value={query} placeholder="Search validators" aria-label="Search validators" autocomplete="off" spellcheck="false" class="min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-text-faint" />
 		</label>
-		<p class="-mt-2 px-1 text-label text-text-faint">Sorted by voting power. Staking with smaller validators keeps the network decentralised.</p>
+		{#if mode === 'stake'}<p class="-mt-2 px-1 text-label text-text-faint">Validators run the network and pass rewards on to you, minus their fee. Smaller ones keep the network spread out.</p>{/if}
 		{#if !staking.validators.length}
 			<p class="text-base text-text-muted">{staking.error || 'Loading validators…'}</p>
 		{/if}
@@ -129,9 +154,9 @@
 						<ValidatorAvatar address={x.address} name={x.moniker} identity={x.identity} size={44} />
 						<span class="min-w-0 flex-1">
 							<span class="block truncate text-base font-medium">{x.moniker}</span>
-							<span class="block truncate text-label text-text-faint">{pct(x.commission)} commission · {share(x.tokens).toFixed(1)} % of stake</span>
+							<span class="block truncate text-label text-text-faint">{mode === 'unstake' ? `${formatAmount(delegationTo(x.address), 2)} SCRT staked` : `${pct(x.commission)} fee · ${share(x.tokens).toFixed(1)} % of the network`}</span>
 						</span>
-						{#if delegationTo(x.address) > 0n}<span class="shrink-0 rounded-pill bg-accent-soft px-2 py-0.5 text-[0.6875rem] font-medium text-accent">Staked</span>{/if}
+						{#if mode === 'stake' && delegationTo(x.address) > 0n}<span class="shrink-0 rounded-pill bg-accent-soft px-2 py-0.5 text-[0.6875rem] font-medium text-accent">Staked</span>{/if}
 					</button>
 				</li>
 			{/each}
@@ -141,7 +166,7 @@
 			<ValidatorAvatar address={validator} name={v?.moniker ?? '?'} identity={v?.identity} size={72} />
 			<h2 class="text-headline">{v?.moniker ?? validator}</h2>
 			<p class="text-base text-text-muted">
-				{pct(v?.commission ?? 0)} commission{v?.bonded ? ` · ${share(v.tokens).toFixed(1)} % of stake` : ''}
+				{pct(v?.commission ?? 0)} fee{v?.bonded ? ` · ${share(v.tokens).toFixed(1)} % of the network` : ''}
 				{#if v?.jailed}<span class="block text-negative">Jailed — this stake earns nothing. Consider unstaking.</span>{:else if v && !v.bonded}<span class="block text-negative">Not in the active set — this stake earns nothing.</span>{/if}
 			</p>
 			{#if v?.website}
@@ -161,11 +186,18 @@
 			<Button size="lg" disabled={!!v?.jailed || (v && !v.bonded)} onclick={() => startAmount('stake')}>Stake more</Button>
 		</div>
 	{:else if step === 'amount'}
-		<div class="flex items-center gap-3 rounded-card bg-surface px-3 py-2.5">
-			<ValidatorAvatar address={validator} name={v?.moniker ?? '?'} identity={v?.identity} size={32} />
-			<span class="min-w-0 flex-1 truncate text-base font-medium">{v?.moniker ?? validator}</span>
-			{#if !initial || mine > 0n}<button type="button" class="text-label text-accent" onclick={() => (step = initial && mine > 0n ? 'manage' : 'pick')}>Change</button>{/if}
-		</div>
+		{#if validator}
+			<div class="flex items-center gap-3 rounded-card bg-surface px-3 py-2.5">
+				<ValidatorAvatar address={validator} name={v?.moniker ?? '?'} identity={v?.identity} size={32} />
+				<span class="min-w-0 flex-1">
+					<span class="block truncate text-base font-medium">{v?.moniker ?? validator}</span>
+					<span class="block truncate text-label text-text-faint">{suggested ? 'Suggested validator' : 'Validator'} · {pct(v?.commission ?? 0)} fee</span>
+				</span>
+				{#if !initial && (mode === 'stake' || staking.delegations.length > 1)}<button type="button" class="px-1 text-label text-accent" onclick={() => (step = 'pick')}>Change</button>{/if}
+			</div>
+		{:else}
+			<div class="flex items-center gap-2 rounded-card bg-surface px-3 py-3.5 text-base text-text-muted">Finding a validator…</div>
+		{/if}
 		<div class="flex flex-1 flex-col items-center justify-center gap-2">
 			<AmountHero bind:amount symbol="SCRT" fiat max={() => available !== null && (amount = fromBaseUnits(available, 6))} />
 			<p class="text-label text-text-faint">
@@ -174,7 +206,7 @@
 			{#if amountError}<p class="text-label text-negative" role="alert">{amountError}</p>{/if}
 		</div>
 		{#if mode === 'unstake'}
-			<p class="px-1 text-label text-text-faint">Unstaked SCRT earns nothing and can't be moved for {Math.round(staking.unbondingSeconds / 86_400)} days. Then it comes back as public SCRT.</p>
+			<p class="px-1 text-label text-text-faint">It takes {Math.round(staking.unbondingSeconds / 86_400)} days to come back and earns nothing meanwhile. Then you can move it to your private balance with one tap.</p>
 		{/if}
 		<Button block size="xl" disabled={!ready} onclick={() => ((failure = ''), (step = 'review'))}>{!amount ? 'Enter an amount' : 'Review'}</Button>
 	{:else}
@@ -189,17 +221,17 @@
 		<dl class="flex flex-col divide-y divide-border rounded-card border border-border bg-surface-1 text-base">
 			<div class="flex items-start justify-between gap-4 px-4 py-3.5">
 				<dt class="text-text-faint">Validator</dt>
-				<dd class="text-right">{v?.moniker ?? validator}<span class="block text-label text-text-faint">{pct(v?.commission ?? 0)} commission</span></dd>
+				<dd class="text-right">{v?.moniker ?? validator}<span class="block text-label text-text-faint">{pct(v?.commission ?? 0)} fee</span></dd>
 			</div>
 			{#if mode === 'stake'}
 				<div class="flex items-start justify-between gap-4 px-4 py-3.5">
 					<dt class="text-text-faint">From</dt>
-					<dd class="text-right">Private balance<span class="block text-label text-text-faint">unwrapped and staked in one transaction</span></dd>
+					<dd class="text-right">Your balance<span class="block text-label text-text-faint">staked amounts are public on chain</span></dd>
 				</div>
 			{:else}
 				<div class="flex items-start justify-between gap-4 px-4 py-3.5">
 					<dt class="text-text-faint">Back on</dt>
-					<dd class="text-right">{backDate.toLocaleDateString()}<span class="block text-label text-text-faint">as public SCRT</span></dd>
+					<dd class="text-right">{backDate.toLocaleDateString()}<span class="block text-label text-text-faint">in {Math.round(staking.unbondingSeconds / 86_400)} days</span></dd>
 				</div>
 			{/if}
 			{#if wrapsReward}

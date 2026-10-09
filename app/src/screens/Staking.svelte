@@ -3,7 +3,7 @@
 	// unwrapped and delegated in one transaction; claimed rewards go straight
 	// back into sSCRT; unstaked SCRT comes back public after 21 days and is made
 	// private with one tap.
-	import { ChevronRight, Landmark, Loader2, Plus, ShieldCheck } from '@lucide/svelte';
+	import { ChevronRight, Loader2, Minus, Plus, ShieldCheck } from '@lucide/svelte';
 	import PageHeader from '../components/ui/PageHeader.svelte';
 	import Button from '../components/ui/Button.svelte';
 	import ValidatorAvatar from '../components/wallet/ValidatorAvatar.svelte';
@@ -11,7 +11,7 @@
 	import type { TxOutcome } from '../lib/chain/tx';
 	import { formatAmount } from '../lib/format';
 	import { usdValue } from '../lib/price.svelte';
-	import { claimAll, loadGovernance, loadStaking, rewardOf, staking, totalRewards, totalStaked, validatorName, validatorOf } from '../lib/staking.svelte';
+	import { claimAll, loadGovernance, loadStaking, staking, totalRewards, totalStaked, validatorName, validatorOf } from '../lib/staking.svelte';
 	import { kv } from '../lib/storage';
 	import { open, ui } from '../lib/ui.svelte';
 	import { wallet, wrapPublic } from '../lib/wallet.svelte';
@@ -46,7 +46,7 @@
 		claimMsg = '';
 		try {
 			const out: TxOutcome = await claimAll();
-			claimMsg = out.status === 'confirmed' ? 'Rewards are in your private balance.' : 'Sent; waiting for confirmation.';
+			claimMsg = out.status === 'confirmed' ? 'Collected into your private balance.' : 'Sent; waiting for confirmation.';
 		} catch (e) {
 			claimMsg = e instanceof Error ? e.message : String(e);
 		} finally {
@@ -80,7 +80,7 @@
 	<PageHeader title="Earn" />
 
 	<div class="-mt-5 grid grid-cols-2 gap-1 rounded-pill bg-surface p-1" role="tablist">
-		{#each [['staking', 'Staking'], ['governance', 'Governance']] as [v, label] (v)}
+		{#each [['staking', 'Staking'], ['governance', 'Vote']] as [v, label] (v)}
 			<button
 				type="button"
 				role="tab"
@@ -92,36 +92,48 @@
 	</div>
 
 	{#if view === 'staking'}
-		<section class="flex flex-col items-start gap-1 px-1 pt-2">
-			<span class="text-label text-text-faint">Staked</span>
-			<div class="flex items-baseline gap-2">
-				<span class="text-[2.5rem] font-semibold leading-none tracking-[-0.03em] tabular-nums">{staking.loaded ? hide(formatAmount(staked, 2)) : '—'}</span>
-				<span class="text-title text-text-muted">SCRT</span>
-			</div>
-			<span class="text-base text-text-faint">
-				{#if staking.loaded && staked > 0n && usdValue(staked) && !ui.hideBalance}≈ {usdValue(staked)} ·{/if}
-				{staking.apr ? `≈ ${pct(staking.apr)} a year` : 'Earn SCRT for securing the network'}
-			</span>
-		</section>
-
-		{#if rewards > 0n}
-			<div class="flex items-center justify-between gap-3 rounded-card border border-border bg-surface-1 px-4 py-3">
-				<span class="min-w-0">
-					<span class="block text-label text-text-faint">Rewards</span>
-					<span class="block text-title tabular-nums text-positive">+{hide(formatAmount(rewards, 6))} SCRT</span>
+		<!-- what you have staked and what it earns: one card -->
+		<section class="flex flex-col gap-4 rounded-card border border-border bg-surface-1 p-5">
+			<div class="flex flex-col gap-1">
+				<span class="text-label text-text-faint">Staked</span>
+				<div class="flex items-baseline gap-2">
+					<span class="text-[2.5rem] font-semibold leading-none tracking-[-0.03em] tabular-nums">{staking.loaded ? hide(formatAmount(staked, 2)) : '—'}</span>
+					<span class="text-title text-text-muted">SCRT</span>
+				</div>
+				<span class="text-base text-text-faint">
+					{#if staking.apr}Earns ≈ {pct(staking.apr)} a year{:else}Earn SCRT for helping run the network{/if}{#if staking.loaded && staked > 0n && usdValue(staked) && !ui.hideBalance}
+						· ≈ {usdValue(staked)}{/if}
 				</span>
-				<Button variant="soft" size="sm" loading={claiming} onclick={claim}>
-					{#snippet icon()}<ShieldCheck size={15} />{/snippet}
-					Claim to private
-				</Button>
 			</div>
-			{#if claimMsg}<p class="-mt-5 px-1 text-label text-text-faint">{claimMsg}</p>{/if}
-		{/if}
+			{#if rewards > 0n}
+				<div class="flex items-center justify-between gap-3 border-t border-border pt-4">
+					<span class="min-w-0">
+						<span class="block text-label text-text-faint">Earned so far</span>
+						<span class="block text-title tabular-nums text-positive">+{hide(formatAmount(rewards, 6))} SCRT</span>
+					</span>
+					<Button variant="soft" size="sm" loading={claiming} onclick={claim}>Collect</Button>
+				</div>
+			{/if}
+		</section>
+		{#if claimMsg}<p class="-mt-5 px-1 text-label text-text-faint">{claimMsg}</p>{:else if rewards > 0n}<p class="-mt-5 px-1 text-label text-text-faint">Already counted in your balance; collected for you whenever you pay.</p>{/if}
+
+		<div class="grid gap-3 {staked > 0n ? 'grid-cols-2' : 'grid-cols-1'}">
+			<Button block size="lg" onclick={() => open({ name: 'stake', mode: 'stake' })}>
+				{#snippet icon()}<Plus size={18} />{/snippet}
+				Stake
+			</Button>
+			{#if staked > 0n}
+				<Button variant="secondary" block size="lg" onclick={() => open({ name: 'stake', mode: 'unstake' })}>
+					{#snippet icon()}<Minus size={18} />{/snippet}
+					Unstake
+				</Button>
+			{/if}
+		</div>
 
 		{#if publicScrt}
 			<div class="flex items-center justify-between gap-3 rounded-card border border-border bg-surface-1 px-4 py-3">
 				<span class="min-w-0">
-					<span class="block text-label text-text-faint">Unstaked, public</span>
+					<span class="block text-label text-text-faint">Public SCRT, not private yet</span>
 					<span class="block text-title tabular-nums">{hide(formatAmount(publicScrt))} SCRT</span>
 				</span>
 				<Button variant="soft" size="sm" loading={wrapping} onclick={makePrivate}>
@@ -132,40 +144,44 @@
 			{#if wrapMsg}<p class="-mt-5 px-1 text-label text-text-faint">{wrapMsg}</p>{/if}
 		{/if}
 
-		<Button block size="lg" onclick={() => open({ name: 'stake' })}>
-			{#snippet icon()}<Plus size={18} />{/snippet}
-			Stake from private balance
-		</Button>
-
 		{#if staking.error && !staking.loaded}
 			<p class="text-base text-negative">{staking.error}</p>
 		{:else if !staking.loaded}
 			<div class="flex items-center gap-2 text-base text-text-muted"><Loader2 size={16} class="animate-spin" /> Loading…</div>
 		{:else}
+			{#if staking.unbondings.length}
+				<section class="flex flex-col">
+					<h2 class="pb-1 text-title">On the way back</h2>
+					<ul class="flex flex-col divide-y divide-border">
+						{#each staking.unbondings as u, i (`${u.validator}-${i}`)}
+							<li class="flex items-center justify-between gap-4 py-3">
+								<span class="text-base tabular-nums">{hide(formatAmount(u.amount, 2))} SCRT</span>
+								<span class="text-label text-text-faint">{days(u.completesAt)} · {u.completesAt.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}</span>
+							</li>
+						{/each}
+					</ul>
+				</section>
+			{/if}
+
 			{#if staking.delegations.length}
 				<section class="flex flex-col">
-					<h2 class="pb-2 text-title">Your validators</h2>
-					<ul class="flex flex-col gap-1">
+					<h2 class="pb-1 text-title">Staked with</h2>
+					<ul class="flex flex-col">
 						{#each staking.delegations as d (d.validator)}
 							{@const v = validatorOf(d.validator)}
-							{@const r = rewardOf(d.validator)}
+							{@const idle = !!v && (v.jailed || !v.bonded)}
 							<li>
 								<button
 									type="button"
 									onclick={() => open({ name: 'stake', validator: d.validator })}
-									class="state-layer -mx-2 flex w-[calc(100%+1rem)] items-center gap-4 rounded-card px-2 py-3.5 text-left"
+									class="state-layer -mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-card px-2 py-3 text-left"
 								>
-									<ValidatorAvatar address={d.validator} name={validatorName(d.validator)} identity={v?.identity} size={44} />
+									<ValidatorAvatar address={d.validator} name={validatorName(d.validator)} identity={v?.identity} size={36} />
 									<span class="min-w-0 flex-1">
-										<span class="block truncate text-base font-medium">{validatorName(d.validator)}</span>
-										<span class="block truncate text-label {v?.jailed || (v && !v.bonded) ? 'text-negative' : 'text-text-faint'}">
-											{v?.jailed ? 'Jailed — not earning' : v && !v.bonded ? 'Inactive — not earning' : `${pct(v?.commission ?? 0)} commission`}
-										</span>
+										<span class="block truncate text-base">{validatorName(d.validator)}</span>
+										{#if idle}<span class="block truncate text-label text-negative">Not earning — consider unstaking</span>{/if}
 									</span>
-									<span class="flex shrink-0 flex-col items-end">
-										<span class="text-base font-medium tabular-nums">{hide(formatAmount(d.amount, 2))}</span>
-										{#if r > 0n}<span class="text-label tabular-nums text-positive">+{hide(formatAmount(r, 4))}</span>{/if}
-									</span>
+									<span class="shrink-0 text-base tabular-nums text-text-muted">{hide(formatAmount(d.amount, 2))}</span>
 									<ChevronRight size={16} class="shrink-0 text-text-faint" />
 								</button>
 							</li>
@@ -173,31 +189,11 @@
 					</ul>
 				</section>
 			{:else}
-				<div class="flex flex-col items-center gap-2 px-6 py-6 text-center">
-					<span class="flex size-12 items-center justify-center rounded-pill bg-accent-soft text-accent"><Landmark size={22} /></span>
-					<p class="text-base text-text-muted">
-						Stake sSCRT with a validator to earn rewards and vote on proposals. Unstaking takes {Math.round(staking.unbondingSeconds / 86_400)} days.
-					</p>
-				</div>
-			{/if}
-
-			{#if staking.unbondings.length}
-				<section class="flex flex-col">
-					<h2 class="pb-2 text-title">Unstaking</h2>
-					<ul class="flex flex-col">
-						{#each staking.unbondings as u, i (`${u.validator}-${i}`)}
-							<li class="flex items-center gap-4 py-3">
-								<ValidatorAvatar address={u.validator} name={validatorName(u.validator)} identity={validatorOf(u.validator)?.identity} size={44} />
-								<span class="min-w-0 flex-1">
-									<span class="block truncate text-base font-medium">{validatorName(u.validator)}</span>
-									<span class="block text-label text-text-faint">Back {days(u.completesAt)} · {u.completesAt.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}</span>
-								</span>
-								<span class="shrink-0 text-base tabular-nums">{hide(formatAmount(u.amount, 2))}</span>
-							</li>
-						{/each}
-					</ul>
-					<p class="pt-1 text-label text-text-faint">It comes back as public SCRT; you'll be offered to make it private.</p>
-				</section>
+				<ol class="flex flex-col gap-3 px-1 text-base text-text-muted">
+					<li class="flex gap-3"><span class="flex size-6 shrink-0 items-center justify-center rounded-pill bg-accent-soft text-label text-accent">1</span>Stake part of your balance. A validator is picked for you.</li>
+					<li class="flex gap-3"><span class="flex size-6 shrink-0 items-center justify-center rounded-pill bg-accent-soft text-label text-accent">2</span>It earns SCRT every few seconds; you see it grow in your balance.</li>
+					<li class="flex gap-3"><span class="flex size-6 shrink-0 items-center justify-center rounded-pill bg-accent-soft text-label text-accent">3</span>Unstake any time; it takes {Math.round(staking.unbondingSeconds / 86_400)} days to come back.</li>
+				</ol>
 			{/if}
 		{/if}
 	{:else}
@@ -207,7 +203,7 @@
 			<div class="flex items-center gap-2 text-base text-text-muted"><Loader2 size={16} class="animate-spin" /> Loading proposals…</div>
 		{:else}
 			{#if staking.loaded && totalStaked() === 0n}
-				<p class="px-1 text-base text-text-muted">Votes are weighted by staked SCRT. Stake first to have a say.</p>
+				<p class="px-1 text-base text-text-muted">Stakers decide how Secret Network changes. Stake first to vote; your vote counts by how much you stake.</p>
 			{/if}
 			{#snippet proposalRow(p: (typeof staking.proposals)[number])}
 				{@const mine = staking.votes[p.id]}

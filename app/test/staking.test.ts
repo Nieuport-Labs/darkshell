@@ -5,7 +5,7 @@ vi.mock('../src/lib/chain/sscrt', () => ({
 }));
 vi.mock('../src/lib/chain/client', () => ({ lcdUrl: async () => '' }));
 
-const { claimPlan, stakePlan, unstakePlan, MIN_WRAP_REWARD } = await import('../src/lib/chain/staking');
+const { claimPlan, stakePlan, suggestValidator, unstakePlan, MIN_WRAP_REWARD } = await import('../src/lib/chain/staking');
 const { votePlan } = await import('../src/lib/chain/governance');
 
 const me = 'secret1me';
@@ -54,5 +54,25 @@ describe('staking plans', () => {
 	it('vote uses the numeric option', () => {
 		const p = votePlan('380', me, 'NO_WITH_VETO');
 		expect((p.msgs[0] as unknown as { params: { option: number } }).params.option).toBe(4);
+	});
+});
+
+describe('suggestValidator', () => {
+	const v = (address: string, tokens: number, commission = 0.05, extra: object = {}) => ({ address, moniker: address, commission, tokens: BigInt(tokens), jailed: false, bonded: true, ...extra });
+	const set = [v('big1', 900), v('big2', 800), v('big3', 700), v('mid1', 300), v('mid2', 200, 0.2), v('zero', 150, 0), v('jail', 100, 0.05, { jailed: true }), v('low', 100)];
+
+	it('keeps the user on a validator they already use', () => {
+		expect(suggestValidator(set, ['big1'], 'a')?.address).toBe('big1');
+	});
+	it('otherwise picks outside the biggest third, fair commission, not jailed', () => {
+		for (const seed of ['a', 'b', 'secret1xyz', 'secret1abc']) {
+			expect(['mid1', 'low']).toContain(suggestValidator(set, [], seed)?.address);
+		}
+	});
+	it('is stable for one account', () => {
+		expect(suggestValidator(set, [], 'secret1q')?.address).toBe(suggestValidator(set, [], 'secret1q')?.address);
+	});
+	it('handles no validators', () => {
+		expect(suggestValidator([], [], 'a')).toBeUndefined();
 	});
 });

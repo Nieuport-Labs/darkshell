@@ -41,6 +41,27 @@ export interface Validator {
 	identity?: string;
 }
 
+/**
+ * A validator to stake with when the user doesn't want to choose: one already
+ * staked with (if still earning), else one outside the biggest third (keeps
+ * the network spread out) with a fair commission (1–10 %). `seed` (the
+ * account address) spreads users over the candidates but keeps one user's
+ * suggestion stable.
+ */
+export function suggestValidator(validators: Validator[], mine: string[], seed: string): Validator | undefined {
+	const earning = validators.filter((v) => v.bonded && !v.jailed);
+	const own = earning.find((v) => mine.includes(v.address) && v.commission <= 0.1);
+	if (own) return own;
+	const byPower = [...earning].sort((a, b) => (b.tokens > a.tokens ? 1 : b.tokens < a.tokens ? -1 : 0));
+	const rest = byPower.slice(Math.ceil(byPower.length / 3));
+	const fair = rest.filter((v) => v.commission >= 0.01 && v.commission <= 0.1);
+	const pool = fair.length ? fair : rest.length ? rest : byPower;
+	if (!pool.length) return undefined;
+	let h = 0;
+	for (const c of seed) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+	return pool[h % pool.length];
+}
+
 export interface Delegation {
 	validator: string;
 	amount: bigint;
