@@ -14,6 +14,8 @@ export type Dialog =
 	| { name: 'contacts' }
 	| { name: 'stake'; validator?: string; mode?: 'stake' | 'unstake' }
 	| { name: 'proposal'; id: string }
+	/** a one-tap transaction (collect rewards, make private, refill gas credits): recap, then swipe */
+	| { name: 'action'; action: 'claim' | 'wrap' | 'refill' }
 	| { name: 'tx'; item?: HistoryItem; hash?: string }
 	| { name: 'lightning'; target?: Extract<Target, { kind: 'lightning' }>; orderId?: string };
 

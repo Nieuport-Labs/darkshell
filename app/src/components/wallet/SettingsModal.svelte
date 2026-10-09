@@ -6,7 +6,6 @@
 	import { isBech32Address } from 'secret-pay';
 	import type { Snippet } from 'svelte';
 	import { resetEndpoint } from '../../lib/chain/client';
-	import type { TxOutcome } from '../../lib/chain/tx';
 	import { CREDIT_FLOOR, CREDIT_REFILL, GAS_VAULT_ADDRESS } from '../../lib/config';
 	import { WrongPasswordError } from '../../lib/crypto/vault';
 	import { builtInFf } from '../../lib/ff/fixedfloat';
@@ -23,7 +22,6 @@
 		LockedOutError,
 		lock,
 		notificationsInBackground,
-		refillNow,
 		removeEmergencyPin,
 		revealMnemonic,
 		setBiometric,
@@ -134,9 +132,6 @@
 		em = null;
 		emMsg = 'Emergency PIN removed.';
 	}
-	let refilling = $state(false);
-	let refillOutcome = $state<TxOutcome | null>(null);
-	let refillError = $state('');
 
 	let revealPw = $state('');
 	let phrase = $state('');
@@ -197,18 +192,6 @@
 					unknown: 'Could not be read right now. Nothing is lost.',
 				}[c.state],
 	);
-
-	async function refill() {
-		refilling = true;
-		refillError = '';
-		try {
-			refillOutcome = await refillNow();
-		} catch (e) {
-			refillError = e instanceof Error ? e.message : String(e);
-		} finally {
-			refilling = false;
-		}
-	}
 
 	async function reveal(e: SubmitEvent) {
 		e.preventDefault();
@@ -331,31 +314,26 @@
 {/snippet}
 
 {#snippet gas()}
-	{#if refillOutcome}
-		<TxResult outcome={refillOutcome} summary="Gas credits refilled with {formatAmount(refillOutcome.refilled)} sSCRT." ondone={() => (refillOutcome = null)} />
-	{:else}
-		<p class="text-base text-text-muted">{stateText}</p>
-		<dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-base">
-			<dt class="text-text-faint">Credits left</dt>
-			<dd class="text-right tabular-nums">{c?.remaining != null ? `${formatAmount(c.remaining)} SCRT` : '—'}</dd>
-			<dt class="text-text-faint">Public SCRT</dt>
-			<dd class="text-right tabular-nums">{formatAmount(wallet.native)} SCRT</dd>
-			<dt class="text-text-faint">Vault</dt>
-			<dd class="text-right font-mono text-sm">{shortAddress(GAS_VAULT_ADDRESS, 10, 6)}</dd>
-		</dl>
+	<p class="text-base text-text-muted">{stateText}</p>
+	<dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-base">
+		<dt class="text-text-faint">Credits left</dt>
+		<dd class="text-right tabular-nums">{c?.remaining != null ? `${formatAmount(c.remaining)} SCRT` : '—'}</dd>
+		<dt class="text-text-faint">Public SCRT</dt>
+		<dd class="text-right tabular-nums">{formatAmount(wallet.native)} SCRT</dd>
+		<dt class="text-text-faint">Vault</dt>
+		<dd class="text-right font-mono text-sm">{shortAddress(GAS_VAULT_ADDRESS, 10, 6)}</dd>
+	</dl>
+	<p class="text-label text-text-faint">
+		Fees are paid from prepaid gas credits, a fee grant from the gas vault, so you never need SCRT. They are kept between {formatAmount(CREDIT_FLOOR)} and {formatAmount(
+			CREDIT_FLOOR + CREDIT_REFILL,
+		)} SCRT: below {formatAmount(CREDIT_FLOOR)}, {formatAmount(CREDIT_REFILL)} are added from public SCRT you make private, or from sSCRT — with your next payment, or on their own when nothing else is being sent.
+	</p>
+	{#if c?.state === 'cold'}
 		<p class="text-label text-text-faint">
-			Fees are paid from prepaid gas credits, a fee grant from the gas vault, so you never need SCRT. They are kept between {formatAmount(CREDIT_FLOOR)} and {formatAmount(
-				CREDIT_FLOOR + CREDIT_REFILL,
-			)} SCRT: below {formatAmount(CREDIT_FLOOR)}, {formatAmount(CREDIT_REFILL)} are added from public SCRT you make private, or from sSCRT — with your next payment, or on their own when nothing else is being sent.
+			<strong class="text-text-muted">First top-up:</strong> a fee faucet pays the fee of the first refill from your sSCRT (once a day). If it is unavailable, send about 0.1 public SCRT to your address instead.
 		</p>
-		{#if c?.state === 'cold'}
-			<p class="text-label text-text-faint">
-				<strong class="text-text-muted">First top-up:</strong> a fee faucet pays the fee of the first refill from your sSCRT (once a day). If it is unavailable, send about 0.1 public SCRT to your address instead.
-			</p>
-		{/if}
-		{#if refillError}<p class="text-base text-negative">{refillError}</p>{/if}
-		<Button variant="soft" shape="control" loading={refilling} onclick={refill}>Refill {formatAmount(CREDIT_REFILL)} sSCRT now</Button>
 	{/if}
+	<Button variant="soft" shape="control" onclick={() => open({ name: 'action', action: 'refill' })}>Refill {formatAmount(CREDIT_REFILL)} sSCRT now</Button>
 {/snippet}
 
 {#snippet phraseBody()}

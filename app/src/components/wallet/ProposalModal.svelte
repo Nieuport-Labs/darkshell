@@ -1,6 +1,7 @@
 <script lang="ts">
 	// One governance proposal: what it would do, the live tally against the
-	// chain's three tests, and a vote (weighted by this account's stake).
+	// chain's three tests, and a vote (weighted by this account's stake):
+	// pick an option, review it, swipe.
 	import { Check, Loader2 } from '@lucide/svelte';
 	import {
 		evaluate,
@@ -23,6 +24,7 @@
 	import { loadStaking, staking, totalStaked, vote } from '../../lib/staking.svelte';
 	import { close } from '../../lib/ui.svelte';
 	import { client, prefetchForPayment } from '../../lib/wallet.svelte';
+	import Button from '../ui/Button.svelte';
 	import Modal from '../ui/Modal.svelte';
 	import SwipeConfirm from '../ui/SwipeConfirm.svelte';
 	import TxResult from './TxResult.svelte';
@@ -39,6 +41,7 @@
 	let failure = $state('');
 	let outcome = $state<TxOutcome | null>(null);
 	let expanded = $state(false);
+	let reviewing = $state(false);
 
 	if (!staking.loaded) void loadStaking();
 	prefetchForPayment();
@@ -90,9 +93,34 @@
 	}
 </script>
 
-<Modal full title="Proposal #{id}" onclose={close}>
+<Modal full title={reviewing && !outcome ? 'Confirm vote' : `Proposal #${id}`} onclose={close} onback={reviewing && !outcome && !sending ? () => ((reviewing = false), (failure = '')) : undefined}>
 	{#if outcome && choice}
 		<TxResult {outcome} summary="You voted {VOTE_LABELS[choice]} on proposal #{id}." ondone={close} />
+	{:else if reviewing && choice && proposal}
+		<div class="flex flex-col items-center gap-1 pt-6 text-center">
+			<span class="text-label text-text-faint">You're voting</span>
+			<span class="text-[2.5rem] font-semibold leading-tight tracking-[-0.03em]">{VOTE_LABELS[choice]}</span>
+			{#if mine && mine !== choice}<span class="text-base text-text-faint">instead of {VOTE_LABELS[mine]}</span>{/if}
+		</div>
+		<dl class="flex flex-col divide-y divide-border rounded-card border border-border bg-surface-1 text-base">
+			<div class="flex items-start justify-between gap-4 px-4 py-3.5">
+				<dt class="shrink-0 text-text-faint">Proposal</dt>
+				<dd class="min-w-0 text-right [overflow-wrap:anywhere]">#{id} · {proposal.title}</dd>
+			</div>
+			<div class="flex items-start justify-between gap-4 px-4 py-3.5">
+				<dt class="text-text-faint">Weight</dt>
+				<dd class="text-right tabular-nums">{formatAmount(power, 2)} SCRT<span class="block text-label text-text-faint">your staked SCRT</span></dd>
+			</div>
+			{#if timeLeft(proposal)}
+				<div class="flex items-start justify-between gap-4 px-4 py-3.5"><dt class="text-text-faint">Voting</dt><dd class="text-right">{timeLeft(proposal)}<span class="block text-label text-text-faint">you can change your vote until then</span></dd></div>
+			{/if}
+			<div class="flex items-start justify-between gap-4 px-4 py-3.5"><dt class="text-text-faint">Visible</dt><dd class="text-right">Public<span class="block text-label text-text-faint">votes are public on chain</span></dd></div>
+			<div class="flex items-start justify-between gap-4 px-4 py-3.5"><dt class="text-text-faint">Network fee</dt><dd class="text-right">Paid from gas credits</dd></div>
+		</dl>
+		{#if failure}<p class="break-address text-base text-negative" role="alert">{failure}</p>{/if}
+		<div class="mt-auto pt-4">
+			<SwipeConfirm label="Swipe to vote {VOTE_LABELS[choice]}" loading={sending} onconfirm={submit} />
+		</div>
 	{:else if !proposal}
 		<p class="text-base {error ? 'text-negative' : 'text-text-muted'}">{error || 'Loading…'}</p>
 	{:else}
@@ -170,7 +198,7 @@
 					</div>
 					{#if power > 0n}<p class="text-label text-text-faint">Your weight: {formatAmount(power, 2)} staked SCRT. You can change your vote until voting ends.</p>{/if}
 					{#if failure}<p class="break-address text-base text-negative" role="alert">{failure}</p>{/if}
-					<SwipeConfirm label={choice ? `Swipe to vote ${VOTE_LABELS[choice]}` : 'Choose an option'} loading={sending} disabled={!choice && !sending} onconfirm={submit} />
+					<Button block size="xl" disabled={!choice} onclick={() => ((failure = ''), (reviewing = true))}>{choice ? `Review vote: ${VOTE_LABELS[choice]}` : 'Choose an option'}</Button>
 				{/if}
 			</section>
 		{/if}

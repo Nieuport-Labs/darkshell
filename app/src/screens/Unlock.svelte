@@ -5,7 +5,6 @@
 	import { biometricEnabled, biometricPin, disableBiometric } from '../lib/crypto/biometric';
 	import PinPad from '../components/ui/PinPad.svelte';
 	import { WrongPasswordError } from '../lib/crypto/vault';
-	import { shortAddress } from '../lib/format';
 	import { forgetDevice, LockedOutError, unlock, wallet } from '../lib/wallet.svelte';
 
 	let pw = $state('');
@@ -72,7 +71,6 @@
 <div class="mx-auto flex w-full max-w-[420px] flex-1 flex-col">
 	<div class="flex flex-col items-center pt-6 text-center">
 		<img src="/avatar.webp" alt="" class="size-16 rounded-pill object-cover" />
-		<p class="mt-3 font-mono text-sm text-text-faint">{shortAddress(wallet.address, 12, 6)}</p>
 	</div>
 
 	{#if wallet.kind === 'pin'}

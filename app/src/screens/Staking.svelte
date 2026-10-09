@@ -8,13 +8,12 @@
 	import Button from '../components/ui/Button.svelte';
 	import ValidatorAvatar from '../components/wallet/ValidatorAvatar.svelte';
 	import { STATUS_LABELS, timeLeft, VOTE_LABELS } from '../lib/chain/governance';
-	import type { TxOutcome } from '../lib/chain/tx';
 	import { formatAmount } from '../lib/format';
 	import { usdValue } from '../lib/price.svelte';
-	import { claimAll, loadGovernance, loadStaking, staking, totalRewards, totalStaked, validatorName, validatorOf } from '../lib/staking.svelte';
+	import { loadGovernance, loadStaking, staking, totalRewards, totalStaked, validatorName, validatorOf } from '../lib/staking.svelte';
 	import { kv } from '../lib/storage';
 	import { open, ui } from '../lib/ui.svelte';
-	import { wallet, wrapPublic } from '../lib/wallet.svelte';
+	import { wallet } from '../lib/wallet.svelte';
 
 	let view = $state<'staking' | 'governance'>('staking');
 	void kv.get<'staking' | 'governance'>('staking.view').then((v) => v && (view = v));
@@ -38,36 +37,6 @@
 	const openProposals = $derived(staking.proposals.filter((p) => p.status === 'PROPOSAL_STATUS_VOTING_PERIOD' || p.status === 'PROPOSAL_STATUS_DEPOSIT_PERIOD'));
 	const pastProposals = $derived(staking.proposals.filter((p) => !openProposals.includes(p)).slice(0, 20));
 	const hide = (s: string) => (ui.hideBalance ? '••••' : s);
-
-	let claiming = $state(false);
-	let claimMsg = $state('');
-	async function claim() {
-		claiming = true;
-		claimMsg = '';
-		try {
-			const out: TxOutcome = await claimAll();
-			claimMsg = out.status === 'confirmed' ? 'Collected into your private balance.' : 'Sent; waiting for confirmation.';
-		} catch (e) {
-			claimMsg = e instanceof Error ? e.message : String(e);
-		} finally {
-			claiming = false;
-		}
-	}
-
-	let wrapping = $state(false);
-	let wrapMsg = $state('');
-	async function makePrivate() {
-		wrapping = true;
-		wrapMsg = '';
-		try {
-			const out = await wrapPublic();
-			wrapMsg = out.status === 'confirmed' ? 'Moved into your private balance.' : 'Sent; waiting for confirmation.';
-		} catch (e) {
-			wrapMsg = e instanceof Error ? e.message : String(e);
-		} finally {
-			wrapping = false;
-		}
-	}
 
 	function days(d: Date): string {
 		const n = Math.ceil((d.getTime() - Date.now()) / 86_400_000);
@@ -111,11 +80,11 @@
 						<span class="block text-label text-text-faint">Earned so far</span>
 						<span class="block text-title tabular-nums text-positive">+{hide(formatAmount(rewards, 6))} SCRT</span>
 					</span>
-					<Button variant="soft" size="sm" loading={claiming} onclick={claim}>Collect</Button>
+					<Button variant="soft" size="sm" onclick={() => open({ name: 'action', action: 'claim' })}>Collect</Button>
 				</div>
 			{/if}
 		</section>
-		{#if claimMsg}<p class="-mt-5 px-1 text-label text-text-faint">{claimMsg}</p>{:else if rewards > 0n}<p class="-mt-5 px-1 text-label text-text-faint">Already counted in your balance; collected for you whenever you pay.</p>{/if}
+		{#if rewards > 0n}<p class="-mt-5 px-1 text-label text-text-faint">Already counted in your balance; collected for you whenever you pay.</p>{/if}
 
 		<div class="grid gap-3 {staked > 0n ? 'grid-cols-2' : 'grid-cols-1'}">
 			<Button block size="lg" onclick={() => open({ name: 'stake', mode: 'stake' })}>
@@ -136,12 +105,11 @@
 					<span class="block text-label text-text-faint">Public SCRT, not private yet</span>
 					<span class="block text-title tabular-nums">{hide(formatAmount(publicScrt))} SCRT</span>
 				</span>
-				<Button variant="soft" size="sm" loading={wrapping} onclick={makePrivate}>
+				<Button variant="soft" size="sm" onclick={() => open({ name: 'action', action: 'wrap' })}>
 					{#snippet icon()}<ShieldCheck size={15} />{/snippet}
 					Make private
 				</Button>
 			</div>
-			{#if wrapMsg}<p class="-mt-5 px-1 text-label text-text-faint">{wrapMsg}</p>{/if}
 		{/if}
 
 		{#if staking.error && !staking.loaded}

@@ -251,8 +251,9 @@ export async function unlock(secret: string): Promise<void> {
 async function runDuress(p: DuressPayload, pin: string): Promise<void> {
 	const to = p.to && p.mnemonic ? p.to : undefined;
 	const real = to ? p.mnemonic : undefined;
+	// every real account is swept; the decoy has just one, as a fresh wallet would
 	const accounts = p.accounts?.length ? p.accounts.map(({ index, name }) => ({ index, name })) : [{ index: 0, name: 'Account 1' }];
-	const active = accounts.some((a) => a.index === p.active) ? p.active! : accounts[0]!.index;
+	const decoyAccounts = [{ index: 0, name: 'Account 1' }];
 	const bio = await biometricEnabled().catch(() => false);
 
 	// 1. erase (without passing through the onboarding screen)
@@ -261,7 +262,7 @@ async function runDuress(p: DuressPayload, pin: string): Promise<void> {
 
 	// 2. the decoy, as a real vault behind the same PIN
 	const decoySeed = p.decoy ?? newMnemonic();
-	const v = await createVault(pin, { mnemonic: decoySeed, accounts, active }, walletFromMnemonic(decoySeed, active).address, 'pin');
+	const v = await createVault(pin, { mnemonic: decoySeed, accounts: decoyAccounts, active: 0 }, walletFromMnemonic(decoySeed, 0).address, 'pin');
 	wallet.kind = 'pin';
 	if (bio) await enableBiometric(pin).catch(() => {});
 
@@ -438,7 +439,7 @@ async function persist(): Promise<void> {
 	const dr = session.vault.secrets.duress;
 	if (dr && !dr.decoy) dr.decoy = newMnemonic();
 	await saveVault(session.vault, wallet.address);
-	// keep the emergency record's account list current (the decoy mirrors the names)
+	// keep the emergency record's account list current (every account is swept)
 	const d = session.vault.secrets.duress;
 	if (d?.decoy) await resealDuress(d.key, duressPayload(d.decoy, d.to));
 }
@@ -807,12 +808,8 @@ export async function refillNow(): Promise<TxOutcome> {
 	return out;
 }
 
-/**
- * Moves public SCRT that arrived on this address into the private balance.
- * When gas credits are low, up to CREDIT_REFILL of it tops them up first, in
- * the same transaction.
- */
-export async function wrapPublic(): Promise<TxOutcome> {
+/** What `wrapPublic` would move into sSCRT, and how much of it would top up gas credits. */
+export async function wrapPreview(): Promise<{ amount: bigint; refill: bigint }> {
 	const s = session;
 	if (!s || wallet.native === null) throw new Error('Wallet is locked');
 	// keep enough to pay this fee ourselves in case no grant covers it
@@ -821,7 +818,18 @@ export async function wrapPublic(): Promise<TxOutcome> {
 	if (available <= 0n) throw new Error('Not enough public SCRT to move.');
 	const due = await refillDue(s.wallet.address).catch(() => false);
 	const refill = due && available >= MIN_REFILL ? (available < CREDIT_REFILL ? available : CREDIT_REFILL) : 0n;
-	const amount = available - refill;
+	return { amount: available - refill, refill };
+}
+
+/**
+ * Moves public SCRT that arrived on this address into the private balance.
+ * When gas credits are low, up to CREDIT_REFILL of it tops them up first, in
+ * the same transaction.
+ */
+export async function wrapPublic(): Promise<TxOutcome> {
+	const s = session;
+	if (!s || wallet.native === null) throw new Error('Wallet is locked');
+	const { amount, refill } = await wrapPreview();
 	if (amount < 10_000n) {
 		// all of it goes to gas credits
 		const out = await sendTx(s.client, s.wallet.address, [], 0, [], { nativeSpare: refill, forceRefill: true });

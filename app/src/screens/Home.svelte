@@ -2,19 +2,15 @@
 	// Layout after Vizor (account header, balance card, Send/Receive, recent
 	// activity); components and tokens from Secret_Dashboard.
 	import { ArrowDownToLine, ChevronDown, Eye, EyeOff, Loader2, Lock, ScanLine, Send } from '@lucide/svelte';
-	import type { TxOutcome } from '../lib/chain/tx';
 	import { formatAmount, shortAddress } from '../lib/format';
 	import { kv } from '../lib/storage';
 	import { price, usdValue } from '../lib/price.svelte';
 	import { goTab, open, ui } from '../lib/ui.svelte';
-	import { activeName, refresh, totalBalance, wallet, wrapPublic } from '../lib/wallet.svelte';
+	import { activeName, refresh, totalBalance, wallet } from '../lib/wallet.svelte';
 	import Button from '../components/ui/Button.svelte';
 	import ActivityList from '../components/wallet/ActivityList.svelte';
 	import GasChip from '../components/wallet/GasChip.svelte';
 	import TorIcon from '../components/wallet/TorIcon.svelte';
-
-	let wrapping = $state(false);
-	let wrapMsg = $state('');
 
 	function toggleHidden() {
 		ui.hideBalance = !ui.hideBalance;
@@ -28,19 +24,6 @@
 	// 4 decimals: enough to see rewards grow, few enough to read at a glance
 	const [int, frac] = $derived((total === null ? '' : formatAmount(total, 4)).split('.'));
 
-	async function makePrivate() {
-		wrapping = true;
-		wrapMsg = '';
-		try {
-			const out: TxOutcome = await wrapPublic();
-			const topped = out.refilled > 0n ? ` ${formatAmount(out.refilled)} SCRT topped up your gas credits.` : '';
-			wrapMsg = (out.status === 'confirmed' ? 'Moved into your private balance.' : 'Sent; waiting for confirmation.') + topped;
-		} catch (e) {
-			wrapMsg = e instanceof Error ? e.message : String(e);
-		} finally {
-			wrapping = false;
-		}
-	}
 </script>
 
 <header class="flex items-center justify-between gap-3 pb-5">
@@ -115,9 +98,8 @@
 {#if publicScrt}
 	<div class="mt-3 flex items-center justify-between gap-3 rounded-card border border-border bg-surface-1 px-4 py-2.5">
 		<span class="text-base text-text-muted">Public SCRT <span class="tabular-nums text-text">{formatAmount(publicScrt)}</span></span>
-		<Button variant="text" size="sm" loading={wrapping} onclick={makePrivate}>Make private</Button>
+		<Button variant="text" size="sm" onclick={() => open({ name: 'action', action: 'wrap' })}>Make private</Button>
 	</div>
-	{#if wrapMsg}<p class="mt-1 px-1 text-label text-text-faint">{wrapMsg}</p>{/if}
 {/if}
 
 <div class="mt-9">

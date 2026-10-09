@@ -18,6 +18,7 @@
 	import Staking from './screens/Staking.svelte';
 	import StakeModal from './components/wallet/StakeModal.svelte';
 	import ProposalModal from './components/wallet/ProposalModal.svelte';
+	import ActionModal from './components/wallet/ActionModal.svelte';
 	import Home from './screens/Home.svelte';
 	import Invoices from './screens/Invoices.svelte';
 	import Onboarding from './screens/Onboarding.svelte';
@@ -106,6 +107,8 @@
 		{#key `${ui.dialog.validator}-${ui.dialog.mode}`}<StakeModal validator={ui.dialog.validator} mode={ui.dialog.mode} />{/key}
 	{:else if ui.dialog?.name === 'proposal'}
 		{#key ui.dialog.id}<ProposalModal id={ui.dialog.id} />{/key}
+	{:else if ui.dialog?.name === 'action'}
+		{#key ui.dialog.action}<ActionModal action={ui.dialog.action} />{/key}
 	{:else if ui.dialog?.name === 'tx'}
 		{#key ui.dialog.item?.id ?? ui.dialog.hash}<TxDetailModal item={ui.dialog.item} hash={ui.dialog.hash} />{/key}
 	{:else if ui.dialog?.name === 'lightning'}
