@@ -73,7 +73,7 @@
 						{@render glyph(d.icon)}
 						<span class="min-w-0 flex-1">
 							<span class="block truncate text-base font-medium">{l.memo && l.kind === 'send' ? l.memo : d.title}</span>
-							<span class="flex items-center gap-1 text-label {l.status === 'failed' ? 'text-negative' : 'text-accent'}">
+							<span class="flex items-center gap-1 text-label {l.status === 'failed' ? 'text-negative' : 'text-text-faint'}">
 								{#if l.status === 'failed'}<AlertCircle size={12} class="shrink-0" />{:else}<Loader2 size={12} class="shrink-0 animate-spin" />{/if}
 								<span class="truncate">{l.status === 'failed' ? 'Failed' : 'Processing'}{d.detail ? ` · ${d.detail}` : ''}</span>
 							</span>
@@ -96,7 +96,7 @@
 						<span class="min-w-0 flex-1">
 							<span class="block truncate text-base font-medium">{h.memo || d.title}</span>
 							<span class="flex items-center gap-1 text-label text-text-faint">
-								{#if pv === 'private'}<ShieldCheck size={12} aria-hidden="true" class="shrink-0 text-accent" />{:else if pv === 'partial'}<ShieldHalf size={12} aria-hidden="true" class="shrink-0 text-accent" />{:else}<Eye size={12} aria-hidden="true" class="shrink-0" />{/if}
+								{#if pv === 'private'}<ShieldCheck size={12} aria-hidden="true" class="shrink-0" />{:else if pv === 'partial'}<ShieldHalf size={12} aria-hidden="true" class="shrink-0" />{:else}<Eye size={12} aria-hidden="true" class="shrink-0" />{/if}
 								<span class="truncate">{OVERALL_LABEL[pv]}{d.detail ? ` · ${h.memo ? d.title.toLowerCase() + ' ' : ''}${d.detail}` : ''}</span>
 							</span>
 						</span>

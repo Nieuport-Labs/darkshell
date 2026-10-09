@@ -182,7 +182,7 @@
 					? 'bg-[rgb(52_199_89/0.12)] text-positive'
 					: status === 'failed'
 						? 'bg-[rgb(255_69_58/0.12)] text-negative'
-						: 'bg-accent-soft text-accent'}"
+						: 'bg-surface text-text-muted'}"
 			>
 				{#if status === 'confirmed'}<CheckCircle2 size={13} /> Confirmed{:else if status === 'failed'}<AlertCircle size={13} /> Failed{:else}<Loader2 size={13} class="animate-spin" /> Processing{/if}
 			</span>
@@ -202,14 +202,14 @@
 
 		{#if order}
 			<button type="button" onclick={() => open({ name: 'lightning', orderId: order.id })} class="state-layer flex items-center gap-3 rounded-card border border-border bg-surface-1 px-4 py-3.5 text-left">
-				<Zap size={18} class="shrink-0 text-accent" />
+				<Zap size={18} class="shrink-0 text-text-muted" />
 				<span class="flex-1 text-base">Lightning payment progress</span>
 				<ChevronDown size={16} class="-rotate-90 text-text-faint" />
 			</button>
 		{/if}
 		{#if invoice}
 			<button type="button" onclick={() => open({ name: 'invoice', id: invoice.request.id })} class="state-layer flex items-center gap-3 rounded-card border border-border bg-surface-1 px-4 py-3.5 text-left">
-				<ReceiptText size={18} class="shrink-0 text-accent" />
+				<ReceiptText size={18} class="shrink-0 text-text-muted" />
 				<span class="flex-1 text-base">Invoice{invoice.request.message ? ` · ${invoice.request.message}` : ''}</span>
 				<ChevronDown size={16} class="-rotate-90 text-text-faint" />
 			</button>
@@ -230,7 +230,7 @@
 			<section class="flex flex-col gap-2">
 				<div class="flex items-center justify-between px-1">
 					<h3 class="text-title">Steps</h3>
-					<span class="inline-flex items-center gap-1.5 text-label {overall === 'public' ? 'text-text-muted' : 'text-accent'}">
+					<span class="inline-flex items-center gap-1.5 text-label text-text-muted">
 						{#if overall === 'private'}<ShieldCheck size={13} />{:else if overall === 'partial'}<ShieldHalf size={13} />{:else}<Eye size={13} />{/if}
 						{OVERALL_LABEL[overall]}
 					</span>
@@ -243,7 +243,7 @@
 								<span class="block text-base">{st.title}{#if st.upkeep}<span class="text-text-faint"> · upkeep</span>{/if}</span>
 								{#if st.detail && !hidden}<span class="block break-words text-label text-text-faint">{st.detail}</span>{/if}
 							</span>
-							<span class="mt-0.5 inline-flex shrink-0 items-center gap-1 text-label {st.privacy === 'private' ? 'text-accent' : 'text-text-faint'}">
+							<span class="mt-0.5 inline-flex shrink-0 items-center gap-1 text-label {st.privacy === 'private' ? 'text-text-muted' : 'text-text-faint'}">
 								{#if st.privacy === 'private'}<ShieldCheck size={12} /> Private{:else}<Eye size={12} /> Public{/if}
 							</span>
 						</li>
