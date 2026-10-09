@@ -96,6 +96,8 @@ public class PaymentWatchService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
+        // after a reboot the app is not running: bring Tor up here so nothing leaks
+        if (TorManager.isEnabled(this)) TorManager.get(this).start();
         channels();
         Notification n = new NotificationCompat.Builder(this, CH_SERVICE)
             .setSmallIcon(R.drawable.ic_stat_notify)

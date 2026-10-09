@@ -3,7 +3,7 @@
 // transaction on its own — every transaction is one the user confirmed.
 
 import type { Permit, SecretNetworkClient, Wallet } from 'secretjs';
-import { encryptionSeedFor, walletFromMnemonic } from './crypto/account';
+import { encryptionSeedFor, newMnemonic, walletFromMnemonic } from './crypto/account';
 import { recordFailure, resetFailures, waitMs } from './crypto/lockout';
 import {
 	changeSecret,
@@ -28,7 +28,7 @@ import { wrapPayment, type PaymentPlan } from './pay/payments';
 import { addrKey, kv, migrateLegacy } from './storage';
 import { rePrefix } from './chain/ibc';
 import { biometricEnabled, disableBiometric, enableBiometric } from './crypto/biometric';
-import { clearDuress, hasDuress, openDuress, resealDuress, setDuress, type DuressAction, type DuressPayload } from './crypto/duress';
+import { clearDuress, hasDuress, openDuress, resealDuress, setDuress, type DuressPayload } from './crypto/duress';
 import { notificationWatch } from './chain/sscrt';
 import { backgroundEnabled, clearBackground, notifyNow, setBackground, syncBackground } from './notify/background';
 import { pushNotice, startWatcher, stopWatcher, type Target } from './notify/watcher.svelte';
@@ -142,11 +142,19 @@ async function open(v: OpenVault, asDecoy = false): Promise<void> {
 	startPrice();
 }
 
-export async function createWallet(mnemonic: string, pin: string): Promise<void> {
+/** Choices made during onboarding, applied right after the wallet opens. */
+export interface SetupChoices {
+	biometric?: boolean;
+	emergency?: { pin: string; to?: string };
+}
+
+export async function createWallet(mnemonic: string, pin: string, choices: SetupChoices = {}): Promise<void> {
 	const w = walletFromMnemonic(mnemonic, 0);
 	const v = await createVault(pin, { mnemonic, accounts: [{ index: 0, name: 'Account 1' }], active: 0 }, w.address, 'pin');
 	wallet.kind = 'pin';
 	await open(v);
+	if (choices.biometric) await enableBiometric(pin).catch(() => {});
+	if (choices.emergency) await installDuress(choices.emergency.pin, choices.emergency.to);
 }
 
 export class LockedOutError extends Error {
@@ -165,7 +173,7 @@ export async function unlock(secret: string): Promise<void> {
 	]);
 	if (duress) {
 		await resetFailures();
-		return runDuress(duress);
+		return runDuress(duress, secret);
 	}
 	if (real instanceof Error) {
 		if (real instanceof WrongPasswordError) {
@@ -180,45 +188,84 @@ export async function unlock(secret: string): Promise<void> {
 
 /* ------------------------------- emergency PIN ------------------------------ */
 
-async function runDuress(p: DuressPayload): Promise<void> {
-	if (p.action === 'wipe' || !p.mnemonic || !p.to) return eraseDevice();
-	const { sweepAccount } = await import('./pay/sweep');
-	const accounts = p.accounts?.length ? p.accounts : [{ index: 0, name: 'Account 1' }];
+/**
+ * The emergency PIN was typed: (1) the real wallet leaves this device, (2) the
+ * decoy wallet becomes the wallet, unlocked by this same PIN from now on, and
+ * opens like any unlock, (3) the real funds go to the safe address in the
+ * background, if one was set — nothing on screen waits for it.
+ */
+async function runDuress(p: DuressPayload, pin: string): Promise<void> {
+	const to = p.to && p.mnemonic ? p.to : undefined;
+	const real = to ? p.mnemonic : undefined;
+	const accounts = p.accounts?.length ? p.accounts.map(({ index, name }) => ({ index, name })) : [{ index: 0, name: 'Account 1' }];
 	const active = accounts.some((a) => a.index === p.active) ? p.active! : accounts[0]!.index;
-	// the open account first, waiting for its block so the balance already reads 0
-	for (const a of [...accounts].sort((x, y) => Number(y.index === active) - Number(x.index === active))) {
-		try {
-			await sweepAccount(p.mnemonic, a.index, p.to, a.index === active ? 12_000 : 0);
-		} catch {
-			/* no gas or no network: nothing more can be done silently */
+	const bio = await biometricEnabled().catch(() => false);
+
+	// 1. erase (without passing through the onboarding screen)
+	await Promise.allSettled([disableBiometric(), clearBackground()]);
+	await kv.clear();
+
+	// 2. the decoy, as a real vault behind the same PIN
+	const decoySeed = p.decoy ?? newMnemonic();
+	const v = await createVault(pin, { mnemonic: decoySeed, accounts, active }, walletFromMnemonic(decoySeed, active).address, 'pin');
+	wallet.kind = 'pin';
+	if (bio) await enableBiometric(pin).catch(() => {});
+
+	// 3. the real funds, in the background
+	if (real && to) void sweepAll(real, accounts, to);
+
+	await open(v);
+}
+
+async function sweepAll(mnemonic: string, accounts: AccountEntry[], to: string): Promise<void> {
+	const { sweepAccount } = await import('./pay/sweep');
+	for (const a of accounts) {
+		// one at a time: each waits until the previous one is in a block (same signer lock)
+		for (let attempt = 0; attempt < 3; attempt++) {
+			try {
+				await sweepAccount(mnemonic, a.index, to, 15_000);
+				break;
+			} catch {
+				await new Promise((r) => setTimeout(r, 3000));
+			}
 		}
 	}
-	// then look like a normal unlock of the (now empty) wallet
-	const key = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
-	await open({ secrets: { mnemonic: p.mnemonic, accounts, active }, key }, true);
 }
 
-export function emergencyPin(): { action: DuressAction; to?: string } | null {
+export function emergencyPin(): { to?: string } | null {
 	const d = session?.vault.secrets.duress;
-	return d ? { action: d.action, to: d.to } : null;
+	return d ? { to: d.to } : null;
 }
 
-function duressPayload(action: DuressAction, to?: string): DuressPayload {
+function duressPayload(decoy: string, to?: string): DuressPayload {
 	const v = session!.vault.secrets;
-	return action === 'wipe'
-		? { action }
-		: { action, to, mnemonic: v.mnemonic, accounts: wallet.accounts.map(({ index, name }) => ({ index, name })), active: wallet.active };
+	return {
+		decoy,
+		...(to ? { to, mnemonic: v.mnemonic } : {}),
+		accounts: wallet.accounts.map(({ index, name }) => ({ index, name })),
+		active: wallet.active,
+	};
 }
 
-/** Sets (or replaces) the emergency PIN. `current` is the normal PIN, asked again. */
-export async function setEmergencyPin(current: string, pin: string, action: DuressAction, to?: string): Promise<void> {
+/**
+ * Sets (or replaces) the emergency PIN. `current` is the normal PIN, asked
+ * again. `to` (optional) is where the funds go when it is used.
+ */
+export async function setEmergencyPin(current: string, pin: string, to?: string): Promise<void> {
 	if (!session) throw new Error('Wallet is locked');
 	if (session.decoy) return;
 	if (!/^[0-9]{6}$/.test(pin)) throw new Error('The emergency PIN must be exactly 6 digits.');
 	if (pin === current) throw new Error('The emergency PIN must differ from your normal PIN.');
 	await openVault(current);
-	const key = await setDuress(pin, duressPayload(action, to));
-	session.vault.secrets.duress = { key, action, ...(to ? { to } : {}) };
+	await installDuress(pin, to);
+}
+
+/** Writes the emergency record (and a decoy seed, made once) for the open wallet. */
+async function installDuress(pin: string, to?: string): Promise<void> {
+	if (!session) return;
+	const decoy = session.vault.secrets.duress?.decoy ?? newMnemonic();
+	const key = await setDuress(pin, duressPayload(decoy, to));
+	session.vault.secrets.duress = { key, decoy, ...(to ? { to } : {}) };
 	await persist();
 }
 
@@ -333,10 +380,12 @@ async function persist(): Promise<void> {
 	if (!session || session.decoy) return;
 	session.vault.secrets.accounts = wallet.accounts.map(({ index, name }) => ({ index, name }));
 	session.vault.secrets.active = wallet.active;
+	const dr = session.vault.secrets.duress;
+	if (dr && !dr.decoy) dr.decoy = newMnemonic();
 	await saveVault(session.vault, wallet.address);
-	// keep the emergency sweep's account list current
+	// keep the emergency record's account list current (the decoy mirrors the names)
 	const d = session.vault.secrets.duress;
-	if (d?.action === 'sweep') await resealDuress(d.key, duressPayload('sweep', d.to));
+	if (d?.decoy) await resealDuress(d.key, duressPayload(d.decoy, d.to));
 }
 
 export async function switchAccount(index: number): Promise<void> {

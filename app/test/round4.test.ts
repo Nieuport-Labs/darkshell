@@ -91,14 +91,14 @@ describe('SNIP-52', () => {
 describe('emergency PIN record', () => {
 	it('opens only with its own PIN, can be resealed without it, and looks like the vault', async () => {
 		await createVault('111111', { mnemonic: 'm' }, 'secret1x', 'pin', CHEAP);
-		const key = await setDuress('222222', { action: 'wipe' }, CHEAP);
+		const key = await setDuress('222222', { decoy: 'd' }, CHEAP);
 		expect(await hasDuress()).toBe(true);
 		expect(await openDuress('111111')).toBeNull();
-		expect(await openDuress('222222')).toEqual({ action: 'wipe' });
+		expect(await openDuress('222222')).toEqual({ decoy: 'd' });
 		await expect(openVault('222222')).rejects.toThrow();
 
-		await resealDuress(key, { action: 'sweep', mnemonic: 'm', to: 'secret1safe', accounts: [{ index: 0, name: 'A' }] });
-		expect(await openDuress('222222')).toMatchObject({ action: 'sweep', to: 'secret1safe' });
+		await resealDuress(key, { decoy: 'd', mnemonic: 'm', to: 'secret1safe', accounts: [{ index: 0, name: 'A' }] });
+		expect(await openDuress('222222')).toMatchObject({ decoy: 'd', to: 'secret1safe' });
 
 		// same padded size as the real vault: the record does not tell which action it holds
 		const { kv } = await import('../src/lib/storage');

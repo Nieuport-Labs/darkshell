@@ -33,8 +33,11 @@ export function notificationNumber(hash: string): number {
 	return parseInt(hash.slice(0, 7), 16);
 }
 
+// Returns the module, never the plugin itself: an async function returning a
+// Capacitor plugin proxy makes the promise call `.then()` on it, which the
+// plugin rejects natively — and the await never finishes.
 async function notifications() {
-	return (await import('@capacitor/local-notifications')).LocalNotifications;
+	return import('@capacitor/local-notifications');
 }
 
 export async function backgroundEnabled(): Promise<boolean> {
@@ -43,7 +46,7 @@ export async function backgroundEnabled(): Promise<boolean> {
 
 /** Asks for the Android 13+ notification permission. */
 async function permission(): Promise<boolean> {
-	const ln = await notifications();
+	const ln = (await notifications()).LocalNotifications;
 	let p = await ln.checkPermissions();
 	if (p.display !== 'granted') p = await ln.requestPermissions();
 	return p.display === 'granted';
@@ -78,7 +81,7 @@ export async function allowBackground(): Promise<void> {
 export async function notifyNow(hash: string, title: string, body: string): Promise<void> {
 	if (!canNotify) return;
 	try {
-		const ln = await notifications();
+		const ln = (await notifications()).LocalNotifications;
 		if ((await ln.checkPermissions()).display !== 'granted') return;
 		await ln.createChannel({ id: CHANNEL, name: 'Payments received', importance: 4, visibility: 0 });
 		await ln.schedule({ notifications: [{ id: notificationNumber(hash), title, body, channelId: CHANNEL, smallIcon: 'ic_stat_notify', autoCancel: true }] });
@@ -92,7 +95,7 @@ export async function clearBackground(): Promise<void> {
 	if (!canNotify) return;
 	await PaymentWatch.stop().catch(() => {});
 	try {
-		const ln = await notifications();
+		const ln = (await notifications()).LocalNotifications;
 		if ((await ln.getDeliveredNotifications()).notifications.length) await ln.removeAllDeliveredNotifications();
 	} catch {
 		/* nothing to clear */

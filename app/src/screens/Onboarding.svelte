@@ -1,11 +1,14 @@
 <script lang="ts">
-	import { Check, ChevronLeft, Copy, Eye, KeyRound, ShieldCheck, Sparkles } from '@lucide/svelte';
+	import { Check, ChevronLeft, Copy, Eye, Fingerprint, Globe, KeyRound, ShieldAlert, ShieldCheck, Sparkles } from '@lucide/svelte';
+	import { isBech32Address } from 'secret-pay';
 	import Button from '../components/ui/Button.svelte';
 	import PinPad from '../components/ui/PinPad.svelte';
-	import { isValidMnemonic, newMnemonic, normalizeMnemonic } from '../lib/crypto/account';
-	import { createWallet } from '../lib/wallet.svelte';
+	import { isValidMnemonic, newMnemonic, normalizeMnemonic, walletFromMnemonic } from '../lib/crypto/account';
+	import { biometricAvailable } from '../lib/crypto/biometric';
+	import { setTor, torAvailable } from '../lib/tor.svelte';
+	import { createWallet, type SetupChoices } from '../lib/wallet.svelte';
 
-	type Step = 'welcome' | 'words' | 'verify' | 'import' | 'pin' | 'pin2';
+	type Step = 'welcome' | 'words' | 'verify' | 'import' | 'pin' | 'pin2' | 'bio' | 'tor' | 'emergency' | 'epin' | 'epin2' | 'safe';
 	let step = $state<Step>('welcome');
 	let mode = $state<'create' | 'import'>('create');
 	let mnemonic = $state('');
@@ -18,6 +21,12 @@
 	let busy = $state(false);
 	let error = $state('');
 	let reset = $state(0);
+	let pin = '';
+	let choices: SetupChoices = {};
+	let ePin = '';
+	let safe = $state('');
+	let bioAvailable = false;
+	void biometricAvailable().then((v) => (bioAvailable = v));
 
 	const words = $derived(mnemonic ? mnemonic.split(' ') : []);
 
@@ -79,18 +88,65 @@
 		reset++;
 	}
 
-	async function confirmPin(pin: string) {
-		if (pin !== firstPin) {
+	function confirmPin(p: string) {
+		if (p !== firstPin) {
 			error = 'The PINs do not match. Choose a PIN again.';
 			firstPin = '';
 			step = 'pin';
 			reset++;
 			return;
 		}
+		pin = p;
+		choices = {};
+		go(bioAvailable ? 'bio' : afterBio());
+	}
+
+	const afterBio = (): Step => (torAvailable ? 'tor' : 'emergency');
+
+	function chooseBio(on: boolean) {
+		choices.biometric = on;
+		go(afterBio());
+	}
+
+	function chooseTor(on: boolean) {
+		// starts right away: nothing on the network happens before the wallet exists
+		if (on) void setTor(true);
+		go('emergency');
+	}
+
+	function setEmergency(p: string) {
+		if (p === pin) {
+			error = 'Choose a PIN different from your normal one.';
+			reset++;
+			return;
+		}
+		ePin = p;
+		go('epin2');
+		reset++;
+	}
+
+	function confirmEmergency(p: string) {
+		if (p !== ePin) {
+			error = 'The PINs do not match. Choose the emergency PIN again.';
+			ePin = '';
+			step = 'epin';
+			reset++;
+			return;
+		}
+		go('safe');
+	}
+
+	const ownAddress = $derived(mnemonic ? walletFromMnemonic(mnemonic, 0).address : '');
+	const safeError = $derived(safe.trim() && (!isBech32Address(safe.trim(), 'secret') || safe.trim() === ownAddress) ? 'Enter a secret1… address of a different wallet.' : '');
+
+	async function finish(withEmergency: boolean) {
+		if (withEmergency && safeError) return;
+		if (withEmergency) choices.emergency = { pin: ePin, ...(safe.trim() ? { to: safe.trim() } : {}) };
 		busy = true;
+		error = '';
 		try {
-			await createWallet(mnemonic, pin);
-			mnemonic = firstPin = '';
+			await createWallet(mnemonic, pin, choices);
+			mnemonic = firstPin = pin = ePin = '';
 		} catch (err) {
 			error = err instanceof Error ? err.message : String(err);
 			busy = false;
@@ -98,9 +154,12 @@
 		}
 	}
 
-	const back: Partial<Record<Step, Step>> = { words: 'welcome', verify: 'words', import: 'welcome' };
+	const back: Partial<Record<Step, Step>> = { words: 'welcome', verify: 'words', import: 'welcome', epin: 'emergency', epin2: 'epin', safe: 'epin' };
 	function goBack() {
 		if (step === 'pin' || step === 'pin2') return go(mode === 'create' ? 'words' : 'import');
+		if (step === 'bio') return go('pin');
+		if (step === 'tor') return go(bioAvailable ? 'bio' : 'pin');
+		if (step === 'emergency') return go(torAvailable ? 'tor' : bioAvailable ? 'bio' : 'pin');
 		go(back[step]!);
 	}
 </script>
@@ -183,7 +242,72 @@
 		</form>
 	{:else if step === 'pin'}
 		<PinPad title="Choose a PIN" subtitle="6 digits to unlock DarkShell on this device. It encrypts your recovery phrase." {error} bind:reset oncomplete={setPin} />
+	{:else if step === 'pin2'}
+		<PinPad title="Repeat your PIN" {error} bind:reset oncomplete={confirmPin} />
+	{:else if step === 'bio'}
+		<div class="flex flex-1 flex-col justify-center">
+			<span class="flex size-14 items-center justify-center rounded-pill bg-accent-soft text-accent"><Fingerprint size={26} /></span>
+			<h1 class="mt-6 text-headline">Unlock with your fingerprint?</h1>
+			<p class="mt-2 text-base text-text-muted">Faster than typing the PIN. The PIN still works, and you can change this in Settings.</p>
+		</div>
+		<div class="flex flex-col gap-1 pb-2">
+			<Button block size="xl" onclick={() => chooseBio(true)}>Use fingerprint</Button>
+			<Button variant="ghost" block onclick={() => chooseBio(false)}>Not now</Button>
+		</div>
+	{:else if step === 'tor'}
+		<div class="flex flex-1 flex-col justify-center">
+			<span class="flex size-14 items-center justify-center rounded-pill bg-accent-soft text-accent"><Globe size={26} /></span>
+			<h1 class="mt-6 text-headline">Connect through Tor?</h1>
+			<p class="mt-2 text-base text-text-muted">
+				Routes all of DarkShell's traffic through the Tor network, so the nodes and services it talks to never see your IP address. It is slower, and connecting takes up to a minute. You can change it in Settings → Network.
+			</p>
+		</div>
+		<div class="flex flex-col gap-1 pb-2">
+			<Button block size="xl" onclick={() => chooseTor(true)}>Use Tor</Button>
+			<Button variant="ghost" block onclick={() => chooseTor(false)}>Not now</Button>
+		</div>
+	{:else if step === 'emergency'}
+		<div class="flex flex-1 flex-col justify-center">
+			<span class="flex size-14 items-center justify-center rounded-pill bg-accent-soft text-accent"><ShieldAlert size={26} /></span>
+			<h1 class="mt-6 text-headline">An emergency PIN</h1>
+			<p class="mt-2 text-base text-text-muted">For when someone forces you to unlock. Typed instead of your PIN, it:</p>
+			<ul class="mt-4 flex flex-col gap-2.5 text-base text-text-muted">
+				<li class="flex gap-3"><span class="mt-px text-accent">1</span>erases your wallet from this phone,</li>
+				<li class="flex gap-3"><span class="mt-px text-accent">2</span>sends your funds to a safe address, if you set one,</li>
+				<li class="flex gap-3"><span class="mt-px text-accent">3</span>opens a separate empty wallet, as if nothing happened.</li>
+			</ul>
+		</div>
+		<div class="flex flex-col gap-1 pb-2">
+			<Button block size="xl" onclick={() => go('epin')}>Set an emergency PIN</Button>
+			<Button variant="ghost" block loading={busy} onclick={() => finish(false)}>Skip</Button>
+			{#if error}<p class="text-center text-base text-negative" role="alert">{error}</p>{/if}
+		</div>
+	{:else if step === 'epin'}
+		<PinPad title="Choose an emergency PIN" subtitle="6 digits, different from your PIN." {error} bind:reset oncomplete={setEmergency} />
+	{:else if step === 'epin2'}
+		<PinPad title="Repeat the emergency PIN" {error} bind:reset oncomplete={confirmEmergency} />
 	{:else}
-		<PinPad title="Repeat your PIN" {error} {busy} bind:reset oncomplete={confirmPin} />
+		<div class="flex flex-1 flex-col gap-4">
+			<div>
+				<h1 class="text-headline">Safe address</h1>
+				<p class="mt-1.5 text-base text-text-muted">
+					Optional. When the emergency PIN is used, your funds move here in the background. Use a wallet that is not on this phone. Leave it empty to only erase.
+				</p>
+			</div>
+			<input
+				bind:value={safe}
+				placeholder="secret1…"
+				autocomplete="off"
+				autocapitalize="none"
+				spellcheck="false"
+				aria-label="Safe address"
+				class="rounded-pill bg-surface px-5 py-3.5 font-mono text-sm outline-none placeholder:text-text-faint"
+			/>
+			{#if safeError}<p class="px-2 text-base text-negative">{safeError}</p>{/if}
+			{#if error}<p class="px-2 text-base text-negative" role="alert">{error}</p>{/if}
+			<div class="mt-auto pb-2">
+				<Button block size="xl" loading={busy} disabled={!!safeError} onclick={() => finish(true)}>{safe.trim() ? 'Finish' : 'Finish without an address'}</Button>
+			</div>
+		</div>
 	{/if}
 </div>

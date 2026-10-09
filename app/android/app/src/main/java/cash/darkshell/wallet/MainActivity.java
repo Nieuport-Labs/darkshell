@@ -8,6 +8,9 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(PaymentWatchPlugin.class);
+        registerPlugin(TorPlugin.class);
+        // with Tor on, route everything through it before the WebView loads anything
+        if (TorManager.isEnabled(this)) TorManager.get(this).start();
         super.onCreate(savedInstanceState);
     }
 

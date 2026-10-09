@@ -10,6 +10,7 @@
 	import { CREDIT_FLOOR, CREDIT_REFILL, GAS_VAULT_ADDRESS } from '../../lib/config';
 	import { WrongPasswordError } from '../../lib/crypto/vault';
 	import { builtInFf } from '../../lib/ff/fixedfloat';
+	import { checkTor, setTor, tor, torAvailable, torLabel } from '../../lib/tor.svelte';
 	import { formatAmount, shortAddress } from '../../lib/format';
 	import { kv } from '../../lib/storage';
 	import { close, open } from '../../lib/ui.svelte';
@@ -102,7 +103,6 @@
 	/* emergency PIN */
 	let em = $state(emergencyPin());
 	let emEdit = $state(false);
-	let emAction = $state<'wipe' | 'sweep'>('wipe');
 	let emTo = $state('');
 	let emPin = $state('');
 	let emCurrent = $state('');
@@ -113,11 +113,11 @@
 	async function emSave(e: SubmitEvent) {
 		e.preventDefault();
 		emMsg = '';
-		if (emAction === 'sweep' && !emToValid) return (emMsg = 'Enter a secret1… address that is not one of your accounts here.');
+		if (emTo.trim() && !emToValid) return (emMsg = 'Enter a secret1… address that is not one of your accounts here, or leave it empty.');
 		if (!/^[0-9]{6}$/.test(emPin)) return (emMsg = 'The emergency PIN must be exactly 6 digits.');
 		emBusy = true;
 		try {
-			await setEmergencyPin(emCurrent, emPin, emAction, emAction === 'sweep' ? emTo.trim() : undefined);
+			await setEmergencyPin(emCurrent, emPin, emTo.trim() || undefined);
 			em = emergencyPin();
 			emEdit = false;
 			emPin = emCurrent = '';
@@ -167,6 +167,21 @@
 	}
 
 	const secretName = $derived(wallet.kind === 'pin' ? 'PIN' : 'password');
+	let torChecking = $state(false);
+	let torCheck = $state('');
+	async function runTorCheck() {
+		torChecking = true;
+		torCheck = '';
+		try {
+			const r = await checkTor();
+			torCheck = r.isTor ? `Yes — check.torproject.org sees a Tor exit (${r.ip}).` : `No — check.torproject.org sees ${r.ip}, not Tor.`;
+		} catch (e) {
+			torCheck = `Could not check: ${e instanceof Error ? e.message : String(e)}`;
+		} finally {
+			torChecking = false;
+		}
+	}
+
 	let lcd = $state('');
 	let confirmRemove = $state(false);
 	kv.get<string>('settings.lcd').then((v) => (lcd = v ?? ''));
@@ -285,43 +300,25 @@
 
 {#snippet emergencyBody()}
 	<p class="text-label text-text-faint">
-		A second PIN for when someone forces you to unlock. Entered on the lock screen, it opens the app as usual, but first does what you choose here.
+		A second PIN for when someone forces you to unlock. It erases your wallet from this phone, sends your funds to a safe address if you set one, and opens a separate
+		empty wallet as if nothing happened. That wallet is made now, in the background, and is never shown anywhere.
 	</p>
 	{#if em && !emEdit}
 		<div class="rounded-control bg-surface px-3 py-2.5 text-base">
-			{#if em.action === 'wipe'}
-				<span class="font-medium">Erases this wallet</span> from the phone. The app then looks freshly installed.
-			{:else}
-				<span class="font-medium">Sends everything</span> to <span class="font-mono text-sm">{shortAddress(em.to ?? '', 10, 6)}</span>, then opens the emptied wallet.
-			{/if}
+			<span class="font-medium">On.</span>
+			{#if em.to}Funds go to <span class="font-mono text-sm">{shortAddress(em.to, 10, 6)}</span>.{:else}Funds stay where they are (no safe address).{/if}
 		</div>
 		<div class="flex gap-2">
-			<Button variant="secondary" shape="control" onclick={() => ((emEdit = true), (emAction = em!.action), (emTo = em!.to ?? ''))}>Change</Button>
+			<Button variant="secondary" shape="control" onclick={() => ((emEdit = true), (emTo = em!.to ?? ''))}>Change</Button>
 			<Button variant="ghost" shape="control" onclick={emRemove}>Remove</Button>
 		</div>
 	{:else}
 		<form class="flex flex-col gap-2" onsubmit={emSave}>
-			<div class="grid gap-2" role="radiogroup" aria-label="What the emergency PIN does">
-				{#each [['wipe', 'Erase the wallet', 'Removes the recovery phrase and everything else from this phone. Only your written-down phrase brings it back.'], ['sweep', 'Send everything away', 'Moves all sSCRT and SCRT from every account to a safe address of yours, then shows the empty wallet.']] as [k, t, d] (k)}
-					<button
-						type="button"
-						role="radio"
-						aria-checked={emAction === k}
-						onclick={() => (emAction = k as 'wipe' | 'sweep')}
-						class="rounded-control border px-3 py-2.5 text-left transition-colors {emAction === k ? 'border-accent bg-accent-container' : 'border-border bg-surface'}"
-					>
-						<span class="block text-base font-medium">{t}</span>
-						<span class="block text-label text-text-muted">{d}</span>
-					</button>
-				{/each}
-			</div>
-			{#if emAction === 'sweep'}
-				<input class="rounded-control border border-border bg-surface px-3 py-2.5 font-mono text-sm outline-none" placeholder="Safe address (secret1…)" autocomplete="off" spellcheck="false" bind:value={emTo} />
-				<p class="text-label text-text-faint">
-					Use a wallet that is not on this phone (a hardware wallet, or one at home). Fees come from your gas credits, so keep them topped up. After it has been used,
-					treat this recovery phrase as known to the other person.
-				</p>
-			{/if}
+			<input class="rounded-control border border-border bg-surface px-3 py-2.5 font-mono text-sm outline-none" placeholder="Safe address (optional, secret1…)" autocomplete="off" spellcheck="false" bind:value={emTo} />
+			<p class="text-label text-text-faint">
+				Optional. Use a wallet that is not on this phone (a hardware wallet, or one at home). Fees come from your gas credits. Only your written-down recovery phrase brings
+				this wallet back.
+			</p>
 			<input type="password" class="rounded-control border border-border bg-surface px-3 py-2.5 text-base outline-none" placeholder="New emergency PIN (6 digits)" inputmode="numeric" maxlength="6" autocomplete="off" bind:value={emPin} />
 			<input type="password" class="rounded-control border border-border bg-surface px-3 py-2.5 text-base outline-none" placeholder={`Your normal ${secretName}`} inputmode={wallet.kind === 'pin' ? 'numeric' : 'text'} autocomplete="current-password" bind:value={emCurrent} />
 			<div class="flex gap-2">
@@ -392,6 +389,17 @@
 {/snippet}
 
 {#snippet networkBody()}
+	{#if torAvailable}
+		{@render toggle(tor.enabled, 'Connect through Tor', () => void setTor(!tor.enabled))}
+		<p class="-mt-1 text-label text-text-faint">
+			All of DarkShell's traffic goes through Tor, so the nodes and services it talks to don't see your IP address. Slower, and connecting takes up to a minute.
+			{#if tor.enabled}<span class="block pt-1 {tor.status === 'ON' ? 'text-positive' : 'text-text-muted'}">Tor: {torLabel()}</span>{/if}
+		</p>
+		{#if tor.enabled && tor.status === 'ON'}
+			<Button variant="ghost" shape="control" class="self-start" loading={torChecking} onclick={runTorCheck}>Check connection</Button>
+			{#if torCheck}<p class="-mt-2 text-label {torCheck.startsWith('Yes') ? 'text-positive' : 'text-negative'}">{torCheck}</p>{/if}
+		{/if}
+	{/if}
 	<form class="flex flex-col gap-2" onsubmit={saveLcd}>
 		<p class="text-label text-text-faint">Secret Network mainnet (secret-4). Optionally use your own LCD endpoint.</p>
 		<input class="rounded-control border border-border bg-surface px-3 py-2.5 font-mono text-sm outline-none" placeholder="https://…" bind:value={lcd} />

@@ -1,7 +1,8 @@
 // Emergency ("duress") PIN. Entered on the lock screen instead of the real
-// PIN, it either erases the wallet from the phone or sends everything to a
-// safe address the user chose — and in both cases looks like an ordinary
-// unlock (or an ordinary fresh install).
+// PIN, it erases the real wallet from the phone, sends everything to the safe
+// address (when one was set) in the background, and opens a decoy wallet — a
+// separate seed made at setup, never shown anywhere — as an ordinary unlock.
+// From then on that same PIN simply unlocks the decoy.
 //
 // Stored like the vault itself: its own Argon2id salt, AES-GCM, padded to the
 // same 512-byte blocks, so the record does not reveal which action it holds.
@@ -15,15 +16,17 @@ import { aesKey, seal, unseal, type AccountEntry } from './vault';
 
 const KEY = 'vault.alt';
 
-export type DuressAction = 'wipe' | 'sweep';
-
 export interface DuressPayload {
-	action: DuressAction;
-	/** sweep: what to sign with, where to send, and which accounts to empty */
-	mnemonic?: string;
+	/** the decoy wallet's recovery phrase (older records have none: one is made on use) */
+	decoy?: string;
+	/** safe address; with it, the real phrase so the funds can be moved */
 	to?: string;
+	mnemonic?: string;
+	/** account names and the open one, mirrored by the decoy */
 	accounts?: AccountEntry[];
 	active?: number;
+	/** records from before the decoy wallet */
+	action?: 'wipe' | 'sweep';
 }
 
 interface DuressRecord {

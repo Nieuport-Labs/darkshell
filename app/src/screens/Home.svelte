@@ -55,7 +55,8 @@
 	</div>
 </header>
 
-<section class="rounded-[20px] border border-border bg-surface-1 px-5 pb-5 pt-4">
+<!-- the balance floats on the page: no card, just air around it -->
+<section class="px-1 pb-4 pt-6">
 	<div class="flex items-center justify-between">
 		<button type="button" onclick={refresh} class="flex items-center gap-1.5 text-label text-text-muted">
 			<ShieldCheck size={14} class="text-accent" aria-hidden="true" />
@@ -68,19 +69,19 @@
 	</div>
 
 	{#if wallet.balance === null}
-		<div class="mt-4 h-[3.25rem] w-48 animate-pulse rounded-control bg-surface"></div>
+		<div class="mt-4 h-[3.75rem] w-52 animate-pulse rounded-control bg-surface"></div>
 	{:else}
 		<!-- whole sSCRT large; decimals above and the unit below, both small, on the same line -->
-		<div class="mt-3 flex items-stretch gap-1.5" aria-label="{ui.hideBalance ? 'Hidden' : formatAmount(wallet.balance)} sSCRT">
-			<span class="text-[3.25rem] font-semibold leading-[0.9] tracking-[-0.04em] tabular-nums" aria-hidden="true">{ui.hideBalance ? '••••' : int}</span>
-			<span class="flex flex-col justify-between pb-[0.2rem] pt-[0.1rem] text-[0.9375rem] font-semibold leading-none tracking-[-0.01em]" aria-hidden="true">
+		<div class="mt-4 flex items-stretch gap-1.5" aria-label="{ui.hideBalance ? 'Hidden' : formatAmount(wallet.balance)} sSCRT">
+			<span class="text-[3.75rem] font-semibold leading-[0.9] tracking-[-0.04em] tabular-nums" aria-hidden="true">{ui.hideBalance ? '••••' : int}</span>
+			<span class="flex flex-col justify-between pb-[0.25rem] pt-[0.15rem] text-[1.0625rem] font-semibold leading-none tracking-[-0.01em]" aria-hidden="true">
 				<span class="tabular-nums text-text-muted">{ui.hideBalance ? '' : `.${frac ?? '00'}`}</span>
 				<span class="text-text-faint">sSCRT</span>
 			</span>
 		</div>
 	{/if}
 
-	<p class="mt-3 min-h-5 text-base tabular-nums text-text-muted">
+	<p class="mt-3 min-h-6 text-[1.0625rem] tabular-nums text-text-muted">
 		{#if wallet.error}
 			<button type="button" onclick={refresh} class="text-negative">Couldn't update. Tap to retry</button>
 		{:else if wallet.balance !== null && price.usd !== null}
@@ -89,7 +90,7 @@
 	</p>
 </section>
 
-<div class="mt-3 grid grid-cols-2 gap-3">
+<div class="mt-4 grid grid-cols-2 gap-3">
 	<Button size="lg" class="w-full !py-3.5" onclick={() => open({ name: 'send' })}>
 		{#snippet icon()}<Send size={17} />{/snippet}
 		Send

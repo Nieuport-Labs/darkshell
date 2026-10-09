@@ -10,6 +10,8 @@ android {
         versionCode 1
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        // Tor's native library ships per ABI: phones (arm) and the emulator (x86_64)
+        ndk { abiFilters 'arm64-v8a', 'armeabi-v7a', 'x86_64' }
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
              // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
@@ -52,6 +54,16 @@ dependencies {
     implementation project(':capacitor-android')
     // WebSocket for the payment watcher (PaymentWatchService)
     implementation "com.squareup.okhttp3:okhttp:4.12.0"
+    // Tor inside the app (Guardian Project), for the "Connect through Tor" setting
+    implementation "info.guardianproject:tor-android:0.4.9.6"
+    implementation "info.guardianproject:jtorctl:0.4.5.7"
+    implementation "androidx.localbroadcastmanager:localbroadcastmanager:1.1.0"
+    implementation "androidx.webkit:webkit:$androidxWebkitVersion"
+    // Tor inside the app (Guardian Project), for the "Connect through Tor" setting
+    implementation "info.guardianproject:tor-android:0.4.9.6"
+    implementation "info.guardianproject:jtorctl:0.4.5.7"
+    implementation "androidx.localbroadcastmanager:localbroadcastmanager:1.1.0"
+    implementation "androidx.webkit:webkit:$androidxWebkitVersion"
     testImplementation "junit:junit:$junitVersion"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
