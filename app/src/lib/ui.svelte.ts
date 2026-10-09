@@ -2,6 +2,7 @@
 // invoice links open the wallet on the payment); everything else is state.
 
 import type { HistoryItem } from './chain/sscrt';
+import type { ChainActivity } from './chain/activity';
 import { classify, type Target } from './pay/classify';
 
 export type Dialog =
@@ -16,7 +17,7 @@ export type Dialog =
 	| { name: 'proposal'; id: string }
 	/** a one-tap transaction (collect rewards, make private, refill gas credits): recap, then swipe */
 	| { name: 'action'; action: 'claim' | 'wrap' | 'refill' }
-	| { name: 'tx'; item?: HistoryItem; hash?: string }
+	| { name: 'tx'; item?: HistoryItem; hash?: string; chain?: ChainActivity }
 	| { name: 'lightning'; target?: Extract<Target, { kind: 'lightning' }>; orderId?: string };
 
 /** `activity` has no tab of its own: Home's "See all" opens it */

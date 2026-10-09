@@ -118,7 +118,8 @@ export function stepsOf(flat: Flat[], names: Names = {}): Step[] {
 	const steps: Step[] = [];
 	const val = (a: unknown) => (typeof a === 'string' ? (names.validator?.(a) ?? shortAddress(a, 14, 4)) : 'validator');
 	for (const m of flat) {
-		switch (m.type) {
+		// gov v1beta1 votes (other wallets still send them) read like v1
+		switch (m.type === '/cosmos.gov.v1beta1.MsgVote' ? T.vote : m.type) {
 			case T.exec:
 				steps.push(execStep(m));
 				break;

@@ -7,6 +7,8 @@ import { SHADESWAP_ROUTER } from './chain/shadeSwap';
 import { shortAddress } from './format';
 import type { LoggedTx } from './wallet.svelte';
 import type { Overall } from './txSteps';
+import type { ChainActivity } from './chain/activity';
+import { formatAmount } from './format';
 
 export type Icon = 'in' | 'out' | 'swap' | 'gas' | 'shield' | 'bolt' | 'stake' | 'vote';
 
@@ -62,7 +64,7 @@ export function unsettled(logged: LoggedTx[], history: HistoryItem[]): LoggedTx[
 	});
 }
 
-export function describeLogged(l: LoggedTx): Described {
+export function describeLogged(l: LoggedTx, settled = false): Described {
 	const to = l.to ? `to ${shortAddress(l.to, 6, 4)}` : '';
 	const map: Record<LoggedTx['kind'], [string, Icon]> = {
 		send: ['Sending', 'out'],
@@ -76,10 +78,23 @@ export function describeLogged(l: LoggedTx): Described {
 		claim: ['Claiming rewards', 'stake'],
 		vote: ['Voting', 'vote'],
 	};
-	const [title, icon] = map[l.kind];
+	const done: Record<LoggedTx['kind'], string> = {
+		send: 'Sent',
+		invoice: 'Paid invoice',
+		ibc: 'Sent to another chain',
+		wrap: 'Made private',
+		refill: 'Gas credits',
+		lightning: 'Lightning payment',
+		stake: 'Staked',
+		unstake: 'Unstaked',
+		claim: 'Staking rewards',
+		vote: l.memo?.replace(/ on proposal #\d+$/, '') || 'Voted',
+	};
+	const [title0, icon] = map[l.kind];
+	const title = settled ? done[l.kind] : title0;
 	const sign = l.kind === 'wrap' || l.kind === 'claim' ? '+' : l.kind === 'vote' || l.kind === 'unstake' ? '' : '−';
 	const detail = l.kind === 'stake' || l.kind === 'unstake' || l.kind === 'vote' ? '' : to;
-	return { title: l.status === 'failed' ? `${title} failed` : title, detail, sign, icon, link: l };
+	return { title: l.status === 'failed' ? `${title0} failed` : title, detail: settled && l.kind === 'vote' ? (l.memo?.match(/#\d+/)?.[0] ?? '') : detail, sign, icon, link: l };
 }
 
 /**
@@ -93,3 +108,57 @@ export function privacyOf(h: HistoryItem | undefined, link: LoggedTx | undefined
 	if (h.kind === 'wrap' || h.kind === 'unwrap') return 'public';
 	return 'private';
 }
+
+/** A staking, governance or public-SCRT transaction read from the chain. */
+export function describeChain(c: ChainActivity, validator: (a: string) => string = (a) => shortAddress(a, 10, 4)): Described {
+	const val = c.counterparty ? validator(c.counterparty) : '';
+	const r = (title: string, detail: string, sign: Described['sign'], icon: Icon): Described => ({ title: c.failed ? `${title} failed` : title, detail, sign, icon });
+	switch (c.kind) {
+		case 'stake':
+			return r('Staked', val ? `with ${val}` : '', '', 'stake');
+		case 'unstake':
+			return r('Unstaked', val ? `from ${val} · back in 21 days` : 'back in 21 days', '', 'stake');
+		case 'restake':
+			return r('Moved stake', val ? `to ${val}` : '', '', 'stake');
+		case 'claim':
+			return r('Staking rewards', 'collected as public SCRT', '+', 'stake');
+		case 'vote':
+			return r(`Voted ${c.vote ?? ''}`.trim(), c.proposal ? `on proposal #${c.proposal}` : '', '', 'vote');
+		case 'in':
+			return r('Received public SCRT', c.counterparty ? `from ${shortAddress(c.counterparty, 6, 4)}` : '', '+', 'in');
+		case 'out':
+			return r('Sent public SCRT', c.counterparty ? `to ${shortAddress(c.counterparty, 6, 4)}` : '', '−', 'out');
+		case 'ibc':
+			return r('Sent to another chain', c.counterparty ? `to ${shortAddress(c.counterparty, 8, 4)}` : '', '−', 'out');
+	}
+}
+
+export type Entry =
+	| { type: 'history'; time: number; h: HistoryItem; link?: LoggedTx }
+	| { type: 'chain'; time: number; c: ChainActivity; link?: LoggedTx }
+	| { type: 'logged'; time: number; l: LoggedTx };
+
+/**
+ * Everything the account did, newest first: the private sSCRT history, the
+ * chain's staking/governance/public-SCRT transactions, and our own log for
+ * what neither shows (a vote or unstake the node's index hasn't caught up on,
+ * a refill paid from public SCRT). Unsettled sends are listed separately.
+ */
+export function timeline(history: HistoryItem[], chain: ChainActivity[], logged: LoggedTx[]): Entry[] {
+	const hist: Entry[] = history.map((h) => ({ type: 'history', time: (h.time ?? 0) * 1000, h, link: linkOf(h, logged) }));
+	const linked = new Set(hist.map((e) => (e.type === 'history' ? e.link?.hash : undefined)).filter(Boolean));
+	const hashes = new Set(chain.map((c) => c.hash));
+	// a transaction the private history already shows (a stake made here shows as its unwrap,
+	// claimed rewards as their wrap) is not listed twice; unstaking and votes it can't show
+	const ch: Entry[] = chain
+		.filter((c) => !linked.has(c.hash) || c.kind === 'unstake' || c.kind === 'restake' || c.kind === 'vote')
+		.map((c) => ({ type: 'chain', time: c.time * 1000, c, link: logged.find((l) => l.hash === c.hash) }));
+	const rest: Entry[] = logged
+		.filter((l) => l.status === 'confirmed' && !linked.has(l.hash) && !hashes.has(l.hash))
+		.map((l) => ({ type: 'logged', time: l.time, l }));
+	// history items without a time keep their place at the end
+	return [...hist, ...ch, ...rest].sort((a, b) => b.time - a.time);
+}
+
+/** Amount shown for a chain entry. */
+export const chainAmount = (c: ChainActivity): string => (c.kind === 'vote' ? '' : formatAmount(c.amount, 4));

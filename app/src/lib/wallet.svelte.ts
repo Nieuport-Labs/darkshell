@@ -40,6 +40,7 @@ import { MSG_WITHDRAW_REWARD, queryRestaking, queryRewards, queryWithdrawAddress
 import { MsgWithdrawDelegatorReward } from 'secretjs';
 import { snip20Msg } from './chain/sscrt';
 import { planTopUp, ShortError } from './pay/topup';
+import { queryChainActivity, type ChainActivity } from './chain/activity';
 import { fromPlan, overallOf, stepsOf, type Overall, type Step } from './txSteps';
 import { queryDelegations } from './chain/staking';
 import { MSG_EXECUTE } from './gas/feePayer';
@@ -81,6 +82,8 @@ export const wallet = $state({
 	/** SCRT staked (delegated), shown on Home but not spendable */
 	staked: 0n,
 	history: [] as HistoryItem[],
+	/** staking, votes, public SCRT: what the sSCRT history doesn't show (lib/chain/activity.ts) */
+	chainActivity: [] as ChainActivity[],
 	refreshing: false,
 	switching: false,
 	/** bumps whenever the local transaction log changes */
@@ -141,6 +144,7 @@ async function activate(v: OpenVault, index: number): Promise<void> {
 	wallet.native = null;
 	wallet.credits = null;
 	wallet.history = [];
+	wallet.chainActivity = [];
 	wallet.rewards = [];
 	wallet.rewardsShown = 0n;
 	wallet.staked = 0n;
@@ -540,6 +544,7 @@ export function lock(): void {
 	wallet.native = null;
 	wallet.credits = null;
 	wallet.history = [];
+	wallet.chainActivity = [];
 	wallet.phase = wallet.address ? 'locked' : 'onboarding';
 	stopAutoLock();
 }
@@ -567,12 +572,22 @@ export async function refresh(): Promise<void> {
 		wallet.history = history;
 		wallet.credits = credits;
 		void readRewards(s);
+		void readChainActivity(s);
 		void settlePending(s);
 		void autoRefill(s);
 	} catch (e) {
 		wallet.error = e instanceof Error ? e.message : String(e);
 	} finally {
 		wallet.refreshing = false;
+	}
+}
+
+async function readChainActivity(s: Session): Promise<void> {
+	try {
+		const a = await queryChainActivity(s.wallet.address);
+		if (session === s) wallet.chainActivity = a;
+	} catch {
+		// the node's transaction index is optional: keep what we had
 	}
 }
 

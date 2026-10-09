@@ -110,7 +110,7 @@
 	{:else if ui.dialog?.name === 'action'}
 		{#key ui.dialog.action}<ActionModal action={ui.dialog.action} />{/key}
 	{:else if ui.dialog?.name === 'tx'}
-		{#key ui.dialog.item?.id ?? ui.dialog.hash}<TxDetailModal item={ui.dialog.item} hash={ui.dialog.hash} />{/key}
+		{#key ui.dialog.item?.id ?? ui.dialog.hash}<TxDetailModal item={ui.dialog.item} hash={ui.dialog.hash} entry={ui.dialog.chain} />{/key}
 	{:else if ui.dialog?.name === 'lightning'}
 		<LightningModal target={ui.dialog.target} orderId={ui.dialog.orderId} />
 	{/if}

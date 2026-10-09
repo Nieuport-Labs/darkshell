@@ -52,3 +52,10 @@ describe('transaction steps', () => {
 		expect(overallOf(stepsOf(fromChain([{ '@type': '/secret.compute.v1beta1.MsgExecuteContract', contract: GAS_VAULT_ADDRESS, msg: { grant: {} } }])))).toBe('public');
 	});
 });
+
+describe('older message versions', () => {
+	it('reads a gov v1beta1 vote', () => {
+		const steps = stepsOf(fromChain([{ '@type': '/cosmos.gov.v1beta1.MsgVote', proposal_id: '380', option: 'VOTE_OPTION_YES' }]));
+		expect(steps).toEqual([{ title: 'Vote Yes on #380', privacy: 'public' }]);
+	});
+});

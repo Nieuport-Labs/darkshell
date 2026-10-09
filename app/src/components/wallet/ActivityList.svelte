@@ -3,7 +3,9 @@
 	import ActivityIcon from './ActivityIcon.svelte';
 	import { OVERALL_LABEL } from '../../lib/txSteps';
 	import type { HistoryItem } from '../../lib/chain/sscrt';
-	import { describe, describeLogged, linkOf, privacyOf, unsettled, type Icon } from '../../lib/activity';
+	import { chainAmount, describe, describeChain, describeLogged, privacyOf, timeline, unsettled, type Described, type Entry, type Icon } from '../../lib/activity';
+	import type { Overall } from '../../lib/txSteps';
+	import { loadStaking, staking, validatorName } from '../../lib/staking.svelte';
 	import { loadLnOrders, lnOrders } from '../../lib/ff/orders.svelte';
 	import { formatAmount } from '../../lib/format';
 	import { open, ui } from '../../lib/ui.svelte';
@@ -21,6 +23,13 @@
 	$effect(() => {
 		void wallet.address;
 		void loadLnOrders();
+	});
+	// validator names for staking entries (once: a failed load is not retried from here)
+	let namesAsked = false;
+	$effect(() => {
+		if (namesAsked || staking.validators.length || !wallet.chainActivity.some((c) => c.counterparty?.startsWith('secretvaloper'))) return;
+		namesAsked = true;
+		void loadStaking();
 	});
 
 	function date(unix?: number): string {
@@ -41,7 +50,26 @@
 	}
 
 	const inFlight = $derived(unsettled(logged, wallet.history));
-	const shown = $derived(limit ? wallet.history.slice(0, Math.max(0, limit - inFlight.length)) : wallet.history);
+	const all = $derived(timeline(wallet.history, wallet.chainActivity, logged));
+	const shown = $derived(limit ? all.slice(0, Math.max(0, limit - inFlight.length)) : all);
+
+	/** what one entry shows: words, amount, privacy, where a tap goes */
+	function view(e: Entry): { d: Described; amount: string; fiat: bigint; pv: Overall; title: string; open: () => void } {
+		if (e.type === 'history') {
+			const d = describe(e.h, e.link);
+			return { d, amount: `${d.sign}${formatAmount(e.h.amount, 4)}`, fiat: e.h.amount, pv: privacyOf(e.h, d.link), title: e.h.memo || d.title, open: () => openItem(e.h, d.link) };
+		}
+		if (e.type === 'chain') {
+			const d = describeChain(e.c, validatorName);
+			const amt = chainAmount(e.c);
+			return { d, amount: amt ? `${d.sign}${amt}` : '', fiat: e.c.amount, pv: 'public', title: d.title, open: () => open({ name: 'tx', hash: e.c.hash, chain: $state.snapshot(e.c) }) };
+		}
+		const d = describeLogged(e.l, true);
+		const a = BigInt(e.l.kind === 'vote' ? '0' : e.l.spent && e.l.spent !== '0' ? e.l.spent : (e.l.amount ?? '0'));
+		return { d, amount: a > 0n ? `${d.sign}${formatAmount(a, 4)}` : '', fiat: a, pv: e.l.privacy ?? 'public', title: d.title, open: () => openLogged(e.l) };
+	}
+	const key = (e: Entry, i: number) => (e.type === 'history' ? `h-${e.h.id}-${i}` : e.type === 'chain' ? `c-${e.c.hash}` : `l-${e.l.hash}`);
+	const timeOf = (e: Entry) => Math.floor(e.time / 1000);
 </script>
 
 {#snippet glyph(icon: Icon)}<ActivityIcon {icon} />{/snippet}
@@ -49,14 +77,14 @@
 <section class="flex flex-col">
 	<div class="flex items-center justify-between pb-2">
 		<h2 class="text-title">{title}</h2>
-		{#if onseeall && (wallet.history.length || inFlight.length)}
+		{#if onseeall && (all.length || inFlight.length)}
 			<button type="button" onclick={onseeall} class="state-layer -mr-2 flex items-center gap-0.5 rounded-pill px-2 py-1 text-base text-text-muted">
 				See all <ChevronRight size={16} />
 			</button>
 		{/if}
 	</div>
 
-	{#if wallet.balance === null && wallet.history.length === 0}
+	{#if wallet.balance === null && all.length === 0}
 		{#each [0, 1, 2] as i (i)}
 			<div class="flex items-center gap-3 py-3">
 				<span class="size-10 shrink-0 animate-pulse rounded-pill bg-surface"></span>
@@ -87,25 +115,24 @@
 					</button>
 				</li>
 			{/each}
-			{#each shown as h, i (`${h.id}-${i}`)}
-				{@const d = describe(h, linkOf(h, logged))}
-				{@const pv = privacyOf(h, d.link)}
+			{#each shown as e, i (key(e, i))}
+				{@const v = view(e)}
 				<li>
-					<button type="button" onclick={() => openItem(h, d.link)} class="state-layer -mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-card px-2 py-3 text-left">
-						{@render glyph(d.icon)}
+					<button type="button" onclick={v.open} class="state-layer -mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-card px-2 py-3 text-left">
+						{@render glyph(v.d.icon)}
 						<span class="min-w-0 flex-1">
-							<span class="block truncate text-base font-medium">{h.memo || d.title}</span>
+							<span class="block truncate text-base font-medium">{v.title}</span>
 							<span class="flex items-center gap-1 text-label text-text-faint">
-								{#if pv === 'private'}<ShieldCheck size={12} aria-hidden="true" class="shrink-0" />{:else if pv === 'partial'}<ShieldHalf size={12} aria-hidden="true" class="shrink-0" />{:else}<Eye size={12} aria-hidden="true" class="shrink-0" />{/if}
-								<span class="truncate">{OVERALL_LABEL[pv]}{d.detail ? ` · ${h.memo ? d.title.toLowerCase() + ' ' : ''}${d.detail}` : ''}</span>
+								{#if v.pv === 'private'}<ShieldCheck size={12} aria-hidden="true" class="shrink-0" />{:else if v.pv === 'partial'}<ShieldHalf size={12} aria-hidden="true" class="shrink-0" />{:else}<Eye size={12} aria-hidden="true" class="shrink-0" />{/if}
+								<span class="truncate">{OVERALL_LABEL[v.pv]}{v.d.detail ? ` · ${e.type === 'history' && e.h.memo ? v.d.title.toLowerCase() + ' ' : ''}${v.d.detail}` : ''}</span>
 							</span>
 						</span>
 						<span class="flex shrink-0 flex-col items-end">
-							<span class="whitespace-nowrap text-base font-medium tabular-nums {d.sign === '+' ? 'text-positive' : 'text-text'}">
-								{ui.hideBalance ? '••••' : `${d.sign}${formatAmount(h.amount, 4)}`}
+							<span class="whitespace-nowrap text-base font-medium tabular-nums {v.d.sign === '+' ? 'text-positive' : 'text-text'}">
+								{v.amount && ui.hideBalance ? '••••' : v.amount}
 							</span>
 							<span class="whitespace-nowrap text-label tabular-nums text-text-faint"
-								>{#if !ui.hideBalance && usdValue(h.amount)}{usdValue(h.amount)}&nbsp;·&nbsp;{/if}{date(h.time)}</span
+								>{#if !ui.hideBalance && v.amount && usdValue(v.fiat)}{usdValue(v.fiat)}&nbsp;·&nbsp;{/if}{date(timeOf(e))}</span
 							>
 						</span>
 					</button>

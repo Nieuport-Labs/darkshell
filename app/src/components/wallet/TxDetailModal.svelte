@@ -7,7 +7,8 @@
 	import { fromChain, OVERALL_LABEL, overallOf, stepsOf, type Step } from '../../lib/txSteps';
 	import { untrack } from 'svelte';
 	import type { HistoryItem } from '../../lib/chain/sscrt';
-	import { describe, describeLogged, linkOf } from '../../lib/activity';
+	import { describe, describeChain, describeLogged, linkOf } from '../../lib/activity';
+	import type { ChainActivity } from '../../lib/chain/activity';
 	import { SHADESWAP_ROUTER } from '../../lib/chain/shadeSwap';
 	import { explorerTx, GAS_VAULT_ADDRESS } from '../../lib/config';
 	import { loadLnOrders, lnOrders } from '../../lib/ff/orders.svelte';
@@ -18,8 +19,10 @@
 	import { chainTx, receivedHash, txLog, wallet, type ChainTxDetail, type LoggedTx } from '../../lib/wallet.svelte';
 	import Modal from '../ui/Modal.svelte';
 
-	let { item: i, hash: h }: { item?: HistoryItem; hash?: string } = $props();
+	let { item: i, hash: h, entry: en }: { item?: HistoryItem; hash?: string; entry?: ChainActivity } = $props();
 	const item = untrack(() => i);
+	/** a staking / governance / public-SCRT transaction read from the chain */
+	const entry = untrack(() => en);
 
 	let link = $state<LoggedTx | undefined>();
 	let hash = $state<string | null>(untrack(() => h ?? null));
@@ -48,11 +51,13 @@
 		}
 	}
 
-	const d = $derived(item ? describe(item, link) : link ? describeLogged(link) : null);
-	const amount = $derived(item ? item.amount : BigInt(link?.spent ?? link?.amount ?? '0'));
+	const d = $derived(item ? describe(item, link) : entry ? describeChain(entry, validatorName) : link ? describeLogged(link, link.status === 'confirmed') : null);
+	const amount = $derived(item ? item.amount : entry ? entry.amount : BigInt(link?.spent ?? link?.amount ?? '0'));
+	const unit = $derived(entry ? 'SCRT' : 'sSCRT');
 	const status = $derived.by(() => {
 		if (chain) return chain.code === 0 ? 'confirmed' : 'failed';
 		if (item) return 'confirmed';
+		if (entry) return entry.failed ? 'failed' : 'confirmed';
 		return link?.status ?? 'pending';
 	});
 	const me = $derived(wallet.accounts.find((a) => a.address === wallet.address)?.name ?? 'You');
@@ -76,12 +81,15 @@
 	}
 
 	const from = $derived.by((): Party | null => {
+		if (entry?.kind === 'in') return party(entry.counterparty) ?? { label: 'Unknown sender' };
+		if (entry?.kind === 'claim') return { label: 'Staking rewards' };
 		if (!item) return party(wallet.address);
 		if (item.kind === 'in') return party(item.counterparty) ?? { label: 'Unknown sender' };
 		if (item.kind === 'wrap') return { label: 'Your public SCRT', address: wallet.address };
 		return party(wallet.address);
 	});
 	const to = $derived.by((): Party | null => {
+		if (entry) return entry.kind === 'in' ? party(wallet.address) : entry.counterparty ? party(entry.counterparty) : null;
 		if (link?.kind === 'lightning') return order ? { label: 'Lightning invoice', address: order.invoice } : null;
 		if (link?.to) return party(link.to);
 		if (!item) return null;
@@ -94,6 +102,8 @@
 	const when = $derived(
 		item?.time
 			? new Date(item.time * 1000)
+			: entry
+				? new Date(entry.time * 1000)
 			: chain?.time
 				? new Date(chain.time)
 				: link
@@ -129,7 +139,7 @@
 		return list;
 	});
 	const overall = $derived(steps.length ? overallOf(steps) : item ? (item.kind === 'wrap' || item.kind === 'unwrap' ? 'public' : 'private') : null);
-	const isVote = $derived(link?.kind === 'vote');
+	const isVote = $derived(link?.kind === 'vote' || entry?.kind === 'vote');
 
 	const json = (v: unknown) => JSON.stringify(v, (_, x) => (typeof x === 'bigint' ? x.toString() : x instanceof Uint8Array ? `0x${[...x].map((b) => b.toString(16).padStart(2, '0')).join('')}` : x), 2);
 	const hidden = $derived(ui.hideBalance);
@@ -167,13 +177,13 @@
 		<div class="flex flex-col items-center gap-2 pt-4 text-center">
 			<span class="mb-1"><ActivityIcon icon={d.icon} size={56} /></span>
 			{#if isVote}
-				<p class="text-title">{link?.memo ?? 'Vote'}</p>
+				<p class="text-title">{entry ? `${d.title} ${d.detail}` : (link?.memo ?? 'Vote')}</p>
 			{:else}
 			<div class="flex items-baseline gap-2">
 				<span class="text-[2.5rem] font-semibold leading-tight tracking-[-0.03em] tabular-nums {d.sign === '+' ? 'text-positive' : ''} {status === 'failed' ? 'text-text-faint line-through' : ''}"
 					>{hidden ? '••••' : `${d.sign}${formatAmount(amount)}`}</span
 				>
-				<span class="text-title text-text-muted">sSCRT</span>
+				<span class="text-title text-text-muted">{unit}</span>
 			</div>
 			{#if !hidden && usdValue(amount)}<span class="-mt-1 text-base tabular-nums text-text-faint">≈ {usdValue(amount)}</span>{/if}
 			{/if}
@@ -222,7 +232,7 @@
 				<div class="flex items-center justify-between px-4 py-3.5 text-base text-text-faint">Transaction <Loader2 size={14} class="animate-spin" /></div>
 			{/if}
 			{#if item?.height || chain?.height}{@render row('Block', (chain?.height ?? item?.height ?? 0).toLocaleString())}{/if}
-			{#if chain?.fee}{@render row('Network fee', chain.fee, { sub: item?.kind === 'in' ? 'paid by the sender' : chain.feePayer === GAS_VAULT_ADDRESS ? 'paid from gas credits' : chain.feePayer ? 'paid by a fee grant' : 'paid from your public SCRT' })}{/if}
+			{#if chain?.fee}{@render row('Network fee', chain.fee, { sub: item?.kind === 'in' || entry?.kind === 'in' ? 'paid by the sender' : chain.feePayer === GAS_VAULT_ADDRESS ? 'paid from gas credits' : chain.feePayer ? 'paid by a fee grant' : 'paid from your public SCRT' })}{/if}
 			{#if chain}{@render row('Gas', `${chain.gasUsed.toLocaleString()} / ${chain.gasWanted.toLocaleString()}`)}{/if}
 		</dl>
 
