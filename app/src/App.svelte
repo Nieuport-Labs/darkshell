@@ -65,16 +65,16 @@
 	{#if wallet.phase === 'loading'}
 		<!-- the mark while the vault is read (a moment) -->
 		<div class="flex flex-1 items-center justify-center pb-[10vh]">
-			<span class="halo pop-in size-20"><img src="/avatar.webp" alt="" class="size-20 rounded-pill object-cover" /></span>
+			<span class="halo enter size-20"><img src="/avatar.webp" alt="" class="size-20 rounded-pill object-cover" /></span>
 		</div>
 	{:else if wallet.phase === 'onboarding'}
 		<Onboarding />
 	{:else if wallet.phase === 'locked'}
 		<Unlock />
 	{:else if wallet.phase === 'unlocked'}
-		<div class="stagger {ui.simple ? 'pb-8' : 'pb-28'}" style="--stagger-step: 80ms">
+		<div class={ui.simple ? 'pb-8' : 'pb-28'}>
 			<!-- a failing page shows its error instead of taking the whole app (and the tabs) down -->
-			{#key ui.tab}
+			{#key ui.tab}<div class="enter">
 				<svelte:boundary onerror={(e) => console.error(e)}>
 					{#if ui.tab === 'home'}<Home />
 					{:else if ui.tab === 'activity'}<Activity />
@@ -88,7 +88,7 @@
 						</div>
 					{/snippet}
 				</svelte:boundary>
-			{/key}
+			</div>{/key}
 		</div>
 	{/if}
 </div>

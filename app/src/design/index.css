@@ -43,7 +43,7 @@
 
 @keyframes modal-in {
   from {
-    transform: translateY(28px) scale(0.985);
+    transform: translateY(12px);
     opacity: 0;
   }
   to {
@@ -53,7 +53,7 @@
 }
 
 @keyframes page-in {
-  from { transform: translateX(24px); opacity: 0; }
+  from { transform: translateX(12px); opacity: 0; }
   to { transform: translateX(0); opacity: 1; }
 }
 
@@ -243,6 +243,11 @@
   to { opacity: 1; transform: none; filter: blur(0); }
 }
 
+@keyframes enter {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
 @keyframes fade-in {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -287,11 +292,6 @@
   to { stroke-dashoffset: 0; }
 }
 
-@keyframes nudge {
-  0%, 60%, 100% { transform: translateX(0); }
-  30% { transform: translateX(2px); }
-}
-
 @keyframes nav-pop {
   0% { transform: scale(1); }
   40% { transform: scale(0.93); }
@@ -325,6 +325,8 @@
   .rise-blur { animation: rise-blur 760ms var(--ease-out-expo) backwards; }
   .pop-in { animation: pop-in 520ms var(--ease-spring) backwards; }
   .fade-in { animation: fade-in 400ms var(--ease-out-expo) backwards; }
+  /* a new screen: a quiet fade, nothing that draws the eye */
+  .enter { animation: enter 260ms var(--ease-out-expo) backwards; }
   .nav-pop { animation: nav-pop 420ms var(--ease-spring); }
   .dot-fill { animation: dot-fill 320ms var(--ease-spring); }
 
@@ -333,16 +335,6 @@
     background: linear-gradient(100deg, var(--color-surface) 30%, rgb(255 255 255 / 0.13) 50%, var(--color-surface) 70%);
     background-size: 220% 100%;
     animation: shimmer 2s linear infinite;
-  }
-
-  /* a label with light running across it (Swipe to …) */
-  .shine {
-    background: linear-gradient(100deg, var(--color-text-muted) 40%, #fff 50%, var(--color-text-muted) 60%);
-    background-size: 250% 100%;
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-    animation: shimmer 4.5s linear infinite;
   }
 
   /* NFC: rings going out from the icon while the phone is a tag */
@@ -367,7 +359,6 @@
     border-radius: 9999px;
     background: radial-gradient(circle, rgb(255 57 18 / 0.34), transparent 62%);
     filter: blur(14px);
-    animation: breathe 5s ease-in-out infinite;
   }
 }
 
@@ -399,7 +390,7 @@
     filter: blur(16px);
     animation: breathe 3.4s ease-in-out infinite;
   }
-  .orb[data-state='done'] .orb-glow { animation-duration: 5s; }
+  .orb[data-state='done'] .orb-glow { animation: none; }
 
   .orb > svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 
@@ -535,16 +526,15 @@
   .rise-blur,
   .pop-in,
   .fade-in,
+  .enter,
   .nav-pop,
   .dot-fill,
   .orb *,
   .skeleton,
-  .shine,
   .nfc-wave::before,
   .nfc-wave::after,
   .halo::before,
   .tx-step-bar::before { animation: none !important; }
-  .shine { color: var(--color-text-muted); background: none; }
   .orb[data-state='done'] .orb-ring,
   .orb[data-state='done'] .orb-check { stroke-dashoffset: 0; }
   .orb[data-state='done'] .orb-disc { transform: none; }

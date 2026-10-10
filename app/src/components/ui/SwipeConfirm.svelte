@@ -78,7 +78,7 @@
 	<span
 		class="pointer-events-none absolute inset-0 flex items-center justify-center pl-12 text-base font-medium"
 		style="opacity: {Math.max(0, 1 - progress * 1.6)}"
-		aria-hidden="true"><span class={disabled ? 'text-text-muted' : 'shine'}>{label}</span></span
+		aria-hidden="true"><span class="text-text-muted">{label}</span></span
 	>
 	<button
 		type="button"
@@ -92,6 +92,6 @@
 		class="absolute top-1 flex size-14 cursor-grab touch-none items-center justify-center rounded-2xl bg-accent-strong text-white shadow-lg active:cursor-grabbing disabled:bg-surface-3 disabled:text-text-faint"
 		style="left: {PAD + x}px; transition: {dragging ? 'none' : 'left 280ms cubic-bezier(0.32, 0.72, 0, 1)'}"
 	>
-		{#if loading || done}<Loader2 size={22} class="animate-spin" />{:else}<span class={disabled || dragging ? '' : 'animate-[nudge_3.2s_var(--ease-out-expo)_infinite]'}><ChevronsRight size={24} /></span>{/if}
+		{#if loading || done}<Loader2 size={22} class="animate-spin" />{:else}<ChevronsRight size={24} />{/if}
 	</button>
 </div>

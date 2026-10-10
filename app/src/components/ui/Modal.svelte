@@ -28,8 +28,8 @@
 		role="dialog"
 		aria-modal="true"
 		aria-label={title}
-		out:fly|global={{ x: 28, duration: 200, easing: cubicIn, opacity: 0 }}
-		class="fixed inset-0 z-50 flex flex-col bg-bg pb-safe pt-safe motion-safe:animate-[page-in_480ms_var(--ease-out-expo)]"
+		out:fly|global={{ x: 12, duration: 160, easing: cubicIn, opacity: 0 }}
+		class="fixed inset-0 z-50 flex flex-col bg-bg pb-safe pt-safe motion-safe:animate-[page-in_280ms_var(--ease-out-expo)]"
 	>
 		<header class="relative mx-auto flex h-14 w-full max-w-[460px] shrink-0 items-center justify-center px-4">
 			{#if onback ?? onclose}
@@ -39,7 +39,7 @@
 			{/if}
 			<h2 class="text-headline">{title}</h2>
 		</header>
-		<div class="stagger mx-auto flex w-full max-w-[460px] flex-1 flex-col gap-5 overflow-y-auto px-5 pb-4 pt-2 [&>*]:shrink-0" style="--stagger-delay: 60ms">
+		<div class="mx-auto flex w-full max-w-[460px] flex-1 flex-col gap-5 overflow-y-auto px-5 pb-4 pt-2 [&>*]:shrink-0">
 			{@render children()}
 		</div>
 	</div>
@@ -59,9 +59,8 @@
 		role="dialog"
 		aria-modal="true"
 		aria-label={title}
-		out:fly|global={{ y: 40, duration: 200, easing: cubicIn, opacity: 0 }}
-		class="glass-panel stagger relative flex max-h-[calc(100dvh-2rem)] w-full max-w-[420px] flex-col gap-5 overflow-y-auto rounded-card p-5 [&>*]:shrink-0 outline-none motion-safe:animate-[modal-in_520ms_var(--ease-out-expo)]"
-		style="--stagger-delay: 70ms"
+		out:fly|global={{ y: 16, duration: 160, easing: cubicIn, opacity: 0 }}
+		class="glass-panel relative flex max-h-[calc(100dvh-2rem)] w-full max-w-[420px] flex-col gap-5 overflow-y-auto rounded-card p-5 [&>*]:shrink-0 outline-none motion-safe:animate-[modal-in_320ms_var(--ease-out-expo)]"
 	>
 		<div class="flex shrink-0 items-start justify-between gap-4">
 			<div class="flex min-w-0 items-center gap-3">

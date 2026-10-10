@@ -70,7 +70,7 @@
 
 <div class="mx-auto flex w-full max-w-[420px] flex-1 flex-col">
 	<div class="flex flex-col items-center pt-6 text-center">
-		<span class="halo pop-in size-16"><img src="/avatar.webp" alt="" class="size-16 rounded-pill object-cover" /></span>
+		<span class="halo enter size-16"><img src="/avatar.webp" alt="" class="size-16 rounded-pill object-cover" /></span>
 	</div>
 
 	{#if wallet.kind === 'pin'}
@@ -89,7 +89,7 @@
 			{/snippet}
 		</PinPad>
 	{:else}
-		<form class="stagger mt-8 flex flex-1 flex-col gap-3" onsubmit={submit}>
+		<form class="mt-8 flex flex-1 flex-col gap-3" onsubmit={submit}>
 			<h1 class="text-center text-headline">Welcome back</h1>
 			<p class="text-center text-base text-text-muted">Unlock with your password once; you can switch to a PIN in Settings.</p>
 			<label class="field">

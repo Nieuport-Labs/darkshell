@@ -173,17 +173,17 @@
 	}
 </script>
 
-<div class="stagger mx-auto flex w-full max-w-[420px] flex-1 flex-col gap-6">
+<div class="mx-auto flex w-full max-w-[420px] flex-1 flex-col gap-6">
 	{#if step !== 'welcome'}
 		<button type="button" onclick={goBack} aria-label="Back" class="state-layer -ml-1.5 self-start rounded-pill p-1.5 text-text-muted"><ChevronLeft size={20} /></button>
 	{/if}
 
 	{#if step === 'welcome'}
-		<div class="stagger flex flex-1 flex-col justify-center" style="--stagger-step: 90ms">
-			<span class="halo pop-in size-14"><img src="/avatar.webp" alt="" class="size-14 rounded-pill object-cover" /></span>
-			<h1 class="rise-blur mt-6 text-display" style="animation-delay: 120ms">A private account for your SCRT</h1>
+		<div class="enter flex flex-1 flex-col justify-center">
+			<span class="halo size-14"><img src="/avatar.webp" alt="" class="size-14 rounded-pill object-cover" /></span>
+			<h1 class="mt-6 text-display">A private account for your SCRT</h1>
 			<p class="mt-2 text-base text-text-muted">One private balance in sSCRT. Send, receive and pay invoices on Secret Network — network fees are taken care of.</p>
-			<ul class="stagger mt-6 flex flex-col gap-3 text-base text-text-muted" style="--stagger-delay: 300ms; --stagger-step: 80ms">
+			<ul class="mt-6 flex flex-col gap-3 text-base text-text-muted">
 				<li class="flex gap-3"><ShieldCheck size={18} class="mt-px shrink-0 text-accent" />Balances and transfers are encrypted on chain.</li>
 				<li class="flex gap-3"><Sparkles size={18} class="mt-px shrink-0 text-accent" />Pay invoices in any token, even Lightning.</li>
 				<li class="flex gap-3"><KeyRound size={18} class="mt-px shrink-0 text-accent" />Your keys never leave this device.</li>

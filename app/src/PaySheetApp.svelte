@@ -188,7 +188,7 @@
 	></button>
 
 	{#if phase === 'loading'}
-		<div class="pop-in relative mx-auto mb-10 flex items-center gap-2 rounded-pill bg-bg px-4 py-2 text-base text-text-muted">
+		<div class="enter relative mx-auto mb-10 flex items-center gap-2 rounded-pill bg-bg px-4 py-2 text-base text-text-muted">
 			<Loader2 size={16} class="animate-spin" /> Opening DarkShell…
 		</div>
 	{:else}
@@ -259,7 +259,7 @@
 				</div>
 			{:else if target && facts}
 				<!-- what it costs: the figure that matters -->
-				<div class="stagger flex flex-col items-center pb-2 pt-7 text-center">
+				<div class="flex flex-col items-center pb-2 pt-7 text-center">
 					{#if cost === null}
 						<span class="flex h-[3.75rem] items-center gap-2 text-base text-text-muted"><Loader2 size={18} class="animate-spin" /> Getting the price…</span>
 					{:else}

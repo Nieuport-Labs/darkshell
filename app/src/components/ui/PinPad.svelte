@@ -87,12 +87,12 @@
 <svelte:window onkeydown={key} />
 
 <div class="flex flex-1 flex-col items-center">
-	<div class="rise flex flex-col items-center gap-2 pt-4 text-center" style="animation-delay: 80ms">
+	<div class="flex flex-col items-center gap-2 pt-4 text-center">
 		<h1 class="text-headline">{title}</h1>
 		{#if subtitle}<p class="max-w-[30ch] text-base text-text-muted">{subtitle}</p>{/if}
 	</div>
 
-	<div class="rise mt-8 flex gap-4 {shake ? 'animate-[shake_400ms_var(--ease-standard)]' : ''} {busy ? 'animate-pulse' : ''}" style="animation-delay: 140ms" aria-label="{pin.length} of {LENGTH} digits entered" role="status">
+	<div class="mt-8 flex gap-4 {shake ? 'animate-[shake_400ms_var(--ease-standard)]' : ''} {busy ? 'animate-pulse' : ''}" aria-label="{pin.length} of {LENGTH} digits entered" role="status">
 		{#each Array(LENGTH) as _, i (i)}
 			<span class="size-4 rounded-pill border-2 transition-colors duration-75 {i < pin.length ? 'dot-fill border-accent bg-accent shadow-[0_0_12px_rgb(255_57_18/0.55)]' : 'border-border-strong bg-transparent'}"></span>
 		{/each}
@@ -101,7 +101,7 @@
 		{#if busy}Checking…{:else}{error}{/if}
 	</p>
 
-	<div class="stagger mt-auto grid w-full max-w-[340px] grid-cols-3 gap-x-4 gap-y-2 pb-3" style="--stagger-delay: 160ms; --stagger-step: 28ms">
+	<div class="mt-auto grid w-full max-w-[340px] grid-cols-3 gap-x-4 gap-y-2 pb-3">
 		{#each KEYS as k (k || 'blank')}
 			{#if k === ''}
 				<span class="flex items-center justify-center">{#if aux}{@render aux()}{/if}</span>

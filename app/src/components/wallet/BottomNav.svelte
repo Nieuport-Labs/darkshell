@@ -31,7 +31,7 @@
 					goTab(t.tab);
 				}}
 				aria-current={active ? 'page' : undefined}
-				class="state-layer relative flex min-h-12 touch-manipulation select-none flex-col items-center justify-center gap-1 rounded-card py-2 text-label transition-colors duration-300 {active ? 'text-accent' : 'text-text-muted'}"
+				class="relative flex min-h-12 touch-manipulation outline-none [-webkit-tap-highlight-color:transparent] focus-visible:ring-2 focus-visible:ring-accent select-none flex-col items-center justify-center gap-1 rounded-card py-2 text-label transition-colors duration-300 {active ? 'text-accent' : 'text-text-muted'}"
 			>
 				<span class={active ? 'nav-pop' : ''}><t.icon size={20} /></span>
 				{t.label}

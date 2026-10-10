@@ -29,12 +29,14 @@
 	// sSCRT, public SCRT and pending staking rewards: all of it can be spent (see `pay`)
 	const total = $derived(totalBalance());
 	const usd = $derived(usdValue(total));
-	// the figure counts up to the balance when Home opens, and on to a new one
-	// when money moves (base units; a Number holds any real balance exactly)
-	const counter = new Tween(wallet.balance === null ? 0 : lastShown, { duration: 1100, easing: cubicOut });
+	// when money moves, the figure runs on to the new balance; the first one
+	// just shows (base units; a Number holds any real balance exactly)
+	const counter = new Tween(lastShown, { duration: 900, easing: cubicOut });
+	let first = wallet.balance === null || lastShown === 0;
 	$effect(() => {
 		if (total === null) return;
-		counter.target = Number(total);
+		void counter.set(Number(total), first ? { duration: 0 } : undefined);
+		first = false;
 		lastShown = Number(total);
 	});
 	const shownTotal = $derived(total === null ? null : Math.abs(counter.current - Number(total)) < 0.5 ? total : BigInt(Math.max(0, Math.round(counter.current))));
@@ -68,7 +70,7 @@
 </header>
 
 <!-- the simple app: balance and buttons in the middle of the screen -->
-<div class="stagger {ui.simple ? 'flex min-h-[calc(100dvh-11rem)] flex-col justify-center pb-[12vh]' : ''}" style="--stagger-step: 70ms">
+<div class={ui.simple ? 'flex min-h-[calc(100dvh-11rem)] flex-col justify-center pb-[12vh]' : ''}>
 <!-- the balance is the page: big, with air around it -->
 <section class="px-1 pb-7 pt-8">
 	<div class="flex items-center {ui.simple ? 'justify-center gap-2' : 'justify-between'}">
@@ -85,7 +87,7 @@
 		<div class="skeleton mt-3 h-[3.75rem] w-48 rounded-control {ui.simple ? 'mx-auto' : ''}"></div>
 	{:else}
 		<!-- whole sSCRT very large, the decimals smaller beside them -->
-		<div class="rise-blur mt-2 flex items-baseline {ui.simple ? 'justify-center' : ''}" aria-label="{ui.hideBalance ? 'Hidden' : formatAmount(total)} sSCRT">
+		<div class="mt-2 flex items-baseline {ui.simple ? 'justify-center' : ''}" aria-label="{ui.hideBalance ? 'Hidden' : formatAmount(total)} sSCRT">
 			<span class="{(int?.length ?? 0) > 6 ? 'text-[3rem]' : 'text-[3.75rem]'} font-semibold leading-none tracking-[-0.04em] tabular-nums" aria-hidden="true">{ui.hideBalance ? '••••' : int}</span>
 			{#if !ui.hideBalance}<span class="text-[1.625rem] font-semibold leading-none tracking-[-0.025em] tabular-nums text-text-faint" aria-hidden="true">.{frac ?? '00'}</span>{/if}
 		</div>
