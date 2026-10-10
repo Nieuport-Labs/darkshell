@@ -43,9 +43,11 @@
 	</div>
 </header>
 
+<!-- the simple app: balance and buttons in the middle of the screen -->
+<div class={ui.simple ? 'flex min-h-[calc(100dvh-11rem)] flex-col justify-center pb-[12vh]' : ''}>
 <!-- the balance is the page: big, with air around it -->
 <section class="px-1 pb-7 pt-8">
-	<div class="flex items-center justify-between">
+	<div class="flex items-center {ui.simple ? 'justify-center gap-2' : 'justify-between'}">
 		<button type="button" onclick={refresh} class="flex items-center gap-1.5 text-base text-text-muted">
 			Balance
 			{#if wallet.refreshing || wallet.switching}<Loader2 size={13} class="animate-spin text-text-faint" aria-label="Updating" />{/if}
@@ -56,17 +58,17 @@
 	</div>
 
 	{#if wallet.balance === null}
-		<div class="mt-3 h-[3.75rem] w-48 animate-pulse rounded-control bg-surface"></div>
+		<div class="mt-3 h-[3.75rem] w-48 animate-pulse rounded-control bg-surface {ui.simple ? 'mx-auto' : ''}"></div>
 	{:else}
 		<!-- whole sSCRT very large, the decimals smaller beside them -->
-		<div class="mt-2 flex items-baseline" aria-label="{ui.hideBalance ? 'Hidden' : formatAmount(total)} sSCRT">
+		<div class="mt-2 flex items-baseline {ui.simple ? 'justify-center' : ''}" aria-label="{ui.hideBalance ? 'Hidden' : formatAmount(total)} sSCRT">
 			<span class="{(int?.length ?? 0) > 6 ? 'text-[3rem]' : 'text-[3.75rem]'} font-semibold leading-none tracking-[-0.04em] tabular-nums" aria-hidden="true">{ui.hideBalance ? '••••' : int}</span>
 			{#if !ui.hideBalance}<span class="text-[1.625rem] font-semibold leading-none tracking-[-0.025em] tabular-nums text-text-faint" aria-hidden="true">.{frac ?? '00'}</span>{/if}
 		</div>
 	{/if}
 
 	<!-- unit and USD on the left, staked SCRT on the right: one line -->
-	<div class="mt-3 flex min-h-6 items-center justify-between gap-3 text-base tabular-nums text-text-muted">
+	<div class="mt-3 flex min-h-6 items-center {ui.simple ? 'justify-center' : 'justify-between'} gap-3 text-base tabular-nums text-text-muted">
 		<p class="min-w-0 truncate">
 			{#if wallet.error}
 				<button type="button" onclick={refresh} class="text-negative">Couldn't update. Tap to retry</button>
@@ -101,6 +103,8 @@
 		<Button variant="text" size="sm" onclick={() => open({ name: 'action', action: 'wrap' })}>Make private</Button>
 	</div>
 {/if}
+
+</div>
 
 {#if !ui.simple}
 	<div class="mt-9">
