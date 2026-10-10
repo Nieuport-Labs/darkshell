@@ -21,8 +21,8 @@ import {
 } from './crypto/vault';
 import { nativeBalance, signingClient } from './chain/client';
 import { signPermit, sscrtBalance, sscrtHistory, type HistoryItem } from './chain/sscrt';
-import { isSending, refillDue, sendTx, type TxOutcome } from './chain/tx';
-import { CREDIT_FLOOR, CREDIT_REFILL, GAS, GAS_PRICE, GAS_VAULT_ADDRESS, MIN_REFILL, SSCRT_ADDRESS } from './config';
+import { isSending, refillDue, refillSource, sendTx, type TxOutcome } from './chain/tx';
+import { CREDIT_FLOOR, CREDIT_REFILL, CREDIT_URGENT, GAS, GAS_PRICE, GAS_VAULT_ADDRESS, MIN_REFILL, SSCRT_ADDRESS } from './config';
 import { fetchGrants, forgetGrants, NoGasError } from './gas/feePayer';
 import { readCreditStatus, type CreditStatus } from './gas/gasCredits';
 import { wrapPayment, type PaymentPlan } from './pay/payments';
@@ -913,18 +913,23 @@ async function autoRefill(s: Session): Promise<void> {
 	const fee = BigInt(Math.ceil((GAS.unwrap + GAS.buyGasCredit) * GAS_PRICE)) * 2n;
 	const native = c.native > fee ? c.native - fee : 0n;
 	const sscrt = wallet.balance ?? 0n;
-	if (native < MIN_REFILL && sscrt < MIN_REFILL) return;
+	// credits that still pay dozens of fees are only topped up from a balance that won't miss it
+	const src = refillSource(native, sscrt, MIN_REFILL, c.remaining < CREDIT_URGENT);
+	if (src.amount === 0n) return;
 	if ((await txLog()).some((l) => l.status === 'pending')) return;
 	if (!(await refillDue(s.wallet.address).catch(() => false))) return;
 	autoTried = Date.now();
 	try {
-		const send = () => sendTx(s.client, s.wallet.address, [], 0, [], { nativeSpare: native, sscrtSpare: sscrt, forceRefill: true, waitMs: 0 });
+		const send = () => sendTx(s.client, s.wallet.address, [], 0, [], { nativeSpare: native, sscrtSpare: sscrt, waitMs: 0 });
 		// nothing pays the fee yet (first use, no SCRT): the faucet's grant pays it
 		const out = await send().catch(async (e) => {
 			if (!(e instanceof NoGasError) || !(await faucetGrant(s.wallet.address))) throw e;
 			return send();
 		});
 		if (session !== s) return;
+		// what the refill took is gone from the balance now, not after the next read
+		if (src.fromNative) wallet.native = wallet.native !== null && wallet.native > out.refilled ? wallet.native - out.refilled : wallet.native;
+		else if (wallet.balance !== null && wallet.balance >= out.refilled) wallet.balance -= out.refilled;
 		await log({ hash: out.hash, kind: 'refill', time: Date.now(), refilled: out.refilled.toString(), status: 'pending' });
 		setTimeout(() => void refresh(), 8000);
 	} catch {

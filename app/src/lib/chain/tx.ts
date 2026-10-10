@@ -11,7 +11,7 @@
 //   user's own transaction, and is left off whenever it would change who pays.
 
 import { BroadcastMode, MsgExecuteContract, type Msg, type SecretNetworkClient, type TxResponse } from 'secretjs';
-import { CREDIT_FLOOR, CREDIT_REFILL, DENOM, GAS, GAS_PRICE, GAS_VAULT_ADDRESS, MIN_REFILL, REFILL_COOLDOWN_MS, SSCRT_ADDRESS } from '../config';
+import { CREDIT_FLOOR, CREDIT_REFILL, CREDIT_URGENT, DENOM, GAS, GAS_PRICE, GAS_VAULT_ADDRESS, MIN_REFILL, REFILL_COOLDOWN_MS, REFILL_SHARE, SSCRT_ADDRESS } from '../config';
 import { MSG_EXECUTE, fetchGrants, planFee, type FeePlan } from '../gas/feePayer';
 import { availableFee, type FeeGrant } from '../gas/feegrant-sdk';
 import { addrKey, kv } from '../storage';
@@ -26,6 +26,9 @@ export class TxFailedError extends Error {
 		super(message);
 	}
 }
+
+/** The node refused the transaction before it reached a block (CheckTx). */
+class RejectedError extends TxFailedError {}
 
 export class BusyError extends Error {
 	constructor() {
@@ -95,11 +98,19 @@ export async function refillDue(address: string): Promise<boolean> {
 	return vaultCredit(grants) < CREDIT_FLOOR && Date.now() > (await cooldownUntil(address));
 }
 
-/** How much a refill takes, and from where: public SCRT first, then sSCRT; at most one refill. */
-export function refillSource(native: bigint, sscrt: bigint, min: bigint): { amount: bigint; fromNative: boolean } {
+/**
+ * How much a refill takes, and from where: public SCRT first, then sSCRT; at
+ * most one refill. `native` and `sscrt` are what the transaction leaves
+ * untouched. Credits that still pay dozens of fees (`urgent` false) are only
+ * topped up from a balance the refill is a small share of, so money the user
+ * sees and means to spend is never taken for fees; below the urgent level (or
+ * when asked for), it may take anything spare.
+ */
+export function refillSource(native: bigint, sscrt: bigint, min: bigint, urgent = true): { amount: bigint; fromNative: boolean } {
 	const take = (x: bigint) => (x < CREDIT_REFILL ? x : CREDIT_REFILL);
-	if (native >= min) return { amount: take(native), fromNative: true };
-	if (sscrt >= min) return { amount: take(sscrt), fromNative: false };
+	const enough = (x: bigint) => (urgent ? x >= min : x >= CREDIT_REFILL * REFILL_SHARE);
+	if (enough(native)) return { amount: take(native), fromNative: true };
+	if (enough(sscrt)) return { amount: take(sscrt), fromNative: false };
 	return { amount: 0n, fromNative: false };
 }
 
@@ -138,14 +149,17 @@ export async function sendTx(
 	inFlight = true;
 	try {
 		const [grants, native] = await Promise.all([fetchGrants(address), nativeBalance(client, address)]);
-		let plan = planFee(grants, gasLimit, msgTypes, native);
+		const bare = planFee(grants, gasLimit, msgTypes, native);
+		let plan = bare;
 		let all = msgs;
 		let refilled = 0n;
 
 		// append a gas-credit refill when it is due and affordable: up to
 		// CREDIT_REFILL from what the payment leaves untouched
-		const due = opts.forceRefill || (vaultCredit(grants) < CREDIT_FLOOR && Date.now() > (await cooldownUntil(address)));
-		const { amount, fromNative } = refillSource(opts.nativeSpare ?? 0n, opts.sscrtSpare ?? 0n, opts.forceRefill ? 100_000n : MIN_REFILL);
+		const credit = vaultCredit(grants);
+		const due = opts.forceRefill || (credit < CREDIT_FLOOR && Date.now() > (await cooldownUntil(address)));
+		const urgent = opts.forceRefill || credit < CREDIT_URGENT;
+		const { amount, fromNative } = refillSource(opts.nativeSpare ?? 0n, opts.sscrtSpare ?? 0n, opts.forceRefill ? 100_000n : MIN_REFILL, urgent);
 		if (due && amount > 0n) {
 			try {
 				const extraGas = fromNative ? GAS.buyGasCredit : REFILL_GAS;
@@ -169,8 +183,18 @@ export async function sendTx(
 			feeGranter: plan.feeGranter,
 			memo: opts.memo ?? '',
 		};
-		const bytes = await client.tx.signTx(all, options);
-		const sent = await broadcastOnce(client, bytes);
+		let sent: string;
+		try {
+			sent = await broadcastOnce(client, await client.tx.signTx(all, options));
+		} catch (e) {
+			// refused by the node with a refill riding along: the payment goes without it
+			// (a refused tx never reached a block, so its sequence is still free)
+			if (!(e instanceof RejectedError) || refilled === 0n || msgs.length === 0) throw e;
+			plan = bare;
+			all = msgs;
+			refilled = 0n;
+			sent = await broadcastOnce(client, await client.tx.signTx(all, { ...options, gasLimit: plan.gasLimit, feeGranter: plan.feeGranter }));
+		}
 		opts.onBroadcast?.({ status: 'pending', hash: sent, plan, refilled });
 		if (refilled > 0n) await kv.set(addrKey('refill.until', address), Date.now() + REFILL_COOLDOWN_MS);
 
@@ -200,7 +224,7 @@ async function broadcastOnce(client: SecretNetworkClient, bytes: Uint8Array): Pr
 		} catch (e) {
 			const msg = e instanceof Error ? e.message : String(e);
 			if (/tx already in mempool|already exists in cache/i.test(msg)) return hashOf(bytes);
-			if (/failed with code/i.test(msg)) throw new TxFailedError(humanizeTxError(msg.replace(/^.*Log: /, '')));
+			if (/failed with code/i.test(msg)) throw new RejectedError(humanizeTxError(msg.replace(/^.*Log: /, '')));
 			lastError = e;
 			await new Promise((r) => setTimeout(r, 1500));
 		}

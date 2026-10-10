@@ -70,6 +70,14 @@ export const GAS = {
  */
 export const CREDIT_FLOOR = 2_000_000n; // 2 SCRT
 export const CREDIT_REFILL = 2_000_000n; // 2 SCRT ≈ hundreds of payments
+/**
+ * Below the floor but above this, credits still pay dozens of fees: a refill
+ * only takes what the account clearly won't miss (see `refillSource`). Below
+ * it, a refill may take whatever the payment leaves untouched.
+ */
+export const CREDIT_URGENT = 300_000n; // 0.3 SCRT ≈ 20 payments
+/** above the urgent level, a refill is at most this share of a balance (1 in N) */
+export const REFILL_SHARE = 10n;
 /** smallest automatic top-up worth a message */
 export const MIN_REFILL = 200_000n; // 0.2 SCRT
 /** after a refill was sent, don't add another for this long (grant reads lag) */

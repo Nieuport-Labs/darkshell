@@ -1,3 +1,4 @@
+import 'fake-indexeddb/auto';
 import { describe, expect, it } from 'vitest';
 import { timeline } from '../src/lib/activity';
 import type { HistoryItem } from '../src/lib/chain/sscrt';

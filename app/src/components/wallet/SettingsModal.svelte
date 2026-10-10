@@ -5,7 +5,7 @@
 	import { isBech32Address } from 'secret-pay';
 	import type { Snippet } from 'svelte';
 	import { resetEndpoint } from '../../lib/chain/client';
-	import { CREDIT_FLOOR, CREDIT_REFILL, GAS_VAULT_ADDRESS } from '../../lib/config';
+	import { CREDIT_FLOOR, CREDIT_REFILL, CREDIT_URGENT, GAS_VAULT_ADDRESS, REFILL_SHARE } from '../../lib/config';
 	import { WrongPasswordError } from '../../lib/crypto/vault';
 	import { builtInFf } from '../../lib/ff/fixedfloat';
 	import { checkTor, setTor, tor, torAvailable, torLabel } from '../../lib/tor.svelte';
@@ -183,7 +183,10 @@
 			? 'Checking…'
 			: {
 					warm: 'Healthy. Network fees are paid from your gas credits.',
-					low: `Below ${formatAmount(CREDIT_FLOOR)} SCRT. DarkShell is adding ${formatAmount(CREDIT_REFILL)} SCRT automatically.`,
+					low:
+						c.remaining !== null && c.remaining < CREDIT_URGENT
+							? `Running out. DarkShell adds ${formatAmount(CREDIT_REFILL)} SCRT with your next payment, from what it leaves.`
+							: `Below ${formatAmount(CREDIT_FLOOR)} SCRT, still enough for dozens of payments. They are topped up once your balance can easily spare it.`,
 					cold: 'Empty. When sSCRT arrives, DarkShell asks the fee faucet to pay the fee of the first top-up — no SCRT needed.',
 					unknown: 'Could not be read right now. Nothing is lost.',
 				}[c.state],
@@ -322,7 +325,7 @@
 	<p class="text-label text-text-faint">
 		Fees are paid from prepaid gas credits, a fee grant from the gas vault, so you never need SCRT. They are kept between {formatAmount(CREDIT_FLOOR)} and {formatAmount(
 			CREDIT_FLOOR + CREDIT_REFILL,
-		)} SCRT: below {formatAmount(CREDIT_FLOOR)}, {formatAmount(CREDIT_REFILL)} are added from public SCRT you make private, or from sSCRT — with your next payment, or on their own when nothing else is being sent.
+		)} SCRT: below {formatAmount(CREDIT_FLOOR)}, {formatAmount(CREDIT_REFILL)} are added from public SCRT you make private, or from sSCRT — with your next payment, or on their own when nothing else is being sent. A top-up only takes money you won't miss (while credits still pay dozens of fees, only from a balance of {formatAmount(CREDIT_REFILL * REFILL_SHARE)} or more), and never stops a payment: it is left off when it can't ride along.
 	</p>
 	{#if c?.state === 'cold'}
 		<p class="text-label text-text-faint">

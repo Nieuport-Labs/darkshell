@@ -82,26 +82,47 @@ describe('sendTx', () => {
 	it('appends a refill when credits are low, then not again during the cooldown', async () => {
 		grants = [vaultGrant('900000')]; // 0.9 SCRT < floor
 		const a = fakeClient();
-		const first = await sendTx(a.client, ME, [MSG], 100_000, ['/x'], { sscrtSpare: 10_000_000n });
+		const first = await sendTx(a.client, ME, [MSG], 100_000, ['/x'], { sscrtSpare: 30_000_000n });
 		expect(first.refilled).toBe(2_000_000n);
 		expect(a.signed[0]).toHaveLength(3); // payment + redeem + vault grant
 
 		const b = fakeClient();
-		const second = await sendTx(b.client, ME, [MSG], 100_000, ['/x'], { sscrtSpare: 10_000_000n });
+		const second = await sendTx(b.client, ME, [MSG], 100_000, ['/x'], { sscrtSpare: 30_000_000n });
 		expect(second.refilled).toBe(0n);
 		expect(b.signed[0]).toHaveLength(1);
 	}, 20_000);
 
-	it('keeps credits at 2 SCRT: below the floor, tops up from a partial remainder', async () => {
+	it('below the floor, leaves a small balance alone while credits still pay dozens of fees', async () => {
 		grants = [vaultGrant('1900000')]; // 1.9 SCRT < 2 SCRT floor
+		const { client, signed } = fakeClient();
+		const out = await sendTx(client, ME, [MSG], 100_000, ['/x'], { sscrtSpare: 5_000_000n, nativeSpare: 3_000_000n });
+		expect(out.refilled).toBe(0n);
+		expect(signed[0]).toHaveLength(1);
+	}, 20_000);
+
+	it('when credits run out, tops up from a partial remainder', async () => {
+		grants = [vaultGrant('200000')]; // 0.2 SCRT, below the urgent level
 		const { client, signed } = fakeClient();
 		const out = await sendTx(client, ME, [MSG], 100_000, ['/x'], { sscrtSpare: 1_000_000n });
 		expect(out.refilled).toBe(1_000_000n);
 		expect(signed[0]).toHaveLength(3);
 	}, 20_000);
 
+	it('sends the payment without the refill when the node refuses them together', async () => {
+		grants = [vaultGrant('200000')];
+		const { client, signed } = fakeClient();
+		(client as { tx: { broadcastSignedTx: ReturnType<typeof vi.fn> } }).tx.broadcastSignedTx.mockImplementationOnce(async () => {
+			throw new Error('Broadcasting transaction failed with code 5 (codespace: sdk). Log: insufficient funds');
+		});
+		const out = await sendTx(client, ME, [MSG], 100_000, ['/x'], { sscrtSpare: 1_000_000n });
+		expect(out.status).toBe('confirmed');
+		expect(out.refilled).toBe(0n);
+		expect(signed).toHaveLength(2);
+		expect(signed[1]).toHaveLength(1); // the payment alone
+	}, 20_000);
+
 	it('tops up from public SCRT first, without a redeem', async () => {
-		grants = [vaultGrant('500000')];
+		grants = [vaultGrant('200000')];
 		const { client, signed } = fakeClient();
 		const out = await sendTx(client, ME, [MSG], 100_000, ['/x'], { sscrtSpare: 10_000_000n, nativeSpare: 4_000_000n });
 		expect(out.refilled).toBe(2_000_000n);
