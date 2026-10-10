@@ -93,12 +93,12 @@
 	{#if wallet.balance === null && all.length === 0}
 		{#each [0, 1, 2] as i (i)}
 			<div class="flex items-center gap-3 py-3">
-				<span class="size-10 shrink-0 animate-pulse rounded-pill bg-surface"></span>
-				<span class="h-4 flex-1 animate-pulse rounded-control bg-surface"></span>
+				<span class="skeleton size-10 shrink-0 rounded-pill"></span>
+				<span class="skeleton h-4 flex-1 rounded-control"></span>
 			</div>
 		{/each}
 	{:else if shown.length || inFlight.length}
-		<ul class="flex flex-col">
+		<ul class="stagger flex flex-col" style="--stagger-step: 40ms">
 			{#each inFlight as l (l.hash)}
 				{@const d = describeLogged(l)}
 				{@const amount = BigInt(l.kind === 'vote' ? '0' : l.spent && l.spent !== '0' ? l.spent : (l.amount ?? '0'))}

@@ -3,7 +3,7 @@
 	// transaction each. Staking suggests a validator (changeable); unstaking
 	// with a single validator goes straight to the amount. Opened on a
 	// validator, it shows your stake there first.
-	import { ExternalLink, Search, ShieldCheck } from '@lucide/svelte';
+	import { ExternalLink, Hourglass, Search, ShieldCheck, Sprout } from '@lucide/svelte';
 	import { fromBaseUnits, toBaseUnits } from 'secret-pay';
 	import { untrack } from 'svelte';
 	import { BusyError, type TxOutcome } from '../../lib/chain/tx';
@@ -18,7 +18,8 @@
 	import Button from '../ui/Button.svelte';
 	import Modal from '../ui/Modal.svelte';
 	import SwipeConfirm from '../ui/SwipeConfirm.svelte';
-	import TxResult from './TxResult.svelte';
+	import TxStage from './TxStage.svelte';
+	import { haptic } from '../../lib/haptics';
 	import ValidatorAvatar from './ValidatorAvatar.svelte';
 
 	let { validator: initial, mode: initialMode }: { validator?: string; mode?: 'stake' | 'unstake' } = $props();
@@ -105,6 +106,7 @@
 		try {
 			outcome = await (mode === 'stake' ? stake : unstake)(validator, base, (p) => (outcome = p));
 		} catch (e) {
+			haptic.error();
 			failure =
 				e instanceof NoGasError
 					? 'Nothing can pay the network fee: gas credits are empty. See Settings → Gas credits.'
@@ -125,19 +127,26 @@
 		return undefined;
 	});
 	const title = $derived(
-		outcome ? (mode === 'stake' ? 'Staked' : 'Unstaking') : step === 'pick' ? (mode === 'unstake' ? 'Unstake from' : 'Choose a validator') : step === 'review' ? 'Confirm' : step === 'amount' ? (mode === 'unstake' ? 'Unstake' : 'Stake') : (v?.moniker ?? 'Validator'),
+		outcome || sending ? (mode === 'stake' ? 'Stake' : 'Unstake') : step === 'pick' ? (mode === 'unstake' ? 'Unstake from' : 'Choose a validator') : step === 'review' ? 'Confirm' : step === 'amount' ? (mode === 'unstake' ? 'Unstake' : 'Stake') : (v?.moniker ?? 'Validator'),
 	);
 </script>
 
 <Modal full {title} onclose={close} onback={back}>
-	{#if outcome}
-		<TxResult
+	{#if outcome || sending}
+		<TxStage
 			{outcome}
+			verbs={mode === 'stake' ? ['Staking', 'Staked'] : ['Unstaking', 'Unstaking started']}
+			{amount}
+			unit="SCRT"
+			sub={base !== null && usdValue(base) ? `≈ ${usdValue(base)}` : undefined}
+			line="{mode === 'stake' ? 'with' : 'from'} {v?.moniker ?? 'the validator'}"
 			summary={mode === 'stake'
 				? `Staked ${amount} SCRT with ${v?.moniker ?? 'the validator'}.${wrapsReward ? ` ${formatAmount(wrapsReward)} SCRT of rewards went to your private balance.` : ''}`
 				: `Unstaking ${amount} SCRT. It comes back on ${backDate.toLocaleDateString()} as public SCRT.`}
 			ondone={close}
-		/>
+		>
+			{#snippet icon()}{#if mode === 'stake'}<Sprout size={30} />{:else}<Hourglass size={30} />{/if}{/snippet}
+		</TxStage>
 	{:else if step === 'pick'}
 		<label class="flex items-center gap-2 rounded-pill bg-surface px-4 py-2.5">
 			<Search size={16} class="shrink-0 text-text-faint" />
@@ -247,7 +256,7 @@
 			{/if}
 			<div class="flex items-start justify-between gap-4 px-4 py-3.5"><dt class="text-text-faint">Network fee</dt><dd class="text-right">Paid from gas credits</dd></div>
 		</dl>
-		{#if failure}<p class="break-address text-base text-negative" role="alert">{failure}</p>{/if}
+		{#if failure}<p class="break-address text-base text-negative animate-[shake_400ms_var(--ease-standard)]" role="alert">{failure}</p>{/if}
 		<div class="mt-auto pt-4">
 			<SwipeConfirm label={mode === 'stake' ? 'Swipe to stake' : 'Swipe to unstake'} loading={sending} disabled={!ready && !sending} onconfirm={submit} />
 		</div>

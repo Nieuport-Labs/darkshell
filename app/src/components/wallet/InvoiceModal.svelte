@@ -10,6 +10,8 @@
 	import { addInvoice, invoices, loadInvoices, reconcile, removeInvoice, type IssuedInvoice } from '../../lib/pay/invoices.svelte';
 	import { close, open } from '../../lib/ui.svelte';
 	import { wallet } from '../../lib/wallet.svelte';
+	import { haptic } from '../../lib/haptics';
+	import Orb from '../ui/Orb.svelte';
 	import AmountHero from '../ui/AmountHero.svelte';
 	import Button from '../ui/Button.svelte';
 	import Modal from '../ui/Modal.svelte';
@@ -59,7 +61,7 @@
 		const st = shown?.status;
 		if (seen && seen !== 'paid' && st === 'paid') {
 			celebrate = true;
-			navigator.vibrate?.([30, 60, 30]);
+			setTimeout(() => haptic.success(), 480);
 		}
 		seen = st;
 	});
@@ -123,13 +125,7 @@
 		</div>
 
 		{#if shown.status === 'paid'}
-			<div class="paid-mark {celebrate ? 'is-new' : ''}" role="img" aria-label="Paid">
-				<span class="paid-ring"></span>
-				<svg viewBox="0 0 52 52" class="size-full" aria-hidden="true">
-					<circle cx="26" cy="26" r="24" class="paid-disc" />
-					<path d="M15 27l7 7 15-16" class="paid-check" />
-				</svg>
-			</div>
+			<div class="mx-auto my-3"><Orb state="done" still={!celebrate} label="Paid" /></div>
 			{#if celebrate}<p class="paid-note text-center text-base text-text-muted">Payment received.</p>{/if}
 		{:else}
 			{#if PAY_LINK_ORIGIN}
@@ -143,7 +139,10 @@
 			{/if}
 			<div class="mx-auto w-full max-w-[340px]"><Qr fill value={target === 'uri' ? encodePaymentUri(shown.request) : encodePaymentLink(PAY_LINK_ORIGIN, shown.request)} label="Invoice QR code" /></div>
 			{#if nfc.sharing}
-				<p class="flex items-center justify-center gap-1.5 text-base text-text-muted"><Nfc size={18} class="text-accent" /> Or hold their phone to the back of this one</p>
+				<p class="flex items-center justify-center gap-2 text-base text-text-muted">
+					<span class="nfc-wave relative flex size-7 items-center justify-center text-accent"><Nfc size={18} aria-hidden="true" /></span>
+					Or hold their phone to the back of this one
+				</p>
 			{:else if nfc.canShare && !nfc.enabled}
 				<p class="flex items-center justify-center gap-1.5 text-label text-text-faint"><Nfc size={15} /> Turn on NFC to let a phone tap to pay</p>
 			{/if}

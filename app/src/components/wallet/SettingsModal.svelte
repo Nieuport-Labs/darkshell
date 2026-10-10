@@ -32,7 +32,6 @@
 	import Button from '../ui/Button.svelte';
 	import Modal from '../ui/Modal.svelte';
 	import PoweredByFF from './PoweredByFF.svelte';
-	import TxResult from './TxResult.svelte';
 
 	let openSection = $state<'gas' | 'phrase' | 'password' | 'network' | 'ff' | 'bio' | 'notify' | 'emergency' | null>('gas');
 

@@ -2,7 +2,7 @@
 	// After Secret_Dashboard PayInvoiceModal: a confirmation, not a form. The
 	// link set recipient, asset and amount; only how it is paid is decided here
 	// (sSCRT directly, unwrapped, or swapped on ShadeSwap in the same tx).
-	import { Eye, Loader2, ShieldCheck } from '@lucide/svelte';
+	import { Eye, Loader2, ReceiptText, ShieldCheck } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 	import { type TxOutcome } from '../../lib/chain/tx';
 	import { formatAmount, shortAddress, splitAmount } from '../../lib/format';
@@ -13,7 +13,8 @@
 	import Modal from '../ui/Modal.svelte';
 	import SwipeConfirm from '../ui/SwipeConfirm.svelte';
 	import { usdValue } from '../../lib/price.svelte';
-	import TxResult from './TxResult.svelte';
+	import TxStage from './TxStage.svelte';
+	import { haptic } from '../../lib/haptics';
 
 	let { target: t }: { target: InvoiceTarget } = $props();
 	const target = untrack(() => t);
@@ -41,6 +42,7 @@
 		try {
 			outcome = await payInvoice(target, facts, quote, (p) => (outcome = p));
 		} catch (e) {
+			haptic.error();
 			failure = failureText(e);
 		} finally {
 			sending = false;
@@ -51,8 +53,19 @@
 </script>
 
 <Modal full title="Pay invoice" onclose={close}>
-	{#if outcome}
-		<TxResult {outcome} summary="Paid {request.amount} {asset.symbol} to {request.label ?? shortAddress(request.address)}." ondone={close} />
+	{#if outcome || sending}
+		<TxStage
+			{outcome}
+			verbs={['Paying', 'Paid']}
+			amount={formatAmount(spends, 6)}
+			unit="sSCRT"
+			sub={usdValue(spends) ? `≈ ${usdValue(spends)}` : undefined}
+			line="to {request.label ?? shortAddress(request.address, 10, 6)}"
+			summary={swapping ? `They received ${request.amount} ${asset.symbol}.` : undefined}
+			ondone={close}
+		>
+			{#snippet icon()}<ReceiptText size={30} />{/snippet}
+		</TxStage>
 	{:else}
 		<div class="flex flex-col items-center gap-2 pt-6 text-center">
 			{#if spends === null}
@@ -93,7 +106,7 @@
 			<p class="-mt-2 px-1 text-label text-text-faint">Reference <span class="font-mono">{memo}</span> is attached{asset.private ? ' privately' : ' as a public memo'}.</p>
 		{/if}
 		{#if payError}<p class="text-base text-negative" role="alert">{payError}</p>{/if}
-		{#if failure}<p class="break-address text-base text-negative" role="alert">{failure}</p>{/if}
+		{#if failure}<p class="break-address text-base text-negative animate-[shake_400ms_var(--ease-standard)]" role="alert">{failure}</p>{/if}
 
 		<div class="mt-auto pt-4">
 			<SwipeConfirm label="Swipe to pay" loading={sending} disabled={!ready && !sending} onconfirm={submit} />

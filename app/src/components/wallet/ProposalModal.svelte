@@ -2,7 +2,7 @@
 	// One governance proposal: what it would do, the live tally against the
 	// chain's three tests, and a vote (weighted by this account's stake):
 	// pick an option, review it, swipe.
-	import { Check, Loader2 } from '@lucide/svelte';
+	import { Check, Loader2, Vote } from '@lucide/svelte';
 	import {
 		evaluate,
 		messageTypeLabel,
@@ -27,7 +27,8 @@
 	import Button from '../ui/Button.svelte';
 	import Modal from '../ui/Modal.svelte';
 	import SwipeConfirm from '../ui/SwipeConfirm.svelte';
-	import TxResult from './TxResult.svelte';
+	import TxStage from './TxStage.svelte';
+	import { haptic } from '../../lib/haptics';
 
 	let { id }: { id: string } = $props();
 
@@ -81,6 +82,7 @@
 		try {
 			outcome = await vote(id, choice, (p) => (outcome = p));
 		} catch (e) {
+			haptic.error();
 			failure =
 				e instanceof NoGasError
 					? 'Nothing can pay the network fee: gas credits are empty. See Settings → Gas credits.'
@@ -93,9 +95,11 @@
 	}
 </script>
 
-<Modal full title={reviewing && !outcome ? 'Confirm vote' : `Proposal #${id}`} onclose={close} onback={reviewing && !outcome && !sending ? () => ((reviewing = false), (failure = '')) : undefined}>
-	{#if outcome && choice}
-		<TxResult {outcome} summary="You voted {VOTE_LABELS[choice]} on proposal #{id}." ondone={close} />
+<Modal full title={reviewing && !outcome && !sending ? 'Confirm vote' : `Proposal #${id}`} onclose={close} onback={reviewing && !outcome && !sending ? () => ((reviewing = false), (failure = '')) : undefined}>
+	{#if (outcome || sending) && choice}
+		<TxStage {outcome} verbs={['Voting', 'Voted']} amount={VOTE_LABELS[choice]} line="on proposal #{id}" summary="You can change your vote until voting ends." ondone={close}>
+			{#snippet icon()}<Vote size={30} />{/snippet}
+		</TxStage>
 	{:else if reviewing && choice && proposal}
 		<div class="flex flex-col items-center gap-1 pt-6 text-center">
 			<span class="text-label text-text-faint">You're voting</span>
@@ -117,7 +121,7 @@
 			<div class="flex items-start justify-between gap-4 px-4 py-3.5"><dt class="text-text-faint">Visible</dt><dd class="text-right">Public<span class="block text-label text-text-faint">votes are public on chain</span></dd></div>
 			<div class="flex items-start justify-between gap-4 px-4 py-3.5"><dt class="text-text-faint">Network fee</dt><dd class="text-right">Paid from gas credits</dd></div>
 		</dl>
-		{#if failure}<p class="break-address text-base text-negative" role="alert">{failure}</p>{/if}
+		{#if failure}<p class="break-address text-base text-negative animate-[shake_400ms_var(--ease-standard)]" role="alert">{failure}</p>{/if}
 		<div class="mt-auto pt-4">
 			<SwipeConfirm label="Swipe to vote {VOTE_LABELS[choice]}" loading={sending} onconfirm={submit} />
 		</div>
@@ -197,7 +201,7 @@
 						{/each}
 					</div>
 					{#if power > 0n}<p class="text-label text-text-faint">Your weight: {formatAmount(power, 2)} staked SCRT. You can change your vote until voting ends.</p>{/if}
-					{#if failure}<p class="break-address text-base text-negative" role="alert">{failure}</p>{/if}
+					{#if failure}<p class="break-address text-base text-negative animate-[shake_400ms_var(--ease-standard)]" role="alert">{failure}</p>{/if}
 					<Button block size="xl" disabled={!choice} onclick={() => ((failure = ''), (reviewing = true))}>{choice ? `Review vote: ${VOTE_LABELS[choice]}` : 'Choose an option'}</Button>
 				{/if}
 			</section>

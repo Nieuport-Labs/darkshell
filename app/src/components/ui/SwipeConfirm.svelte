@@ -3,6 +3,7 @@
 	// the right before a payment goes out. Released early, it springs back.
 	// Keyboard and screen readers: the handle is a button; Enter/Space confirms.
 	import { ChevronsRight, Loader2 } from '@lucide/svelte';
+	import { haptic } from '../../lib/haptics';
 
 	let {
 		label,
@@ -54,7 +55,7 @@
 	function confirm() {
 		x = max();
 		done = true;
-		navigator.vibrate?.(20);
+		haptic.commit();
 		onconfirm();
 	}
 
@@ -75,9 +76,9 @@
 	<!-- the swept part fills in behind the handle -->
 	<div class="absolute inset-y-0 left-0 rounded-[1.25rem] bg-accent-soft" style="width: {x + HANDLE + PAD * 2}px" aria-hidden="true"></div>
 	<span
-		class="pointer-events-none absolute inset-0 flex items-center justify-center pl-12 text-base font-medium text-text-muted"
+		class="pointer-events-none absolute inset-0 flex items-center justify-center pl-12 text-base font-medium"
 		style="opacity: {Math.max(0, 1 - progress * 1.6)}"
-		aria-hidden="true">{label}</span
+		aria-hidden="true"><span class={disabled ? 'text-text-muted' : 'shine'}>{label}</span></span
 	>
 	<button
 		type="button"
@@ -91,6 +92,6 @@
 		class="absolute top-1 flex size-14 cursor-grab touch-none items-center justify-center rounded-2xl bg-accent-strong text-white shadow-lg active:cursor-grabbing disabled:bg-surface-3 disabled:text-text-faint"
 		style="left: {PAD + x}px; transition: {dragging ? 'none' : 'left 280ms cubic-bezier(0.32, 0.72, 0, 1)'}"
 	>
-		{#if loading || done}<Loader2 size={22} class="animate-spin" />{:else}<ChevronsRight size={24} />{/if}
+		{#if loading || done}<Loader2 size={22} class="animate-spin" />{:else}<span class={disabled || dragging ? '' : 'animate-[nudge_1.6s_var(--ease-out-expo)_infinite]'}><ChevronsRight size={24} /></span>{/if}
 	</button>
 </div>

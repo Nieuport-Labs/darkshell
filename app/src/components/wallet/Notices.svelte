@@ -21,7 +21,7 @@
 				dismissNotice(n.id);
 				if (!other) goTab('activity');
 			}}
-			class="pointer-events-auto mt-1 flex items-center gap-3 rounded-card border border-border-strong bg-[var(--toast-bg)] px-4 py-3 text-left shadow-[0_16px_48px_-12px_rgba(0,0,0,0.85)] animate-[notice-in_360ms_var(--ease-emphasised)_both]"
+			class="pointer-events-auto mt-1 flex items-center gap-3 rounded-card border border-border-strong bg-[var(--toast-bg)] px-4 py-3 text-left shadow-[0_16px_48px_-12px_rgba(0,0,0,0.85)] animate-[notice-in_560ms_var(--ease-spring)_both]"
 		>
 			<span class="flex size-9 shrink-0 items-center justify-center rounded-pill bg-[color-mix(in_srgb,var(--color-positive)_15%,transparent)] text-positive"><ArrowDownLeft size={18} /></span>
 			<span class="flex min-w-0 flex-1 flex-col">

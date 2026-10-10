@@ -1,7 +1,7 @@
 <script lang="ts">
 	// "Swap to sSCRT": the account's other tokens, each with what it brings in
 	// sSCRT; tick the ones to swap (dust left out unless asked), review, swipe.
-	import { Check, Loader2, RefreshCw } from '@lucide/svelte';
+	import { Check, Loader2, RefreshCw, Shuffle } from '@lucide/svelte';
 	import { fromBaseUnits } from 'secret-pay';
 	import { untrack } from 'svelte';
 	import { formatAmount } from '../../lib/format';
@@ -9,6 +9,9 @@
 	import { failureText } from '../../lib/pay/invoicePay';
 	import { close } from '../../lib/ui.svelte';
 	import Button from '../ui/Button.svelte';
+	import TxStage from './TxStage.svelte';
+	import type { TxOutcome } from '../../lib/chain/tx';
+	import { haptic } from '../../lib/haptics';
 	import Modal from '../ui/Modal.svelte';
 	import SwipeConfirm from '../ui/SwipeConfirm.svelte';
 
@@ -20,6 +23,7 @@
 	let progress = $state({ done: 0, total: 0 });
 	let got = $state(0n);
 	let count = $state(0);
+	let last = $state<TxOutcome | null>(null);
 
 	void untrack(() => loadOthers(true));
 
@@ -59,10 +63,13 @@
 		got = total;
 		count = list.length;
 		progress = { done: 0, total: Math.ceil(list.length / 4) };
+		last = null;
 		try {
-			await sweep(list, (done, all) => (progress = { done, total: all }));
+			const outs = await sweep(list, (done, all) => (progress = { done, total: all }));
+			last = outs.at(-1) ?? null;
 			phase = 'done';
 		} catch (e) {
+			haptic.error();
 			failure = failureText(e);
 			phase = 'review';
 			void loadOthers(true);
@@ -83,20 +90,26 @@
 {/snippet}
 
 <Modal full title="Swap to sSCRT" onclose={phase === 'sending' ? undefined : close} onback={phase === 'review' ? () => (phase = 'list') : undefined}>
-	{#if phase === 'done'}
+	{#if phase === 'sending' || (phase === 'done' && last)}
+		<TxStage
+			outcome={phase === 'done' ? last : null}
+			verbs={['Swapping', 'Swapped']}
+			amount="≈ {formatAmount(got, 2)}"
+			unit="sSCRT"
+			sub={usd(got) ? `≈ ${usd(got)}` : undefined}
+			line="{count} {count === 1 ? 'token' : 'tokens'} via ShadeSwap"
+			busyText={progress.total > 1 ? `Swapping ${Math.min(progress.done + 1, progress.total)} of ${progress.total}…` : undefined}
+			summary="It shows in your balance in a few seconds."
+			ondone={close}
+		>
+			{#snippet icon()}<Shuffle size={30} />{/snippet}
+		</TxStage>
+	{:else if phase === 'done'}
 		<div class="flex flex-1 flex-col items-center justify-center gap-3 text-center">
-			<div class="paid-mark is-new !size-20" role="img" aria-label="Done">
-				<span class="paid-ring"></span>
-				<svg viewBox="0 0 52 52" class="size-full" aria-hidden="true">
-					<circle cx="26" cy="26" r="24" class="paid-disc" />
-					<path d="M15 27l7 7 15-16" class="paid-check" />
-				</svg>
-			</div>
-			<p class="text-headline">Swapped</p>
-			<p class="text-base text-text-muted">{count} {count === 1 ? 'token' : 'tokens'} into ≈ {formatAmount(got, 4)} sSCRT. It shows in your balance in a few seconds.</p>
+			<p class="text-headline">Nothing to swap</p>
 		</div>
 		<Button block size="xl" onclick={close}>Done</Button>
-	{:else if phase === 'review' || phase === 'sending'}
+	{:else if phase === 'review'}
 		<div class="flex flex-col items-center gap-1 pt-4 text-center">
 			<span class="text-base text-text-muted">You get about</span>
 			<p class="flex items-baseline gap-2 tabular-nums">
@@ -124,13 +137,9 @@
 			</div>
 		</dl>
 		<p class="px-1 text-label text-text-faint">If a price moves further than its slippage before the swap runs, that transaction is refused and its tokens stay as they are. Public tokens are made private first, in the same transaction.</p>
-		{#if failure}<p class="break-words text-base text-negative" role="alert">{failure}</p>{/if}
+		{#if failure}<p class="break-words text-base text-negative animate-[shake_400ms_var(--ease-standard)]" role="alert">{failure}</p>{/if}
 		<div class="mt-auto pt-4">
-			{#if phase === 'sending'}
-				<Button block size="xl" loading disabled>{progress.total > 1 ? `Swapping ${Math.min(progress.done + 1, progress.total)} of ${progress.total}…` : 'Swapping…'}</Button>
-			{:else}
-				<SwipeConfirm label="Swipe to swap" disabled={!chosen.length} onconfirm={run} />
-			{/if}
+			<SwipeConfirm label="Swipe to swap" disabled={!chosen.length} onconfirm={run} />
 		</div>
 	{:else}
 		<p class="text-base text-text-muted">Tokens on this account other than sSCRT. Swapping turns them into private sSCRT on ShadeSwap.</p>

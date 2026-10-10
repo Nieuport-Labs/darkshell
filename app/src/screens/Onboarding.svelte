@@ -173,17 +173,17 @@
 	}
 </script>
 
-<div class="mx-auto flex w-full max-w-[420px] flex-1 flex-col gap-6">
+<div class="stagger mx-auto flex w-full max-w-[420px] flex-1 flex-col gap-6">
 	{#if step !== 'welcome'}
 		<button type="button" onclick={goBack} aria-label="Back" class="state-layer -ml-1.5 self-start rounded-pill p-1.5 text-text-muted"><ChevronLeft size={20} /></button>
 	{/if}
 
 	{#if step === 'welcome'}
-		<div class="flex flex-1 flex-col justify-center">
-			<img src="/avatar.webp" alt="" class="size-14 rounded-pill object-cover" />
-			<h1 class="mt-6 text-display">A private account for your SCRT</h1>
+		<div class="stagger flex flex-1 flex-col justify-center" style="--stagger-step: 90ms">
+			<span class="halo pop-in size-14"><img src="/avatar.webp" alt="" class="size-14 rounded-pill object-cover" /></span>
+			<h1 class="rise-blur mt-6 text-display" style="animation-delay: 120ms">A private account for your SCRT</h1>
 			<p class="mt-2 text-base text-text-muted">One private balance in sSCRT. Send, receive and pay invoices on Secret Network — network fees are taken care of.</p>
-			<ul class="mt-6 flex flex-col gap-3 text-base text-text-muted">
+			<ul class="stagger mt-6 flex flex-col gap-3 text-base text-text-muted" style="--stagger-delay: 300ms; --stagger-step: 80ms">
 				<li class="flex gap-3"><ShieldCheck size={18} class="mt-px shrink-0 text-accent" />Balances and transfers are encrypted on chain.</li>
 				<li class="flex gap-3"><Sparkles size={18} class="mt-px shrink-0 text-accent" />Pay invoices in any token, even Lightning.</li>
 				<li class="flex gap-3"><KeyRound size={18} class="mt-px shrink-0 text-accent" />Your keys never leave this device.</li>
@@ -199,7 +199,7 @@
 			<p class="mt-1.5 text-base text-text-muted">Write these 24 words down, in order. They are the only way to restore your account, and anyone who has them can take your money.</p>
 		</div>
 		<div class="card relative p-4">
-			<ol class="grid grid-cols-2 gap-x-4 gap-y-2 font-mono text-sm {revealed ? '' : 'select-none blur-md'}">
+			<ol class="grid grid-cols-2 gap-x-4 gap-y-2 font-mono text-sm transition-[filter] duration-700 ease-[var(--ease-out-expo)] {revealed ? '' : 'select-none blur-md'}">
 				{#each words as w, i (i)}<li><span class="inline-block w-6 text-right text-text-faint">{i + 1}</span> {w}</li>{/each}
 			</ol>
 			{#if !revealed}

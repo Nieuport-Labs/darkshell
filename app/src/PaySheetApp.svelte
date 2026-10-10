@@ -8,6 +8,9 @@
 	import { ChevronDown, Eye, Fingerprint, Loader2, ShieldCheck, X } from '@lucide/svelte';
 	import { onMount, untrack } from 'svelte';
 	import Button from './components/ui/Button.svelte';
+	import TxStage from './components/wallet/TxStage.svelte';
+	import type { TxOutcome } from './lib/chain/tx';
+	import { haptic } from './lib/haptics';
 	import PinPad from './components/ui/PinPad.svelte';
 	import { readClient, resetEndpoint } from './lib/chain/client';
 	import { biometricEnabled, biometricInvalidated, confirmPin, disableBiometric } from './lib/crypto/biometric';
@@ -40,6 +43,7 @@
 	let password = $state('');
 	let details = $state(false);
 	let paidHash = '';
+	let outcome = $state<TxOutcome | null>(null);
 
 	const cost = $derived(facts ? sscrtCost(facts, quote) : null);
 	const parts = $derived(splitAmount(cost));
@@ -134,11 +138,15 @@
 			const no = blockReason(t, f, quote, spendable());
 			if (no) throw new Error(no === 'Not enough sSCRT.' ? `Not enough sSCRT: this needs ${formatAmount(cost)} and the account can spend ${formatAmount(spendable())}.` : no);
 			step = 'Paying…';
-			const out = await payInvoice(t, f, quote, () => (step = 'Waiting for the block…'));
+			const out = await payInvoice(t, f, quote, (p) => (outcome = p));
 			paidHash = out.hash;
+			outcome = out;
 			phase = 'done';
-			setTimeout(() => void finish(), 1800);
+			// long enough to see it land
+			setTimeout(() => void finish(), 2600);
 		} catch (e) {
+			haptic.error();
+			outcome = null;
 			failure = failureText(e);
 			lock();
 			phase = 'review';
@@ -180,7 +188,7 @@
 	></button>
 
 	{#if phase === 'loading'}
-		<div class="relative mx-auto mb-10 flex items-center gap-2 rounded-pill bg-bg px-4 py-2 text-base text-text-muted">
+		<div class="pop-in relative mx-auto mb-10 flex items-center gap-2 rounded-pill bg-bg px-4 py-2 text-base text-text-muted">
 			<Loader2 size={16} class="animate-spin" /> Opening DarkShell…
 		</div>
 	{:else}
@@ -234,18 +242,24 @@
 						</form>
 					{/if}
 				</div>
+			{:else if target && facts && (phase === 'paying' || phase === 'done')}
+				<div class="flex min-h-[380px] flex-col pb-6">
+					<TxStage
+						compact
+						outcome={phase === 'done' || outcome?.status === 'pending' ? outcome : null}
+						verbs={['Paying', 'Paid']}
+						amount={formatAmount(cost, 6)}
+						unit="sSCRT"
+						line="to {payee}"
+						busyText={step}
+					/>
+					{#if phase === 'done'}
+						<p class="rise mt-4 text-center text-base text-text-muted" style="animation-delay: 900ms">{facts.returnHost && !req.forResult ? `Taking you back to ${facts.returnHost}…` : 'Done.'}</p>
+					{/if}
+				</div>
 			{:else if target && facts}
 				<!-- what it costs: the figure that matters -->
-				<div class="flex flex-col items-center pb-2 pt-7 text-center">
-					{#if phase === 'done'}
-						<div class="paid-mark is-new mb-3 !size-20" role="img" aria-label="Paid">
-							<span class="paid-ring"></span>
-							<svg viewBox="0 0 52 52" class="size-full" aria-hidden="true">
-								<circle cx="26" cy="26" r="24" class="paid-disc" />
-								<path d="M15 27l7 7 15-16" class="paid-check" />
-							</svg>
-						</div>
-					{/if}
+				<div class="stagger flex flex-col items-center pb-2 pt-7 text-center">
 					{#if cost === null}
 						<span class="flex h-[3.75rem] items-center gap-2 text-base text-text-muted"><Loader2 size={18} class="animate-spin" /> Getting the price…</span>
 					{:else}
@@ -256,21 +270,17 @@
 						</p>
 					{/if}
 					<p class="mt-2 min-h-6 text-base tabular-nums text-text-faint">
-						{#if phase === 'done'}Paid{:else if usdValue(cost)}≈ {usdValue(cost)}{/if}
+						{#if usdValue(cost)}≈ {usdValue(cost)}{/if}
 					</p>
 					<p class="text-base text-text-muted">to <span class="font-medium text-text">{payee}</span></p>
 				</div>
 
 				{#if why || failure}
-					<p class="mt-3 break-words text-center text-base text-negative" role="alert">{why || failure}</p>
+					<p class="mt-3 break-words text-center text-base text-negative animate-[shake_400ms_var(--ease-standard)]" role="alert">{why || failure}</p>
 				{/if}
 
 				<div class="flex flex-col gap-2 pb-4 pt-6">
-					{#if phase === 'done'}
-						<p class="text-center text-base text-text-muted">{facts.returnHost && !req.forResult ? `Taking you back to ${facts.returnHost}…` : 'Done.'}</p>
-					{:else if phase === 'paying'}
-						<Button block size="xl" loading disabled>{step}</Button>
-					{:else if short}
+					{#if short}
 						<Button block size="xl" variant="secondary" onclick={cancel}>Close</Button>
 					{:else}
 						<Button block size="xl" disabled={!canConfirm} onclick={confirm} icon={bio ? fingerprint : undefined}>

@@ -1,10 +1,12 @@
 <script lang="ts">
 	// Full-screen receive page (Vizor/Zashi style): one QR asking for private
-	// sSCRT, the account, share.
-	import { Check, Copy, ReceiptText, Share2 } from '@lucide/svelte';
+	// sSCRT, the account, share. While it is open, a phone held to this one gets
+	// the address over NFC (an amount-less link: the payer's wallet asks how much).
+	import { Check, Copy, Nfc, ReceiptText, Share2 } from '@lucide/svelte';
 	import { encodePaymentUri, formatShort, type PaymentRequest } from 'secret-pay';
 	import { CHAIN_ID, SSCRT_ADDRESS } from '../../lib/config';
 	import { shortAddress } from '../../lib/format';
+	import { nfc, shareOverNfc } from '../../lib/nfc.svelte';
 	import { shareTarget } from '../../lib/pay/share';
 	import { close, open } from '../../lib/ui.svelte';
 	import { activeName, wallet } from '../../lib/wallet.svelte';
@@ -14,6 +16,11 @@
 	let copied = $state(false);
 
 	const req: PaymentRequest = $derived({ chain: CHAIN_ID, address: wallet.address, asset: SSCRT_ADDRESS });
+
+	$effect(() => {
+		if (!nfc.enabled || !wallet.address) return;
+		return shareOverNfc(shareTarget(req));
+	});
 
 	async function copy() {
 		try {
@@ -39,7 +46,7 @@
 </script>
 
 <Modal full title="Receive sSCRT" onclose={close}>
-	<div class="mx-auto mt-4 w-full max-w-[340px]">
+	<div class="pop-in mx-auto mt-4 w-full max-w-[340px]" style="animation-duration: 700ms">
 		<Qr fill value={encodePaymentUri(req)} label="QR code asking for sSCRT" />
 	</div>
 
@@ -47,6 +54,15 @@
 		<p class="text-title font-medium">{activeName()}</p>
 		<button type="button" onclick={copy} class="font-mono text-base text-text-muted">{shortAddress(wallet.address, 12, 10)}</button>
 	</div>
+
+	{#if nfc.sharing}
+		<p class="nfc-hint flex items-center justify-center gap-2 text-base text-text-muted">
+			<span class="nfc-wave relative flex size-7 items-center justify-center text-accent"><Nfc size={18} aria-hidden="true" /></span>
+			Or hold their phone to the back of this one
+		</p>
+	{:else if nfc.canShare && !nfc.enabled}
+		<p class="flex items-center justify-center gap-1.5 text-label text-text-faint"><Nfc size={15} aria-hidden="true" /> Turn on NFC to share it by tapping phones</p>
+	{/if}
 
 	<div class="mt-auto flex flex-col items-center gap-3 pt-4">
 		<div class="flex w-full items-center gap-3">

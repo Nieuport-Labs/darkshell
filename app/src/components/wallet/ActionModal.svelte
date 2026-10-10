@@ -1,7 +1,7 @@
 <script lang="ts">
 	// The small one-tap transactions — collect staking rewards, make public SCRT
 	// private, refill gas credits — get the same recap and swipe as a payment.
-	import { Eye } from '@lucide/svelte';
+	import { Eye, Fuel, ShieldCheck, Sprout } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 	import { BusyError, type TxOutcome } from '../../lib/chain/tx';
 	import { CREDIT_REFILL } from '../../lib/config';
@@ -13,7 +13,8 @@
 	import { prefetchForPayment, refillNow, wallet, wrapPreview, wrapPublic } from '../../lib/wallet.svelte';
 	import Modal from '../ui/Modal.svelte';
 	import SwipeConfirm from '../ui/SwipeConfirm.svelte';
-	import TxResult from './TxResult.svelte';
+	import TxStage from './TxStage.svelte';
+	import { haptic } from '../../lib/haptics';
 
 	let { action }: { action: 'claim' | 'wrap' | 'refill' } = $props();
 
@@ -45,6 +46,7 @@
 		try {
 			outcome = action === 'claim' ? await claimAll((p) => (outcome = p)) : action === 'wrap' ? await wrapPublic() : await refillNow();
 		} catch (e) {
+			haptic.error();
 			failure =
 				e instanceof NoGasError
 					? 'Nothing can pay the network fee: gas credits are empty. See Settings → Gas credits.'
@@ -74,9 +76,19 @@
 	</div>
 {/snippet}
 
-<Modal full title={outcome ? 'Done' : title} onclose={close}>
-	{#if outcome}
-		<TxResult {outcome} {summary} ondone={close} />
+<Modal full title={title} onclose={close}>
+	{#if outcome || sending}
+		<TxStage
+			{outcome}
+			verbs={{ claim: ['Collecting', 'Collected'], wrap: ['Making it private', 'Now private'], refill: ['Refilling', 'Refilled'] }[action] as [string, string]}
+			amount={amount === null ? undefined : formatAmount(amount, 6)}
+			{unit}
+			sub={amount !== null && usdValue(amount) ? `≈ ${usdValue(amount)}` : undefined}
+			{summary}
+			ondone={close}
+		>
+			{#snippet icon()}{#if action === 'claim'}<Sprout size={30} />{:else if action === 'wrap'}<ShieldCheck size={30} />{:else}<Fuel size={30} />{/if}{/snippet}
+		</TxStage>
 	{:else}
 		<div class="flex flex-col items-center gap-1 pt-6 text-center">
 			<span class="text-label text-text-faint">{verb}</span>
@@ -105,7 +117,7 @@
 			<Eye size={13} class="mt-px shrink-0" />
 			{action === 'refill' ? 'The amount moved to gas credits is public on chain.' : 'Collecting and wrapping are public on chain; once it is sSCRT, what you do with it is private.'}
 		</p>
-		{#if failure}<p class="break-address text-base text-negative" role="alert">{failure}</p>{/if}
+		{#if failure}<p class="break-address text-base text-negative animate-[shake_400ms_var(--ease-standard)]" role="alert">{failure}</p>{/if}
 		<div class="mt-auto pt-4">
 			<SwipeConfirm label={{ claim: 'Swipe to collect', wrap: 'Swipe to make private', refill: 'Swipe to refill' }[action]} loading={sending} disabled={!ready && !sending} onconfirm={submit} />
 		</div>

@@ -1,12 +1,13 @@
 <script lang="ts">
 	// After Secret_Dashboard src/components/wallet/SendPanel.tsx.
-	import { ArrowLeftRight, BookUser, Eye, ScanLine, ShieldCheck } from '@lucide/svelte';
+	import { ArrowLeftRight, BookUser, Eye, ScanLine, Send, ShieldCheck } from '@lucide/svelte';
 	import { fromBaseUnits, toBaseUnits } from 'secret-pay';
 	import { untrack } from 'svelte';
 	import { BusyError, type TxOutcome } from '../../lib/chain/tx';
 	import { SSCRT_ADDRESS } from '../../lib/config';
 	import { formatAmount, shortAddress } from '../../lib/format';
 	import { NoGasError } from '../../lib/gas/feePayer';
+	import { haptic } from '../../lib/haptics';
 	import { classify, type Target } from '../../lib/pay/classify';
 	import { assetOf, buildPlan, quoteFor, type QuoteState } from '../../lib/pay/plan';
 	import { close, open, ui } from '../../lib/ui.svelte';
@@ -17,7 +18,7 @@
 	import SwipeConfirm from '../ui/SwipeConfirm.svelte';
 	import { usdValue } from '../../lib/price.svelte';
 	import ContactList from './ContactList.svelte';
-	import TxResult from './TxResult.svelte';
+	import TxStage from './TxStage.svelte';
 
 	let { target: initial, raw: initialRaw = '' }: { target?: Target; raw?: string } = $props();
 
@@ -103,6 +104,7 @@
 				memo: memo.trim() || undefined,
 			});
 		} catch (e) {
+			haptic.error();
 			failure =
 				e instanceof NoGasError
 					? 'Nothing can pay the network fee: gas credits are empty. See Settings → Gas credits.'
@@ -125,7 +127,7 @@
 
 <Modal
 	full
-	title={picking ? 'Choose recipient' : reviewing && !outcome ? 'Confirm' : 'Send'}
+	title={picking ? 'Choose recipient' : reviewing && !outcome && !sending ? 'Confirm' : 'Send'}
 	onclose={close}
 	onback={picking ? () => (picking = false) : reviewing && !outcome && !sending ? () => ((reviewing = false), (failure = '')) : undefined}
 >
@@ -136,8 +138,18 @@
 				read(a);
 			}}
 		/>
-	{:else if outcome}
-		<TxResult {outcome} summary="Sent {amount} {symbol} to {shortAddress(target && 'request' in target ? target.request.address : recipient.trim())}." ondone={close} />
+	{:else if outcome || sending}
+		<TxStage
+			{outcome}
+			verbs={['Sending', 'Sent']}
+			{amount}
+			unit={symbol}
+			sub={symbol === 'sSCRT' && base !== null && usdValue(base) ? `≈ ${usdValue(base)}` : undefined}
+			line="to {contactName || shortAddress(toAddress, 10, 6)}"
+			ondone={close}
+		>
+			{#snippet icon()}<Send size={30} />{/snippet}
+		</TxStage>
 	{:else if reviewing}
 		<div class="flex flex-col items-center gap-1 pt-6 text-center">
 			<span class="text-label text-text-faint">You're sending</span>
@@ -166,7 +178,7 @@
 			</div>
 			<div class="flex items-start justify-between gap-4 px-4 py-3.5"><dt class="text-text-faint">Network fee</dt><dd class="text-right">Paid from gas credits</dd></div>
 		</dl>
-		{#if failure}<p class="break-address text-base text-negative" role="alert">{failure}</p>{/if}
+		{#if failure}<p class="break-address text-base text-negative animate-[shake_400ms_var(--ease-standard)]" role="alert">{failure}</p>{/if}
 		<div class="mt-auto pt-4"><SwipeConfirm label="Swipe to send" loading={sending} disabled={!ready && !sending} onconfirm={submit} /></div>
 	{:else}
 		<div class="flex items-center gap-2 rounded-pill bg-surface py-1.5 pl-5 pr-1.5">

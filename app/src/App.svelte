@@ -62,12 +62,17 @@
 </script>
 
 <div class="relative mx-auto flex min-h-[100dvh] w-full max-w-[560px] flex-col px-4 pb-safe pt-safe">
-	{#if wallet.phase === 'onboarding'}
+	{#if wallet.phase === 'loading'}
+		<!-- the mark while the vault is read (a moment) -->
+		<div class="flex flex-1 items-center justify-center pb-[10vh]">
+			<span class="halo pop-in size-20"><img src="/avatar.webp" alt="" class="size-20 rounded-pill object-cover" /></span>
+		</div>
+	{:else if wallet.phase === 'onboarding'}
 		<Onboarding />
 	{:else if wallet.phase === 'locked'}
 		<Unlock />
 	{:else if wallet.phase === 'unlocked'}
-		<div class={ui.simple ? 'pb-8' : 'pb-28'}>
+		<div class="stagger {ui.simple ? 'pb-8' : 'pb-28'}" style="--stagger-step: 80ms">
 			<!-- a failing page shows its error instead of taking the whole app (and the tabs) down -->
 			{#key ui.tab}
 				<svelte:boundary onerror={(e) => console.error(e)}>
