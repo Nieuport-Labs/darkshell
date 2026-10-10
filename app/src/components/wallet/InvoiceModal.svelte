@@ -137,7 +137,7 @@
 				{/each}
 			</div>
 			{/if}
-			<div class="mx-auto w-full max-w-[340px]"><Qr fill value={target === 'uri' ? encodePaymentUri(shown.request) : encodePaymentLink(PAY_LINK_ORIGIN, shown.request)} label="Invoice QR code" /></div>
+			<div class="mx-auto w-full max-w-[340px] [animation:none]"><Qr fill value={target === 'uri' ? encodePaymentUri(shown.request) : encodePaymentLink(PAY_LINK_ORIGIN, shown.request)} label="Invoice QR code" /></div>
 			{#if nfc.sharing}
 				<p class="flex items-center justify-center gap-2 text-base text-text-muted">
 					<span class="nfc-wave relative flex size-7 items-center justify-center text-accent"><Nfc size={18} aria-hidden="true" /></span>
