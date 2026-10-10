@@ -21,7 +21,8 @@
 	let message = $state('');
 	let expiry = $state(0);
 	let shownId = $state<string | null>(untrack(() => id ?? null));
-	let target = $state<'uri' | 'link'>('uri');
+	// the link by default: a phone camera opens it (in DarkShell, through the dashboard's assetlinks); the URI is for a wallet's scanner
+	let target = $state<'uri' | 'link'>(PAY_LINK_ORIGIN ? 'link' : 'uri');
 	let copied = $state(false);
 
 	$effect(() => {

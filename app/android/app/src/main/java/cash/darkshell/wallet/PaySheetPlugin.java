@@ -3,6 +3,8 @@ package cash.darkshell.wallet;
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.net.Uri;
 
 import com.getcapacitor.JSObject;
@@ -70,6 +72,10 @@ public class PaySheetPlugin extends Plugin {
         Intent v = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
         v.addCategory(Intent.CATEGORY_BROWSABLE);
         v.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        // in the browser: an invoice page (/pay/…) is a link DarkShell itself claims,
+        // and would open the sheet again instead of the page
+        String browser = defaultBrowser(a);
+        if (browser != null) v.setPackage(browser);
         try {
             a.startActivity(v);
         } catch (ActivityNotFoundException e) {
@@ -77,6 +83,16 @@ public class PaySheetPlugin extends Plugin {
         }
         call.resolve();
         a.runOnUiThread(a::finish);
+    }
+
+    private static String defaultBrowser(Activity a) {
+        Intent probe = new Intent(Intent.ACTION_VIEW, Uri.parse("https://example.com/"));
+        probe.addCategory(Intent.CATEGORY_BROWSABLE);
+        ResolveInfo r = a.getPackageManager().resolveActivity(probe, PackageManager.MATCH_DEFAULT_ONLY);
+        if (r == null || r.activityInfo == null) return null;
+        String pkg = r.activityInfo.packageName;
+        // "android" is the chooser: no default browser set
+        return "android".equals(pkg) || a.getPackageName().equals(pkg) ? null : pkg;
     }
 
     /** Hands a request the sheet can't show (no amount, Lightning, …) to the full app. */
