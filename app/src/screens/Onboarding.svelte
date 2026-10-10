@@ -1,14 +1,15 @@
 <script lang="ts">
-	import { Check, ChevronLeft, Copy, Eye, Fingerprint, Globe, KeyRound, ShieldAlert, ShieldCheck, Sparkles } from '@lucide/svelte';
+	import { Check, ChevronLeft, Copy, Eye, Fingerprint, Globe, KeyRound, LayoutGrid, ShieldAlert, ShieldCheck, Sparkles, Wallet } from '@lucide/svelte';
 	import { isBech32Address } from 'secret-pay';
 	import Button from '../components/ui/Button.svelte';
 	import PinPad from '../components/ui/PinPad.svelte';
 	import { isValidMnemonic, newMnemonic, normalizeMnemonic, walletFromMnemonic } from '../lib/crypto/account';
 	import { biometricAvailable } from '../lib/crypto/biometric';
 	import { setTor, torAvailable } from '../lib/tor.svelte';
+	import { setSimple } from '../lib/ui.svelte';
 	import { createWallet, type SetupChoices } from '../lib/wallet.svelte';
 
-	type Step = 'welcome' | 'words' | 'verify' | 'import' | 'pin' | 'pin2' | 'bio' | 'tor' | 'emergency' | 'epin' | 'epin2' | 'safe';
+	type Step = 'welcome' | 'words' | 'verify' | 'import' | 'pin' | 'pin2' | 'style' | 'bio' | 'tor' | 'emergency' | 'epin' | 'epin2' | 'safe';
 	let step = $state<Step>('welcome');
 	let mode = $state<'create' | 'import'>('create');
 	let mnemonic = $state('');
@@ -98,6 +99,11 @@
 		}
 		pin = p;
 		choices = {};
+		go('style');
+	}
+
+	function chooseStyle(simple: boolean) {
+		void setSimple(simple);
 		go(bioAvailable ? 'bio' : afterBio());
 	}
 
@@ -159,9 +165,10 @@
 	const back: Partial<Record<Step, Step>> = { words: 'welcome', verify: 'words', import: 'welcome', epin: 'emergency', epin2: 'epin', safe: 'epin' };
 	function goBack() {
 		if (step === 'pin' || step === 'pin2') return go(mode === 'create' ? 'words' : 'import');
-		if (step === 'bio') return go('pin');
-		if (step === 'tor') return go(bioAvailable ? 'bio' : 'pin');
-		if (step === 'emergency') return go(torAvailable ? 'tor' : bioAvailable ? 'bio' : 'pin');
+		if (step === 'style') return go('pin');
+		if (step === 'bio') return go('style');
+		if (step === 'tor') return go(bioAvailable ? 'bio' : 'style');
+		if (step === 'emergency') return go(torAvailable ? 'tor' : bioAvailable ? 'bio' : 'style');
 		go(back[step]!);
 	}
 </script>
@@ -246,6 +253,25 @@
 		<PinPad title="Choose a PIN" subtitle="6 digits to unlock DarkShell on this device. It encrypts your recovery phrase." {error} bind:reset oncomplete={setPin} />
 	{:else if step === 'pin2'}
 		<PinPad title="Repeat your PIN" {error} bind:reset oncomplete={confirmPin} />
+	{:else if step === 'style'}
+		<div class="flex flex-1 flex-col justify-center gap-3">
+			<h1 class="text-headline">How do you want DarkShell?</h1>
+			<p class="text-base text-text-muted">You can switch any time in Settings.</p>
+			<button type="button" onclick={() => chooseStyle(true)} class="card state-layer mt-3 flex items-start gap-4 p-4 text-left">
+				<span class="flex size-11 shrink-0 items-center justify-center rounded-pill bg-accent-soft text-accent"><Wallet size={21} /></span>
+				<span>
+					<span class="block text-title">Simple</span>
+					<span class="mt-0.5 block text-base text-text-muted">Your balance, Send and Receive. Nothing else on the screen.</span>
+				</span>
+			</button>
+			<button type="button" onclick={() => chooseStyle(false)} class="card state-layer flex items-start gap-4 p-4 text-left">
+				<span class="flex size-11 shrink-0 items-center justify-center rounded-pill bg-surface-3 text-text"><LayoutGrid size={21} /></span>
+				<span>
+					<span class="block text-title">Full</span>
+					<span class="mt-0.5 block text-base text-text-muted">Also invoices, earning by staking, governance votes and recent activity.</span>
+				</span>
+			</button>
+		</div>
 	{:else if step === 'bio'}
 		<div class="flex flex-1 flex-col justify-center">
 			<span class="flex size-14 items-center justify-center rounded-pill bg-accent-soft text-accent"><Fingerprint size={26} /></span>

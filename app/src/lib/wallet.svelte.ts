@@ -265,9 +265,13 @@ async function runDuress(p: DuressPayload, pin: string): Promise<void> {
 	const decoyAccounts = [{ index: 0, name: 'Account 1' }];
 	const bio = await biometricEnabled().catch(() => false);
 
-	// 1. erase (without passing through the onboarding screen)
+	// 1. erase (without passing through the onboarding screen); how the app looks
+	// stays as it was, so the decoy doesn't give itself away
+	const look = await Promise.all([kv.get<boolean>('settings.simple'), kv.get<boolean>('settings.hideBalance')]);
 	await Promise.allSettled([disableBiometric(), clearBackground()]);
 	await kv.clear();
+	if (look[0]) await kv.set('settings.simple', true);
+	if (look[1]) await kv.set('settings.hideBalance', true);
 
 	// 2. the decoy, as a real vault behind the same PIN
 	const decoySeed = p.decoy ?? newMnemonic();

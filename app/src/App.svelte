@@ -32,6 +32,7 @@
 
 	void init();
 	void kv.get<boolean>('settings.hideBalance').then((v) => (ui.hideBalance = !!v));
+	void kv.get<boolean>('settings.simple').then((v) => (ui.simple = !!v));
 	initNative();
 
 	$effect(() => {
@@ -65,15 +66,14 @@
 	{:else if wallet.phase === 'locked'}
 		<Unlock />
 	{:else if wallet.phase === 'unlocked'}
-		<div class="pb-28">
+		<div class={ui.simple ? 'pb-8' : 'pb-28'}>
 			<!-- a failing page shows its error instead of taking the whole app (and the tabs) down -->
 			{#key ui.tab}
 				<svelte:boundary onerror={(e) => console.error(e)}>
 					{#if ui.tab === 'home'}<Home />
 					{:else if ui.tab === 'activity'}<Activity />
 					{:else if ui.tab === 'invoices'}<Invoices />
-					{:else if ui.tab === 'staking'}<Staking />
-					{:else}<SettingsModal page />{/if}
+					{:else}<Staking />{/if}
 					{#snippet failed(error, reset)}
 						<div class="card mt-6 flex flex-col gap-3 p-4">
 							<p class="text-base font-medium">This screen hit a problem.</p>
@@ -87,7 +87,7 @@
 	{/if}
 </div>
 
-{#if wallet.phase === 'unlocked'}<BottomNav /><Notices />{/if}
+{#if wallet.phase === 'unlocked'}{#if !ui.simple}<BottomNav />{/if}<Notices />{/if}
 
 {#if wallet.phase === 'unlocked'}
 	{#if ui.dialog?.name === 'send'}

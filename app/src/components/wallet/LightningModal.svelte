@@ -14,7 +14,7 @@
 	import type { Target } from '../../lib/pay/classify';
 	import { ATOM_TOKEN, lightningPayment } from '../../lib/pay/payments';
 	import { prefetchQuote, quoteInto, type PaddedQuote } from '../../lib/pay/quote';
-	import { close, goTab } from '../../lib/ui.svelte';
+	import { close, open } from '../../lib/ui.svelte';
 	import { client, cosmosAddress, pay, prefetchForPayment, spendable, wallet } from '../../lib/wallet.svelte';
 	import Button from '../ui/Button.svelte';
 	import Modal from '../ui/Modal.svelte';
@@ -286,7 +286,7 @@
 			<p class="text-base">{error}</p>
 		</div>
 		<div class="mt-auto pt-4">
-			<Button variant="secondary" block size="xl" onclick={() => (error.includes('Settings') ? goTab('settings') : close())}>{error.includes('Settings') ? 'Open Settings' : 'Close'}</Button>
+			<Button variant="secondary" block size="xl" onclick={() => (error.includes('Settings') ? open({ name: 'settings' }) : close())}>{error.includes('Settings') ? 'Open Settings' : 'Close'}</Button>
 		</div>
 	{:else if (step === 'confirm' || step === 'sending') && target && ffPrice && quote}
 		<div class="flex flex-col items-center gap-1 pt-6 text-center">

@@ -14,7 +14,7 @@
 	import { COIN_NAME, DECIMALS, EVM_NETWORKS, toBase, type EvmNetwork, type ExternalTarget } from '../../lib/pay/external';
 	import { isFinalX, loadXOrders, saveXOrder, statusText, syncXOrder, X_STEPS, xOrders, type XOrder } from '../../lib/pay/xorders.svelte';
 	import { usdValue } from '../../lib/price.svelte';
-	import { close, goTab } from '../../lib/ui.svelte';
+	import { close, open } from '../../lib/ui.svelte';
 	import { client, cosmosAddress, pay, prefetchForPayment, spendable, wallet } from '../../lib/wallet.svelte';
 	import Button from '../ui/Button.svelte';
 	import Modal from '../ui/Modal.svelte';
@@ -267,7 +267,7 @@
 		</div>
 		<div class="mt-auto flex flex-col gap-2 pt-4">
 			{#if target && !error.includes('Settings')}<Button variant="secondary" block size="xl" onclick={() => (step = 'amount')}>Change amount</Button>{/if}
-			<Button variant="ghost" block onclick={() => (error.includes('Settings') ? goTab('settings') : close())}>{error.includes('Settings') ? 'Open Settings' : 'Close'}</Button>
+			<Button variant="ghost" block onclick={() => (error.includes('Settings') ? open({ name: 'settings' }) : close())}>{error.includes('Settings') ? 'Open Settings' : 'Close'}</Button>
 		</div>
 	{:else if (step === 'confirm' || step === 'sending') && quote && target && dest}
 		<div class="flex flex-col items-center gap-1 pt-6 text-center">

@@ -35,8 +35,8 @@
 		</span>
 	</button>
 	<div class="flex shrink-0 items-center gap-1">
-		<TorIcon onclick={() => goTab('settings')} />
-		<GasChip onclick={() => goTab('settings')} />
+		<TorIcon onclick={() => open({ name: 'settings' })} />
+		<GasChip onclick={() => open({ name: 'settings' })} />
 		<button type="button" onclick={() => (ui.scanning = true)} aria-label="Scan QR code" class="state-layer rounded-pill p-2 text-text-muted">
 			<ScanLine size={20} />
 		</button>
@@ -74,7 +74,7 @@
 				sSCRT{#if price.usd !== null}<span class="text-text-faint">&nbsp;· {ui.hideBalance ? '$••••' : usd}</span>{/if}
 			{/if}
 		</p>
-		{#if wallet.staked > 0n}
+		{#if wallet.staked > 0n && !ui.simple}
 			<!-- staked SCRT is locked: not in the balance above, its rewards are -->
 			<button type="button" onclick={() => goTab('staking')} class="inline-flex shrink-0 items-center gap-1.5 text-text-faint" aria-label="{ui.hideBalance ? 'Hidden' : formatAmount(wallet.staked, 2)} SCRT staked">
 				<Lock size={14} aria-hidden="true" />
@@ -102,6 +102,8 @@
 	</div>
 {/if}
 
-<div class="mt-9">
-	<ActivityList limit={5} onseeall={() => goTab('activity')} />
-</div>
+{#if !ui.simple}
+	<div class="mt-9">
+		<ActivityList limit={5} onseeall={() => goTab('activity')} />
+	</div>
+{/if}

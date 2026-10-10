@@ -4,6 +4,7 @@
 import type { HistoryItem } from './chain/sscrt';
 import type { ChainActivity } from './chain/activity';
 import { classify, type Target } from './pay/classify';
+import { kv } from './storage';
 
 export type Dialog =
 	| { name: 'send'; target?: Target; raw?: string }
@@ -22,10 +23,18 @@ export type Dialog =
 	/** ETH / BTC / XMR to an address on another chain (via Skip or FixedFloat) */
 	| { name: 'external'; target?: Extract<Target, { kind: 'external' }>; orderId?: string };
 
-/** `activity` has no tab of its own: Home's "See all" opens it */
-export type Tab = 'home' | 'activity' | 'invoices' | 'staking' | 'settings';
+/** `activity` has no tab of its own: Home's "See all" (or Accounts, in the simple app) opens it */
+export type Tab = 'home' | 'activity' | 'invoices' | 'staking';
 
-export const ui = $state({ dialog: null as Dialog | null, scanning: false, tab: 'home' as Tab, hideBalance: false });
+/** `simple`: the simple app — Home with balance, Send and Receive only (no tabs, no recent activity, no staking) */
+export const ui = $state({ dialog: null as Dialog | null, scanning: false, tab: 'home' as Tab, hideBalance: false, simple: false });
+
+/** Switches between the simple and the full app (chosen when the wallet is created, changed in Settings). */
+export async function setSimple(on: boolean): Promise<void> {
+	ui.simple = on;
+	if (on && (ui.tab === 'invoices' || ui.tab === 'staking')) ui.tab = 'home';
+	await kv.set('settings.simple', on);
+}
 
 /** Switches the bottom tab: closes any dialog and starts the page at the top. */
 export function goTab(t: Tab): void {

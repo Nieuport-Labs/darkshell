@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { Check, Loader2, Pencil, Plus, Trash2 } from '@lucide/svelte';
+	import { Check, ChevronRight, History, Loader2, Pencil, Plus, Settings, Trash2 } from '@lucide/svelte';
 	import type { FoundAccount } from '../../lib/accountScan';
 	import { formatAmount, shortAddress } from '../../lib/format';
-	import { close } from '../../lib/ui.svelte';
+	import { close, goTab, open, ui } from '../../lib/ui.svelte';
 	import { addAccount, findAccounts, removeAccount, renameAccount, switchAccount, wallet } from '../../lib/wallet.svelte';
 	import Button from '../ui/Button.svelte';
 	import Modal from '../ui/Modal.svelte';
@@ -163,4 +163,20 @@
 			Add account
 		</Button>
 	{/if}
+
+	<!-- the app's own menu: Settings (and, in the simple app, Activity) live here, not in a tab -->
+	<nav class="-mx-1 flex flex-col border-t border-border pt-2" aria-label="More">
+		{#if ui.simple}
+			<button type="button" onclick={() => goTab('activity')} class="state-layer flex items-center gap-3 rounded-card px-3 py-3 text-left">
+				<History size={18} class="text-text-muted" />
+				<span class="flex-1 text-base font-medium">Activity</span>
+				<ChevronRight size={16} class="text-text-faint" />
+			</button>
+		{/if}
+		<button type="button" onclick={() => open({ name: 'settings' })} class="state-layer flex items-center gap-3 rounded-card px-3 py-3 text-left">
+			<Settings size={18} class="text-text-muted" />
+			<span class="flex-1 text-base font-medium">Settings</span>
+			<ChevronRight size={16} class="text-text-faint" />
+		</button>
+	</nav>
 </Modal>

@@ -1,5 +1,4 @@
 <script lang="ts">
-	import PageHeader from '../ui/PageHeader.svelte';
 	import { Bell, BookUser, Check, ChevronDown, Copy, Fingerprint, Fuel, Globe, KeyRound, Lock, ShieldAlert, Users, Zap } from '@lucide/svelte';
 	import { biometricAvailable, biometricEnabled } from '../../lib/crypto/biometric';
 	import { allowBackground, backgroundUnrestricted, canNotify } from '../../lib/notify/background';
@@ -12,7 +11,7 @@
 	import { checkTor, setTor, tor, torAvailable, torLabel } from '../../lib/tor.svelte';
 	import { formatAmount, shortAddress } from '../../lib/format';
 	import { kv } from '../../lib/storage';
-	import { close, open } from '../../lib/ui.svelte';
+	import { close, open, setSimple, ui } from '../../lib/ui.svelte';
 	import {
 		activeName,
 		changePin,
@@ -34,9 +33,6 @@
 	import Modal from '../ui/Modal.svelte';
 	import PoweredByFF from './PoweredByFF.svelte';
 	import TxResult from './TxResult.svelte';
-
-	/** rendered as the Settings tab instead of a dialog */
-	let { page = false }: { page?: boolean } = $props();
 
 	let openSection = $state<'gas' | 'phrase' | 'password' | 'network' | 'ff' | 'bio' | 'notify' | 'emergency' | null>('gas');
 
@@ -399,6 +395,10 @@
 {/snippet}
 
 {#snippet content()}
+	<div class="card px-4 py-3">
+		{@render toggle(ui.simple, 'Simple app', () => void setSimple(!ui.simple))}
+		<p class="mt-1 text-label text-text-muted">Just your balance, Send and Receive. Invoices, Earn and recent activity are hidden; Activity stays in Accounts.</p>
+	</div>
 	<button type="button" onclick={() => open({ name: 'accounts' })} class="card state-layer flex w-full items-center gap-3 px-4 py-3 text-left">
 		<Users size={16} class="text-accent" />
 		<span class="flex-1 text-base font-medium">Accounts</span>
@@ -431,11 +431,4 @@
 	</div>
 {/snippet}
 
-{#if page}
-	<div class="flex flex-col gap-4">
-		<PageHeader title="Settings" />
-		{@render content()}
-	</div>
-{:else}
-	<Modal title="Settings" onclose={close}>{@render content()}</Modal>
-{/if}
+<Modal full title="Settings" onclose={close}>{@render content()}</Modal>
