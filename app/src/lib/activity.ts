@@ -23,17 +23,34 @@ export interface Described {
 
 const WINDOW_MS = 15 * 60_000;
 
-/** The logged send `h` belongs to, matched by amount and time. */
-export function linkOf(h: HistoryItem, logged: LoggedTx[]): LoggedTx | undefined {
-	if (!h.time || h.kind === 'in') return undefined;
-	const near = (l: LoggedTx) => Math.abs(l.time - h.time! * 1000) < WINDOW_MS;
+/**
+ * The logged send `h` belongs to: the one in the same block when the log knows
+ * its block, else by amount and time (the nearest in time). `used` holds entries
+ * already matched to another history item, so two payments of the same amount
+ * close together are not both tied to the first one.
+ */
+export function linkOf(h: HistoryItem, logged: LoggedTx[], used?: Set<LoggedTx>): LoggedTx | undefined {
+	if (h.kind === 'in') return undefined;
+	const free = used ? logged.filter((l) => !used.has(l)) : logged;
 	const amount = h.amount.toString();
+	const fits = (l: LoggedTx) =>
+		h.kind === 'wrap' ? l.wrapped === amount || l.kind === 'wrap' : h.kind === 'unwrap' ? l.refilled === amount || l.spent === amount : l.spent === amount;
+	if (h.height) {
+		const same = free.filter((l) => l.height === h.height);
+		const hit = same.find(fits) ?? (h.kind === 'out' ? same.find((l) => l.spent !== undefined) : undefined);
+		if (hit) return hit;
+	}
+	if (!h.time) return undefined;
+	const at = h.time * 1000;
+	// a log entry with a known block belongs to that block only
+	const near = (l: LoggedTx) => Math.abs(l.time - at) < WINDOW_MS && (l.height === undefined || !h.height);
+	const closest = (ls: LoggedTx[]) => ls.filter(near).sort((a, b) => Math.abs(a.time - at) - Math.abs(b.time - at))[0];
 	if (h.kind === 'unwrap') {
-		const refill = logged.find((l) => l.refilled === amount && near(l));
+		const refill = closest(free.filter((l) => l.refilled === amount));
 		if (refill) return refill;
 	}
-	if (h.kind === 'wrap') return logged.find((l) => l.wrapped === amount && near(l)) ?? logged.find((l) => l.kind === 'wrap' && near(l));
-	return logged.find((l) => l.spent === amount && near(l));
+	if (h.kind === 'wrap') return closest(free.filter((l) => l.wrapped === amount)) ?? closest(free.filter((l) => l.kind === 'wrap'));
+	return closest(free.filter((l) => l.spent === amount));
 }
 
 export function describe(h: HistoryItem, link?: LoggedTx): Described {
@@ -173,7 +190,15 @@ export function timeline(history: HistoryItem[], chain: ChainActivity[], logged:
 	// a private payment's helpers in the same transaction — rewards or public SCRT wrapped
 	// to cover it, sSCRT unwrapped to refill gas credits — are part of that payment
 	for (const items of atHeight.values()) if (items.some((h) => h.kind === 'out')) items.filter((h) => h.kind === 'wrap' || h.kind === 'unwrap').forEach((h) => hidden.add(h));
-	const hist: Entry[] = history.filter((h) => !hidden.has(h)).map((h) => ({ type: 'history', time: (h.time ?? 0) * 1000, h, link: linkOf(h, logged) }));
+	// each log entry ties to one history item at most
+	const used = new Set<LoggedTx>();
+	const hist: Entry[] = history
+		.filter((h) => !hidden.has(h))
+		.map((h) => {
+			const link = linkOf(h, logged, used);
+			if (link) used.add(link);
+			return { type: 'history' as const, time: (h.time ?? 0) * 1000, h, link };
+		});
 	const shown = new Set([...hist.map((e) => (e.type === 'history' ? e.link?.hash : undefined)), ...chain.map((c) => c.hash)].filter(Boolean));
 	// our own log covers what neither shows (a vote the node's index hasn't caught up on, a refill paid from public SCRT)
 	const rest: Entry[] = logged.filter((l) => l.status === 'confirmed' && !shown.has(l.hash)).map((l) => ({ type: 'logged', time: l.time, l }));

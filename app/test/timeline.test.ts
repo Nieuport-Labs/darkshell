@@ -39,4 +39,19 @@ describe('timeline', () => {
 		] as never;
 		expect(kinds(timeline([], [c('V', 'vote', 160)], logged))).toEqual(['l:refill', 'c:vote']);
 	});
+
+	it('shows two invoice payments of the same amount once each, as paid invoices', () => {
+		// same amount, a minute apart: each history item gets its own log entry, none is listed twice
+		const pay = (hash: string, time: number) => ({ hash, kind: 'invoice', time, spent: '5', status: 'confirmed' });
+		const logged = [pay('B', 1_000_060_000), pay('A', 1_000_000_000)] as never;
+		const e = timeline([h('2', 'out', 1_000_060), h('1', 'out', 1_000_000)], [], logged);
+		expect(kinds(e)).toEqual(['h:out', 'h:out']);
+		expect(e.map((x) => (x.type === 'history' ? x.link?.hash : null))).toEqual(['B', 'A']);
+	});
+	it('ties a payment to its log entry by block, even when the clocks disagree', () => {
+		const logged = [{ hash: 'P', kind: 'invoice', time: 5_000_000_000, spent: '5', height: 900, status: 'confirmed' }] as never;
+		const e = timeline([h('1', 'out', 900)], [], logged);
+		expect(kinds(e)).toEqual(['h:out']);
+		expect(e[0]!.type === 'history' && e[0]!.link?.hash).toBe('P');
+	});
 });

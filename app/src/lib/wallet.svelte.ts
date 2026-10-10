@@ -107,6 +107,8 @@ export interface LoggedTx {
 	symbol?: string;
 	memo?: string;
 	status?: 'pending' | 'confirmed' | 'failed';
+	/** block it went into, once known: ties it to the private history's entry for sure */
+	height?: number;
 	error?: string;
 	/** what the transaction did, step by step, and how private each step was */
 	steps?: Step[];
@@ -735,7 +737,7 @@ async function settlePending(s: Session): Promise<void> {
 	for (const l of list.filter((x) => x.status === 'pending')) {
 		try {
 			const tx = await s.client.query.getTx(l.hash);
-			if (tx) await log({ ...l, status: tx.code === 0 ? 'confirmed' : 'failed', error: tx.code === 0 ? undefined : tx.rawLog });
+			if (tx) await log({ ...l, status: tx.code === 0 ? 'confirmed' : 'failed', height: tx.height || undefined, error: tx.code === 0 ? undefined : tx.rawLog });
 			else if (Date.now() - l.time > 30 * 60_000) await log({ ...l, status: 'failed', error: 'Never made it into a block.' });
 		} catch {
 			/* try again next refresh */
@@ -798,6 +800,7 @@ export async function pay(
 		spent: plan.spends.toString(),
 		refilled: out.refilled ? out.refilled.toString() : undefined,
 		status: out.status === 'confirmed' ? 'confirmed' : 'pending',
+		height: out.status === 'confirmed' ? out.tx.height || undefined : undefined,
 		...info,
 		wrapped,
 		steps,
