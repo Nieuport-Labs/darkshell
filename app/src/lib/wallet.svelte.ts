@@ -94,7 +94,7 @@ export const wallet = $state({
 /** Our own sends, so activity can label them (e.g. which redeem was a gas refill). */
 export interface LoggedTx {
 	hash: string;
-	kind: 'send' | 'invoice' | 'ibc' | 'wrap' | 'refill' | 'lightning' | 'external' | 'stake' | 'unstake' | 'claim' | 'vote';
+	kind: 'send' | 'invoice' | 'ibc' | 'wrap' | 'refill' | 'lightning' | 'external' | 'stake' | 'unstake' | 'claim' | 'vote' | 'sweep';
 	time: number;
 	/** sSCRT the payment itself spent, base units */
 	spent?: string;
@@ -821,6 +821,22 @@ export async function loadForPayment(): Promise<void> {
 	if (wallet.balance === null) throw new Error(wallet.error || 'Could not read the balance.');
 	await readRewards(s);
 	await fetchGrants(s.wallet.address).catch(() => {});
+}
+
+const tokenPermits = new Map<string, Promise<Permit>>();
+
+/** A query permit for one SNIP-20's balance (signed here, never sent anywhere but in queries). */
+export function tokenPermit(token: string): Promise<Permit> {
+	const s = session;
+	if (!s) return Promise.reject(new Error('Wallet is locked'));
+	const key = `${s.wallet.address}:${token}`;
+	let p = tokenPermits.get(key);
+	if (!p) {
+		p = newPermit(s.wallet, s.wallet.address, CHAIN_ID, 'darkshell', [token], ['balance'], false);
+		p.catch(() => tokenPermits.delete(key));
+		tokenPermits.set(key, p);
+	}
+	return p;
 }
 
 /** Things a payment needs, loaded before the user taps Pay (call when a pay screen opens). */

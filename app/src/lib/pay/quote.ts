@@ -8,8 +8,11 @@ import {
 	isSimulated,
 	listPairs,
 	pairsOf,
+	quoteIn,
 	quoteOut,
 	reservesFor,
+	simulate,
+	type Pair,
 	type Quote,
 	type Reserves,
 	type Route,
@@ -64,4 +67,43 @@ export async function quoteInto(client: SecretNetworkClient, token: string, targ
 	const routes = findRoutes(await listPairs(client), token, target);
 	if (!routes.length) return undefined;
 	return bestExactOutAnywhere(client, routes, await reservesFor(client, pairsOf(routes)), amount);
+}
+
+/** Selling all of an amount: what comes out, and the least the swap may accept. */
+export interface SellQuote {
+	route: Route;
+	amountIn: bigint;
+	amountOut: bigint;
+	/** amountOut less slippage: the swap's minimum return */
+	minOut: bigint;
+	slippageBps: bigint;
+}
+
+/** The best route to sell exactly `amountIn` of `token` for `target`. `pairs` saves a read when quoting many tokens. */
+export async function quoteSell(client: SecretNetworkClient, token: string, target: string, amountIn: bigint, pairs?: Pair[]): Promise<SellQuote | undefined> {
+	if (amountIn <= 0n) return undefined;
+	const routes = findRoutes(pairs ?? (await listPairs(client)), token, target);
+	if (!routes.length) return undefined;
+	const reserves = await reservesFor(client, pairsOf(routes));
+	let best: Quote | undefined;
+	for (const r of routes.filter((r) => !isSimulated(r))) {
+		let q: Quote | undefined;
+		try {
+			q = quoteIn(r, reserves, amountIn);
+		} catch {
+			continue; // an empty pool on the way
+		}
+		if (q && q.amountOut > 0n && (!best || q.amountOut > best.amountOut)) best = q;
+	}
+	// routes through a stable pool are priced by the router itself
+	const stable = routes.filter(isSimulated).slice(0, 4);
+	if (stable.length) {
+		const outs = await simulate(client, stable.map((route) => ({ route, amountIn }))).catch(() => [] as (bigint | undefined)[]);
+		outs.forEach((out, i) => {
+			if (out && out > 0n && (!best || out > best.amountOut)) best = { route: stable[i]!, amountIn, amountOut: out, impactBps: 0 };
+		});
+	}
+	if (!best) return undefined;
+	const slippageBps = slippageFor(best.impactBps);
+	return { route: best.route, amountIn, amountOut: best.amountOut, minOut: (best.amountOut * (10_000n - slippageBps)) / 10_000n, slippageBps };
 }

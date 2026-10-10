@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Bell, BookUser, Check, ChevronDown, Copy, Fingerprint, Fuel, Globe, KeyRound, Lock, ShieldAlert, Users, Zap } from '@lucide/svelte';
+	import { Bell, BookUser, Check, ChevronDown, Copy, Fingerprint, Fuel, Globe, KeyRound, Lock, ShieldAlert, Shuffle, Users, Zap } from '@lucide/svelte';
 	import { biometricAvailable, biometricEnabled } from '../../lib/crypto/biometric';
 	import { allowBackground, backgroundUnrestricted, canNotify } from '../../lib/notify/background';
 	import { isBech32Address } from 'secret-pay';
@@ -408,6 +408,10 @@
 		<BookUser size={16} class="text-accent" />
 		<span class="flex-1 text-base font-medium">Address book</span>
 		<span class="text-base text-text-muted">{wallet.contacts.length || ''}</span>
+	</button>
+	<button type="button" onclick={() => open({ name: 'sweep' })} class="card state-layer -mt-3 flex w-full items-center gap-3 px-4 py-3 text-left">
+		<Shuffle size={16} class="text-accent" />
+		<span class="flex-1 text-base font-medium">Swap other tokens to sSCRT</span>
 	</button>
 	<div class="flex flex-col gap-2">
 		{@render section('gas', 'Gas credits', Fuel, gas)}

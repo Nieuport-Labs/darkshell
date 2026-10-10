@@ -15,7 +15,7 @@ export default sheetRequest().then((request) => (request ? mount(PaySheetApp, { 
 
 // dev-only handle for poking state from the browser console / tests
 if (import.meta.env.DEV) {
-	void Promise.all([import('./lib/wallet.svelte'), import('./lib/ui.svelte')]).then(([w, u]) => {
-		(window as unknown as { __ds: unknown }).__ds = { wallet: w.wallet, ui: u.ui };
+	void Promise.all([import('./lib/wallet.svelte'), import('./lib/ui.svelte'), import('./lib/pay/dust.svelte')]).then(([w, u, d]) => {
+		(window as unknown as { __ds: unknown }).__ds = { wallet: w.wallet, ui: u.ui, others: d.others };
 	});
 }

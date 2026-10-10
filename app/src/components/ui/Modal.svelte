@@ -31,7 +31,7 @@
 			{/if}
 			<h2 class="text-headline">{title}</h2>
 		</header>
-		<div class="mx-auto flex w-full max-w-[460px] flex-1 flex-col gap-5 overflow-y-auto px-5 pb-4 pt-2">
+		<div class="mx-auto flex w-full max-w-[460px] flex-1 flex-col gap-5 overflow-y-auto px-5 pb-4 pt-2 [&>*]:shrink-0">
 			{@render children()}
 		</div>
 	</div>
@@ -42,7 +42,7 @@
 		role="dialog"
 		aria-modal="true"
 		aria-label={title}
-		class="glass-panel relative flex max-h-[calc(100dvh-2rem)] w-full max-w-[420px] flex-col gap-5 overflow-y-auto rounded-card p-5 outline-none motion-safe:animate-[modal-in_var(--duration-medium)_var(--ease-emphasised)]"
+		class="glass-panel relative flex max-h-[calc(100dvh-2rem)] w-full max-w-[420px] flex-col gap-5 overflow-y-auto rounded-card p-5 [&>*]:shrink-0 outline-none motion-safe:animate-[modal-in_var(--duration-medium)_var(--ease-emphasised)]"
 	>
 		<div class="flex shrink-0 items-start justify-between gap-4">
 			<div class="flex min-w-0 items-center gap-3">

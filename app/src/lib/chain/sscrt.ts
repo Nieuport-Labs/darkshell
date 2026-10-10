@@ -115,13 +115,15 @@ export async function snip20Msg(
 	contract: string,
 	msg: object,
 	funds?: bigint,
+	/** denomination of `funds`: a public IBC token wrapped into its SNIP-20 */
+	denom: string = DENOM,
 ): Promise<MsgExecuteContract<object>> {
 	return new MsgExecuteContract({
 		sender,
 		contract_address: contract,
 		code_hash: await codeHash(client, contract),
 		msg,
-		sent_funds: funds ? [{ denom: DENOM, amount: funds.toString() }] : [],
+		sent_funds: funds ? [{ denom, amount: funds.toString() }] : [],
 	});
 }
 

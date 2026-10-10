@@ -30,8 +30,17 @@ const WINDOW_MS = 15 * 60_000;
  * close together are not both tied to the first one.
  */
 export function linkOf(h: HistoryItem, logged: LoggedTx[], used?: Set<LoggedTx>): LoggedTx | undefined {
-	if (h.kind === 'in') return undefined;
 	const free = used ? logged.filter((l) => !used.has(l)) : logged;
+	// sSCRT coming back from a swap of other tokens ("Swap to sSCRT")
+	if (h.kind === 'in') {
+		const sweeps = free.filter((l) => l.kind === 'sweep');
+		if (h.height) {
+			const same = sweeps.find((l) => l.height === h.height);
+			if (same) return same;
+		}
+		if (h.counterparty !== SHADESWAP_ROUTER || !h.time) return undefined;
+		return sweeps.find((l) => l.height === undefined && Math.abs(l.time - h.time! * 1000) < WINDOW_MS);
+	}
 	const amount = h.amount.toString();
 	const fits = (l: LoggedTx) =>
 		h.kind === 'wrap' ? l.wrapped === amount || l.kind === 'wrap' : h.kind === 'unwrap' ? l.refilled === amount || l.spent === amount : l.spent === amount;
@@ -55,6 +64,7 @@ export function linkOf(h: HistoryItem, logged: LoggedTx[], used?: Set<LoggedTx>)
 
 export function describe(h: HistoryItem, link?: LoggedTx): Described {
 	const out = (title: string, detail: string, icon: Icon = 'out'): Described => ({ title, detail, sign: '−', icon, link });
+	if (h.kind === 'in' && (link?.kind === 'sweep' || h.counterparty === SHADESWAP_ROUTER)) return { title: 'Swapped to sSCRT', detail: link?.memo ? `from ${link.memo}` : 'on ShadeSwap', sign: '+', icon: 'swap', link };
 	if (h.kind === 'in') return { title: 'Received', detail: h.counterparty ? `from ${shortAddress(h.counterparty, 6, 4)}` : '', sign: '+', icon: 'in' };
 	if (h.kind === 'wrap' && link?.wrapped === h.amount.toString()) {
 		if (link.kind === 'stake' || link.kind === 'unstake' || link.kind === 'claim') return { title: 'Staking rewards', detail: 'claimed privately', sign: '+', icon: 'stake', link };
@@ -98,6 +108,7 @@ export function describeLogged(l: LoggedTx, settled = false): Described {
 		unstake: ['Unstaking', 'stake'],
 		claim: ['Claiming rewards', 'stake'],
 		vote: ['Voting', 'vote'],
+		sweep: ['Swapping to sSCRT', 'swap'],
 	};
 	const done: Record<LoggedTx['kind'], string> = {
 		send: 'Sent',
@@ -111,6 +122,7 @@ export function describeLogged(l: LoggedTx, settled = false): Described {
 		unstake: 'Unstaked',
 		claim: 'Staking rewards',
 		vote: l.memo?.replace(/ on proposal #\d+$/, '') || 'Voted',
+		sweep: 'Swapped to sSCRT',
 	};
 	const [title0, icon] = map[l.kind];
 	const title = settled ? done[l.kind] : title0;
@@ -174,6 +186,7 @@ export function timeline(history: HistoryItem[], chain: ChainActivity[], logged:
 	const atHeight = new Map<number, HistoryItem[]>();
 	for (const h of history) if (h.height) atHeight.set(h.height, [...(atHeight.get(h.height) ?? []), h]);
 	const hidden = new Set<HistoryItem>();
+	const folded = new Map<HistoryItem, HistoryItem>();
 	const ch: Entry[] = [];
 	for (const c of chain) {
 		const same = atHeight.get(c.height) ?? [];
@@ -190,10 +203,18 @@ export function timeline(history: HistoryItem[], chain: ChainActivity[], logged:
 	// a private payment's helpers in the same transaction — rewards or public SCRT wrapped
 	// to cover it, sSCRT unwrapped to refill gas credits — are part of that payment
 	for (const items of atHeight.values()) if (items.some((h) => h.kind === 'out')) items.filter((h) => h.kind === 'wrap' || h.kind === 'unwrap').forEach((h) => hidden.add(h));
+	// "Swap to sSCRT" sells several tokens in one transaction: one entry, the sSCRT summed
+	for (const items of atHeight.values()) {
+		const swept = logged.some((l) => l.kind === 'sweep' && l.height !== undefined && l.height === items[0]?.height);
+		const back = items.filter((h) => h.kind === 'in' && (swept || h.counterparty === SHADESWAP_ROUTER));
+		back.slice(1).forEach((h) => hidden.add(h));
+		if (back.length > 1) folded.set(back[0]!, { ...back[0]!, amount: back.reduce((t, h) => t + h.amount, 0n) });
+	}
 	// each log entry ties to one history item at most
 	const used = new Set<LoggedTx>();
 	const hist: Entry[] = history
 		.filter((h) => !hidden.has(h))
+		.map((h) => folded.get(h) ?? h)
 		.map((h) => {
 			const link = linkOf(h, logged, used);
 			if (link) used.add(link);

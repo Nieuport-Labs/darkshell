@@ -7,6 +7,7 @@
 	import { price, usdValue } from '../lib/price.svelte';
 	import { goTab, open, ui } from '../lib/ui.svelte';
 	import { activeName, refresh, totalBalance, wallet } from '../lib/wallet.svelte';
+	import { loadOthers, others, swappable } from '../lib/pay/dust.svelte';
 	import Button from '../components/ui/Button.svelte';
 	import ActivityList from '../components/wallet/ActivityList.svelte';
 	import GasChip from '../components/wallet/GasChip.svelte';
@@ -23,6 +24,13 @@
 	const usd = $derived(usdValue(total));
 	// 4 decimals: enough to see rewards grow, few enough to read at a glance
 	const [int, frac] = $derived((total === null ? '' : formatAmount(total, 4)).split('.'));
+
+	// other tokens worth swapping into sSCRT: looked for once the balance is in (and every 10 min)
+	$effect(() => {
+		if (wallet.balance !== null && wallet.address) void loadOthers();
+	});
+	const toSweep = $derived(others.mute || others.address !== wallet.address ? [] : swappable());
+	const sweepValue = $derived(toSweep.reduce((s, t) => s + (t.quote?.amountOut ?? 0n), 0n));
 
 </script>
 
@@ -101,6 +109,16 @@
 	<div class="mt-3 flex items-center justify-between gap-3 rounded-card border border-border bg-surface-1 px-4 py-2.5">
 		<span class="text-base text-text-muted">Public SCRT <span class="tabular-nums text-text">{formatAmount(publicScrt)}</span></span>
 		<Button variant="text" size="sm" onclick={() => open({ name: 'action', action: 'wrap' })}>Make private</Button>
+	</div>
+{/if}
+
+{#if toSweep.length}
+	<div class="mt-3 flex items-center justify-between gap-3 rounded-card border border-border bg-surface-1 px-4 py-2.5">
+		<span class="flex min-w-0 flex-col">
+			<span class="truncate text-base text-text-muted">{toSweep.length === 1 ? `${toSweep[0]!.token.symbol} on this account` : `${toSweep.length} other tokens`}</span>
+			<span class="truncate text-label tabular-nums text-text-faint">≈ {formatAmount(sweepValue, 2)} sSCRT{usdValue(sweepValue) ? ` · ${usdValue(sweepValue)}` : ''}</span>
+		</span>
+		<Button variant="text" size="sm" class="shrink-0 whitespace-nowrap" onclick={() => open({ name: 'sweep' })}>Swap to sSCRT</Button>
 	</div>
 {/if}
 
