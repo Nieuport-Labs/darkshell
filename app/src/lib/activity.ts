@@ -57,10 +57,12 @@ export function describe(h: HistoryItem, link?: LoggedTx): Described {
 }
 
 /** A logged send the chain history does not show yet (still in flight, or failed). */
-export function unsettled(logged: LoggedTx[], history: HistoryItem[]): LoggedTx[] {
+export function unsettled(logged: LoggedTx[], history: HistoryItem[], chain: ChainActivity[] = []): LoggedTx[] {
 	return logged.filter((l) => {
 		if (l.status !== 'pending' && l.status !== 'failed') return false;
 		if (l.status === 'failed' && Date.now() - l.time > 24 * 3600_000) return false;
+		// already in a block: listed from the chain or the private history
+		if (chain.some((c) => c.hash === l.hash)) return false;
 		return !history.some((h) => linkOf(h, [l]) === l);
 	});
 }
@@ -160,11 +162,17 @@ export function timeline(history: HistoryItem[], chain: ChainActivity[], logged:
 		const same = atHeight.get(c.height) ?? [];
 		// a private transfer or swap rode along (a payment that claimed rewards first): the
 		// private history tells that one better
-		if (same.some((h) => h.kind === 'in' || h.kind === 'out')) continue;
-		same.forEach((h) => hidden.add(h));
-		const wrapped = same.some((h) => h.kind === 'wrap') ? 'in' : same.some((h) => h.kind === 'unwrap') ? 'out' : undefined;
+		if (same.some((h) => h.kind === 'out')) continue;
+		// (a received transfer in the same block is someone else's transaction: it stays)
+		const parts = same.filter((h) => h.kind === 'wrap' || h.kind === 'unwrap');
+		parts.forEach((h) => hidden.add(h));
+		const unwrapped = parts.some((h) => h.kind === 'unwrap');
+		const wrapped = (c.kind === 'stake' || c.kind === 'out' || c.kind === 'ibc') && unwrapped ? 'out' : parts.some((h) => h.kind === 'wrap') ? 'in' : unwrapped ? 'out' : undefined;
 		ch.push({ type: 'chain', time: c.time * 1000, c, link: logged.find((l) => l.hash === c.hash), wrapped });
 	}
+	// a private payment's helpers in the same transaction — rewards or public SCRT wrapped
+	// to cover it, sSCRT unwrapped to refill gas credits — are part of that payment
+	for (const items of atHeight.values()) if (items.some((h) => h.kind === 'out')) items.filter((h) => h.kind === 'wrap' || h.kind === 'unwrap').forEach((h) => hidden.add(h));
 	const hist: Entry[] = history.filter((h) => !hidden.has(h)).map((h) => ({ type: 'history', time: (h.time ?? 0) * 1000, h, link: linkOf(h, logged) }));
 	const shown = new Set([...hist.map((e) => (e.type === 'history' ? e.link?.hash : undefined)), ...chain.map((c) => c.hash)].filter(Boolean));
 	// our own log covers what neither shows (a vote the node's index hasn't caught up on, a refill paid from public SCRT)

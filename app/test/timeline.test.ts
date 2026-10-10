@@ -14,8 +14,20 @@ describe('timeline', () => {
 	it('shows rewards collected into sSCRT once', () => {
 		expect(kinds(timeline([h('1', 'wrap', 200)], [c('B', 'claim', 200)], []))).toEqual(['c:claim/in']);
 	});
-	it('leaves a payment that claimed rewards first to the private history', () => {
-		expect(kinds(timeline([h('2', 'out', 300), h('1', 'wrap', 300)], [c('C', 'claim', 300)], []))).toEqual(['h:out', 'h:wrap']);
+	it('shows a payment that claimed rewards first once, as the payment', () => {
+		expect(kinds(timeline([h('2', 'out', 300), h('1', 'wrap', 300)], [c('C', 'claim', 300)], []))).toEqual(['h:out']);
+	});
+	it('folds a gas refill riding along a payment into the payment', () => {
+		expect(kinds(timeline([h('2', 'out', 400), h('1', 'unwrap', 400)], [], []))).toEqual(['h:out']);
+	});
+	it('shows a public send (unwrap + bank send) and an IBC transfer once each', () => {
+		expect(kinds(timeline([h('2', 'unwrap', 600), h('1', 'unwrap', 500)], [c('S', 'out', 600), c('I', 'ibc', 500)], []))).toEqual(['c:out/out', 'c:ibc/out']);
+	});
+	it('shows a stake that also paid out its rewards into sSCRT once', () => {
+		expect(kinds(timeline([h('2', 'wrap', 700), h('1', 'unwrap', 700)], [c('K', 'stake', 700)], []))).toEqual(['c:stake/out']);
+	});
+	it('keeps a received payment in the same block as our own transaction', () => {
+		expect(kinds(timeline([h('2', 'in', 800), h('1', 'unwrap', 800)], [c('K', 'stake', 800)], []))).toEqual(['h:in', 'c:stake/out']);
 	});
 	it('keeps unrelated entries apart', () => {
 		expect(kinds(timeline([h('1', 'unwrap', 100)], [c('V', 'vote', 150)], []))).toEqual(['c:vote', 'h:unwrap']);

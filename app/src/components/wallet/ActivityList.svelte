@@ -55,7 +55,7 @@
 		else open({ name: 'tx', hash: l.hash });
 	}
 
-	const inFlight = $derived(unsettled(logged, wallet.history));
+	const inFlight = $derived(unsettled(logged, wallet.history, wallet.chainActivity));
 	const all = $derived(timeline(wallet.history, wallet.chainActivity, logged));
 	const shown = $derived(limit ? all.slice(0, Math.max(0, limit - inFlight.length)) : all);
 
