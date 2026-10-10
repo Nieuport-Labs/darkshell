@@ -98,7 +98,7 @@
 			</div>
 		{/each}
 	{:else if shown.length || inFlight.length}
-		<ul class="stagger flex flex-col" style="--stagger-step: 40ms">
+		<ul class="flex flex-col">
 			{#each inFlight as l (l.hash)}
 				{@const d = describeLogged(l)}
 				{@const amount = BigInt(l.kind === 'vote' ? '0' : l.spent && l.spent !== '0' ? l.spent : (l.amount ?? '0'))}

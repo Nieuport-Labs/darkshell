@@ -14,9 +14,9 @@
 	}: { state: 'busy' | 'pending' | 'done'; size?: string; still?: boolean; label?: string; icon?: Snippet } = $props();
 
 	// sparks around the circle, alternating colour and reach
-	const SPARKS = Array.from({ length: 14 }, (_, i) => ({
-		a: `${(360 / 14) * i + (i % 2 ? 6 : -4)}deg`,
-		r: `${i % 3 === 0 ? 96 : i % 3 === 1 ? 78 : 64}px`,
+	const SPARKS = Array.from({ length: 10 }, (_, i) => ({
+		a: `${(360 / 10) * i + (i % 2 ? 6 : -4)}deg`,
+		r: `${i % 3 === 0 ? 80 : i % 3 === 1 ? 68 : 58}px`,
 		c: i % 4 === 1 ? 'var(--color-accent)' : i % 4 === 3 ? '#ffffff' : 'var(--color-positive)',
 		s: i % 3 === 0 ? 1 : 0.7,
 	}));

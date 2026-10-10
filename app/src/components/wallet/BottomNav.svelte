@@ -19,7 +19,7 @@
 		<!-- the active tab's pill slides (with a little give) to the tab tapped -->
 		<span
 			aria-hidden="true"
-			class="pointer-events-none absolute inset-y-0 left-3 rounded-card bg-accent-soft transition-transform duration-500 ease-[var(--ease-spring)]"
+			class="pointer-events-none absolute inset-y-0 left-3 rounded-card bg-accent-soft transition-transform duration-[420ms] ease-[var(--ease-out-expo)]"
 			style="width: calc((100% - 2rem) / 3); transform: translateX(calc({index} * (100% + 0.25rem)))"
 		></span>
 		{#each TABS as t (t.tab)}

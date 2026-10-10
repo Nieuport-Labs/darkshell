@@ -92,6 +92,6 @@
 		class="absolute top-1 flex size-14 cursor-grab touch-none items-center justify-center rounded-2xl bg-accent-strong text-white shadow-lg active:cursor-grabbing disabled:bg-surface-3 disabled:text-text-faint"
 		style="left: {PAD + x}px; transition: {dragging ? 'none' : 'left 280ms cubic-bezier(0.32, 0.72, 0, 1)'}"
 	>
-		{#if loading || done}<Loader2 size={22} class="animate-spin" />{:else}<span class={disabled || dragging ? '' : 'animate-[nudge_1.6s_var(--ease-out-expo)_infinite]'}><ChevronsRight size={24} /></span>{/if}
+		{#if loading || done}<Loader2 size={22} class="animate-spin" />{:else}<span class={disabled || dragging ? '' : 'animate-[nudge_3.2s_var(--ease-out-expo)_infinite]'}><ChevronsRight size={24} /></span>{/if}
 	</button>
 </div>
