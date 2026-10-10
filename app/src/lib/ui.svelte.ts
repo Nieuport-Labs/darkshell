@@ -17,7 +17,7 @@ export type Dialog =
 	| { name: 'proposal'; id: string }
 	/** a one-tap transaction (collect rewards, make private, refill gas credits): recap, then swipe */
 	| { name: 'action'; action: 'claim' | 'wrap' | 'refill' }
-	| { name: 'tx'; item?: HistoryItem; hash?: string; chain?: ChainActivity }
+	| { name: 'tx'; item?: HistoryItem; hash?: string; chain?: ChainActivity; wrapped?: 'in' | 'out' }
 	| { name: 'lightning'; target?: Extract<Target, { kind: 'lightning' }>; orderId?: string }
 	/** ETH / BTC / XMR to an address on another chain (via Skip or FixedFloat) */
 	| { name: 'external'; target?: Extract<Target, { kind: 'external' }>; orderId?: string };

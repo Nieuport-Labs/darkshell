@@ -20,7 +20,8 @@
 	import { chainTx, receivedHash, txLog, wallet, type ChainTxDetail, type LoggedTx } from '../../lib/wallet.svelte';
 	import Modal from '../ui/Modal.svelte';
 
-	let { item: i, hash: h, entry: en }: { item?: HistoryItem; hash?: string; entry?: ChainActivity } = $props();
+	let { item: i, hash: h, entry: en, wrapped: wr }: { item?: HistoryItem; hash?: string; entry?: ChainActivity; wrapped?: 'in' | 'out' } = $props();
+	const wrapped = untrack(() => wr);
 	const item = untrack(() => i);
 	/** a staking / governance / public-SCRT transaction read from the chain */
 	const entry = untrack(() => en);
@@ -52,7 +53,7 @@
 		}
 	}
 
-	const d = $derived(item ? describe(item, link) : entry ? describeChain(entry, validatorName) : link ? describeLogged(link, link.status === 'confirmed') : null);
+	const d = $derived(item ? describe(item, link) : entry ? describeChain(entry, validatorName, wrapped) : link ? describeLogged(link, link.status === 'confirmed') : null);
 	const amount = $derived(item ? item.amount : entry ? entry.amount : BigInt(link?.spent ?? link?.amount ?? '0'));
 	const unit = $derived(entry ? 'SCRT' : 'sSCRT');
 	const status = $derived.by(() => {
@@ -143,7 +144,7 @@
 		}
 		// the last leg of a Lightning payment happens off Secret
 		if (link?.kind === 'lightning') return [...list, { title: 'FixedFloat pays the Lightning invoice', detail: 'off Secret Network; FixedFloat sees it', privacy: 'public' }];
-		if (link?.kind === 'external') return [...list, { title: `${link.symbol ?? 'The coin'} delivered on the other chain`, detail: link.to ? `to ${shortAddress(link.to, 8, 6)}, by Skip or FixedFloat; public there` : 'public there', privacy: 'public' }];
+		if (link?.kind === 'external') return [...list, { title: `${link.symbol ?? 'The coin'} delivered on the other chain`, detail: link.to ? `to ${shortAddress(link.to, 8, 6)}, by FixedFloat; public there` : 'public there', privacy: 'public' }];
 		return list;
 	});
 	const overall = $derived(steps.length ? overallOf(steps) : item ? (item.kind === 'wrap' || item.kind === 'unwrap' ? 'public' : 'private') : null);

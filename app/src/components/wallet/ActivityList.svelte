@@ -66,9 +66,9 @@
 			return { d, amount: `${d.sign}${formatAmount(e.h.amount, 4)}`, fiat: e.h.amount, pv: privacyOf(e.h, d.link), title: e.h.memo || d.title, open: () => openItem(e.h, d.link) };
 		}
 		if (e.type === 'chain') {
-			const d = describeChain(e.c, validatorName);
+			const d = describeChain(e.c, validatorName, e.wrapped);
 			const amt = chainAmount(e.c);
-			return { d, amount: amt ? `${d.sign}${amt}` : '', fiat: e.c.amount, pv: 'public', title: d.title, open: () => open({ name: 'tx', hash: e.c.hash, chain: $state.snapshot(e.c) }) };
+			return { d, amount: amt ? `${d.sign}${amt}` : '', fiat: e.c.amount, pv: 'public', title: d.title, open: () => open({ name: 'tx', hash: e.c.hash, chain: $state.snapshot(e.c), wrapped: e.wrapped }) };
 		}
 		const d = describeLogged(e.l, true);
 		const a = BigInt(e.l.kind === 'vote' ? '0' : e.l.spent && e.l.spent !== '0' ? e.l.spent : (e.l.amount ?? '0'));

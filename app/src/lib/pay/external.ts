@@ -1,5 +1,5 @@
 // Addresses and payment requests on other chains: Ethereum (and its L2s),
-// Bitcoin and Monero. Paid from sSCRT through Skip or FixedFloat
+// Bitcoin and Monero. Paid from sSCRT through FixedFloat
 // (lib/pay/crosschain.ts). Every address is checked by its own checksum, so a
 // typo is caught here and never becomes a payment.
 //

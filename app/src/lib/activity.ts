@@ -113,18 +113,18 @@ export function privacyOf(h: HistoryItem | undefined, link: LoggedTx | undefined
 }
 
 /** A staking, governance or public-SCRT transaction read from the chain. */
-export function describeChain(c: ChainActivity, validator: (a: string) => string = (a) => shortAddress(a, 10, 4)): Described {
+export function describeChain(c: ChainActivity, validator: (a: string) => string = (a) => shortAddress(a, 10, 4), wrapped?: 'in' | 'out'): Described {
 	const val = c.counterparty ? validator(c.counterparty) : '';
 	const r = (title: string, detail: string, sign: Described['sign'], icon: Icon): Described => ({ title: c.failed ? `${title} failed` : title, detail, sign, icon });
 	switch (c.kind) {
 		case 'stake':
-			return r('Staked', val ? `with ${val}` : '', '', 'stake');
+			return r('Staked', [val ? `with ${val}` : '', wrapped === 'out' ? 'from your balance' : ''].filter(Boolean).join(' · '), '', 'stake');
 		case 'unstake':
 			return r('Unstaked', val ? `from ${val} · back in 21 days` : 'back in 21 days', '', 'stake');
 		case 'restake':
 			return r('Moved stake', val ? `to ${val}` : '', '', 'stake');
 		case 'claim':
-			return r('Staking rewards', 'collected as public SCRT', '+', 'stake');
+			return r('Staking rewards', wrapped === 'in' ? 'collected into your private balance' : 'collected as public SCRT', '+', 'stake');
 		case 'vote':
 			return r(`Voted ${c.vote ?? ''}`.trim(), c.proposal ? `on proposal #${c.proposal}` : '', '', 'vote');
 		case 'in':
@@ -138,7 +138,8 @@ export function describeChain(c: ChainActivity, validator: (a: string) => string
 
 export type Entry =
 	| { type: 'history'; time: number; h: HistoryItem; link?: LoggedTx }
-	| { type: 'chain'; time: number; c: ChainActivity; link?: LoggedTx }
+	/** `wrapped`: the same transaction also moved sSCRT in (rewards made private) or out (unwrapped to stake) */
+	| { type: 'chain'; time: number; c: ChainActivity; link?: LoggedTx; wrapped?: 'in' | 'out' }
 	| { type: 'logged'; time: number; l: LoggedTx };
 
 /**
@@ -148,17 +149,26 @@ export type Entry =
  * a refill paid from public SCRT). Unsettled sends are listed separately.
  */
 export function timeline(history: HistoryItem[], chain: ChainActivity[], logged: LoggedTx[]): Entry[] {
-	const hist: Entry[] = history.map((h) => ({ type: 'history', time: (h.time ?? 0) * 1000, h, link: linkOf(h, logged) }));
-	const linked = new Set(hist.map((e) => (e.type === 'history' ? e.link?.hash : undefined)).filter(Boolean));
-	const hashes = new Set(chain.map((c) => c.hash));
-	// a transaction the private history already shows (a stake made here shows as its unwrap,
-	// claimed rewards as their wrap) is not listed twice; unstaking and votes it can't show
-	const ch: Entry[] = chain
-		.filter((c) => !linked.has(c.hash) || c.kind === 'unstake' || c.kind === 'restake' || c.kind === 'vote')
-		.map((c) => ({ type: 'chain', time: c.time * 1000, c, link: logged.find((l) => l.hash === c.hash) }));
-	const rest: Entry[] = logged
-		.filter((l) => l.status === 'confirmed' && !linked.has(l.hash) && !hashes.has(l.hash))
-		.map((l) => ({ type: 'logged', time: l.time, l }));
+	// One transaction, one entry. A stake made from sSCRT is an unwrap and a delegation in the
+	// same transaction (so the same block): the private history sees the unwrap, the chain the
+	// delegation. Matched by block height — works for transactions made on another device too.
+	const atHeight = new Map<number, HistoryItem[]>();
+	for (const h of history) if (h.height) atHeight.set(h.height, [...(atHeight.get(h.height) ?? []), h]);
+	const hidden = new Set<HistoryItem>();
+	const ch: Entry[] = [];
+	for (const c of chain) {
+		const same = atHeight.get(c.height) ?? [];
+		// a private transfer or swap rode along (a payment that claimed rewards first): the
+		// private history tells that one better
+		if (same.some((h) => h.kind === 'in' || h.kind === 'out')) continue;
+		same.forEach((h) => hidden.add(h));
+		const wrapped = same.some((h) => h.kind === 'wrap') ? 'in' : same.some((h) => h.kind === 'unwrap') ? 'out' : undefined;
+		ch.push({ type: 'chain', time: c.time * 1000, c, link: logged.find((l) => l.hash === c.hash), wrapped });
+	}
+	const hist: Entry[] = history.filter((h) => !hidden.has(h)).map((h) => ({ type: 'history', time: (h.time ?? 0) * 1000, h, link: linkOf(h, logged) }));
+	const shown = new Set([...hist.map((e) => (e.type === 'history' ? e.link?.hash : undefined)), ...chain.map((c) => c.hash)].filter(Boolean));
+	// our own log covers what neither shows (a vote the node's index hasn't caught up on, a refill paid from public SCRT)
+	const rest: Entry[] = logged.filter((l) => l.status === 'confirmed' && !shown.has(l.hash)).map((l) => ({ type: 'logged', time: l.time, l }));
 	// history items without a time keep their place at the end
 	return [...hist, ...ch, ...rest].sort((a, b) => b.time - a.time);
 }

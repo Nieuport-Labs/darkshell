@@ -1,7 +1,6 @@
 <script lang="ts">
 	// Sends ETH, BTC or XMR to an address on another chain, from sSCRT, in one
-	// Secret transaction — through Skip where it has a route at a fair price,
-	// otherwise FixedFloat (lib/pay/crosschain.ts). Network (for 0x addresses
+	// Secret transaction, through FixedFloat (lib/pay/crosschain.ts). Network (for 0x addresses
 	// without one) → amount (unless the request has it) → price → recap and
 	// swipe → progress, which keeps going after the app is closed.
 	import { AlertTriangle, CheckCircle2, Copy, ExternalLink, Eye, Loader2 } from '@lucide/svelte';
@@ -11,7 +10,7 @@
 	import { FfError, refundOrder } from '../../lib/ff/fixedfloat';
 	import { formatAmount } from '../../lib/format';
 	import { NoGasError } from '../../lib/gas/feePayer';
-	import { ffPlan, networkName, quoteCross, skipPlan, type CrossQuote, type Destination } from '../../lib/pay/crosschain';
+	import { ffPlan, networkName, quoteCross, type CrossQuote, type Destination } from '../../lib/pay/crosschain';
 	import { COIN_NAME, DECIMALS, EVM_NETWORKS, toBase, type EvmNetwork, type ExternalTarget } from '../../lib/pay/external';
 	import { isFinalX, loadXOrders, saveXOrder, statusText, syncXOrder, X_STEPS, xOrders, type XOrder } from '../../lib/pay/xorders.svelte';
 	import { usdValue } from '../../lib/price.svelte';
@@ -53,12 +52,7 @@
 		step = 'quote';
 		error = '';
 		try {
-			const q = await quoteCross(client(), dest);
-			if (!q.best) {
-				const why = [q.skipError && coin === 'ETH' ? `Skip: ${q.skipError}` : '', q.ffError ? `FixedFloat: ${q.ffError}` : ''].filter(Boolean).join(' ');
-				return fail(`No way to send this right now. ${why}`);
-			}
-			quote = q.best;
+			quote = await quoteCross(client(), dest);
 			step = 'confirm';
 		} catch (e) {
 			fail(e instanceof Error ? e.message : String(e));
@@ -76,26 +70,16 @@
 		const base: Omit<XOrder, 'id' | 'provider' | 'status'> = { coin, network: dest.network, address: target.address, amount: amountText, note: target.note, created: Date.now() };
 		const info = { to: target.address, amount: dest.amount.toString(), symbol: coin };
 		try {
-			if (quote.provider === 'skip') {
-				const plan = await skipPlan(client(), wallet.address, quote.route, target.address);
-				const out = await pay(plan, 'external', (p) => {
-					order = { ...base, id: p.hash, provider: 'skip', hash: p.hash, sscrt: plan.spends.toString(), status: 'PENDING' };
-					void saveXOrder(order);
-					step = 'progress';
-				}, info);
-				order = { ...base, id: out.hash, provider: 'skip', hash: out.hash, sscrt: plan.spends.toString(), status: 'PENDING' };
-			} else {
-				const { order: o, plan, atom, quote: q } = await ffPlan(client(), wallet.address, dest, quote.quote);
-				const ff = { token: o.token, deposit: o.from.address, memo: o.from.tag ?? undefined, atom: atom.toString(), expires: o.time.expiration * 1000 };
-				order = { ...base, id: o.id, provider: 'ff', status: 'SENDING', ff };
-				await saveXOrder(order);
-				if (spendable() !== null && q.amountIn > spendable()!) throw new Error(`Not enough sSCRT: this needs ${formatAmount(q.amountIn)}.`);
-				const out = await pay(plan, 'external', (p) => {
-					order = { ...order!, sscrt: q.amountIn.toString(), hash: p.hash, status: 'NEW' };
-					step = 'progress';
-				}, { ...info, memo: ff.memo });
-				order = { ...order, sscrt: q.amountIn.toString(), hash: out.hash, status: 'NEW' };
-			}
+			const { order: o, plan, atom, quote: q } = await ffPlan(client(), wallet.address, dest, quote.quote);
+			const ff = { token: o.token, deposit: o.from.address, memo: o.from.tag ?? undefined, atom: atom.toString(), expires: o.time.expiration * 1000 };
+			order = { ...base, id: o.id, provider: 'ff', status: 'SENDING', ff };
+			await saveXOrder(order);
+			if (spendable() !== null && q.amountIn > spendable()!) throw new Error(`Not enough sSCRT: this needs ${formatAmount(q.amountIn)}.`);
+			const out = await pay(plan, 'external', (p) => {
+				order = { ...order!, sscrt: q.amountIn.toString(), hash: p.hash, status: 'NEW' };
+				step = 'progress';
+			}, { ...info, memo: ff.memo });
+			order = { ...order, sscrt: q.amountIn.toString(), hash: out.hash, status: 'NEW' };
 			await saveXOrder(order);
 			step = 'progress';
 			startPolling();
@@ -162,7 +146,7 @@
 	function legs(o: XOrder): [string, string, string?][] {
 		return [
 			...(o.sscrt ? [['You paid', `${formatAmount(BigInt(o.sscrt))} sSCRT`] as [string, string]] : []),
-			['Via', o.provider === 'skip' ? 'Skip · Osmosis, then a bridge' : `FixedFloat · ${formatAmount(BigInt(o.ff?.atom ?? '0'))} ATOM`],
+			['Via', `FixedFloat · ${formatAmount(BigInt(o.ff?.atom ?? '0'))} ATOM`],
 			...(o.ff ? [['Deposit address', short(o.ff.deposit), o.ff.deposit] as [string, string, string]] : []),
 			...(o.ff?.memo ? [['IBC memo', o.ff.memo, o.ff.memo] as [string, string, string]] : []),
 			['To', short(o.address, 10, 8), o.address],
@@ -203,11 +187,10 @@
 			<div class="flex items-start gap-2 rounded-card bg-surface p-3 text-label text-text-muted">
 				<AlertTriangle size={16} class="mt-px shrink-0 text-[#f5b544]" />
 				<span>
-					{#if order.provider === 'ff'}FixedFloat could not complete the exchange as ordered. You can ask for a refund to this account's Cosmos Hub address.
-					{:else}The transfer did not reach {networkName(order)}{order.error ? ` (${order.error})` : ''}. What was sent goes back to this account's address on the chain where it stopped (Osmosis, same key).{/if}
+					FixedFloat could not complete the exchange as ordered. You can ask for a refund to this account's Cosmos Hub address.
 				</span>
 			</div>
-			{#if order.provider === 'ff'}<Button variant="secondary" block size="lg" onclick={refund}>Request refund</Button>{/if}
+			<Button variant="secondary" block size="lg" onclick={refund}>Request refund</Button>
 		{/if}
 		{#if error}<p class="text-base text-text-muted">{error}</p>{/if}
 		<dl class="flex flex-col divide-y divide-border rounded-card border border-border bg-surface-1 text-base">
@@ -230,7 +213,7 @@
 			{#if destExplorer(order)}<a href={destExplorer(order)} target="_blank" rel="noreferrer noopener" class="inline-flex items-center gap-1.5 text-base text-accent">On {networkName(order)} <ExternalLink size={14} /></a>{/if}
 		</div>
 		<div class="mt-auto pt-4"><Button block size="xl" onclick={close}>{order.status === 'DONE' ? 'Done' : 'Close — it continues in the background'}</Button></div>
-		{#if order.provider === 'ff'}<PoweredByFF />{/if}
+		<PoweredByFF />
 	{:else if step === 'network'}
 		<p class="px-1 text-base text-text-muted">An 0x address works on several networks. Which one should receive the ETH?</p>
 		<ul class="flex flex-col gap-2" role="radiogroup" aria-label="Network">
@@ -276,7 +259,7 @@
 		</div>
 		<Button block size="xl" disabled={!amount} onclick={getQuote}>{amount ? 'Get a price' : 'Enter an amount'}</Button>
 	{:else if step === 'quote'}
-		<div class="flex items-center justify-center gap-2 py-8 text-base text-text-muted"><Loader2 size={18} class="animate-spin" /> Comparing Skip and FixedFloat…</div>
+		<div class="flex items-center justify-center gap-2 py-8 text-base text-text-muted"><Loader2 size={18} class="animate-spin" /> Getting a price…</div>
 	{:else if step === 'error'}
 		<div class="flex items-start gap-3">
 			<AlertTriangle size={18} class="mt-0.5 shrink-0 text-[#f5b544]" />
@@ -299,18 +282,18 @@
 		<dl class="flex flex-col divide-y divide-border rounded-card border border-border bg-surface-1 text-base">
 			{@render row('To', short(target.address, 10, 8), where)}
 			{@render row('You pay', `≈ ${formatAmount(quote.sscrt)} sSCRT`, `balance ${formatAmount(spendable())}`)}
-			{@render row('Via', quote.via, quote.provider === 'skip' ? 'no exchange in between' : 'an exchange makes the payment')}
+			{@render row('Via', quote.via, 'an exchange makes the payment')}
 			{@render row('Arrives', `in about ${quote.minutes} min`)}
 			{@render row('Network fee', 'Paid from gas credits')}
 		</dl>
 		<p class="flex items-start gap-2 px-1 text-label text-text-faint">
 			<Eye size={13} class="mt-px shrink-0" />
-			Public: unwrapping and the transfer to {where} are visible on chain{quote.provider === 'ff' ? ', and FixedFloat sees both sides' : ''}.{coin === 'XMR' ? ' Once it is Monero, the recipient’s side is private.' : ''}
+			Public: the transfer to FixedFloat and the payment on {where} are visible on chain, and FixedFloat sees both sides.{coin === 'XMR' ? ' Once it is Monero, the recipient’s side is private.' : ''}
 		</p>
 		{#if tooMuch}<p class="text-base text-negative">Not enough sSCRT.</p>{/if}
 		<div class="mt-auto pt-4">
 			<SwipeConfirm label="Swipe to send {amountText} {coin}" loading={step === 'sending'} disabled={tooMuch} onconfirm={confirm} />
 		</div>
-		{#if quote.provider === 'ff'}<PoweredByFF />{/if}
+		<PoweredByFF />
 	{/if}
 </Modal>
