@@ -46,6 +46,16 @@ export async function biometricPin(): Promise<string> {
 	return c.password;
 }
 
+/** The same, worded as the confirmation of a payment (the payment sheet). */
+export async function confirmPin(title: string, subtitle: string): Promise<string> {
+	const { NativeBiometric } = await plugin();
+	const c = await NativeBiometric.getSecureCredentials({ server: SERVER, title, subtitle, negativeButtonText: 'Use PIN' });
+	return c.password;
+}
+
+/** The stored key stopped working (fingerprints added or removed). */
+export const biometricInvalidated = (e: unknown) => /no protected credentials|invalidated|KeyPermanentlyInvalidated/i.test(e instanceof Error ? e.message : String(e));
+
 export async function disableBiometric(): Promise<void> {
 	await kv.del('bio.enabled');
 	if (!Capacitor.isNativePlatform()) return;

@@ -19,6 +19,16 @@
     overscroll-behavior-y: none;
   }
 
+  /* the payment sheet: the browser or app that asked stays visible behind it */
+  html.pay-sheet,
+  html.pay-sheet body {
+    background: transparent;
+  }
+  /* a dark color-scheme paints the page canvas black under a transparent body */
+  html.pay-sheet {
+    color-scheme: normal;
+  }
+
   :focus-visible {
     outline: 2px solid var(--color-accent);
     outline-offset: 2px;

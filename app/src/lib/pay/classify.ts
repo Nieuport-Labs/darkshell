@@ -22,6 +22,7 @@ const MESSAGES: Record<ParseErrorCode, string> = {
 	bad_amount: 'The requested amount is not valid.',
 	too_many_decimals: 'The requested amount has too many decimals.',
 	bad_exp: 'The expiry of this request is not valid.',
+	bad_return: 'The page this request returns to is not a safe (https) address.',
 	memo_too_long: 'The memo of this request is too long.',
 	duplicate_param: 'This payment request is malformed.',
 	unsupported_required_param: 'This payment request needs a feature this wallet does not have yet.',

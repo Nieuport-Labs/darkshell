@@ -1,6 +1,7 @@
 // From a classified target + amount to a ready transaction plan.
 
 import type { PaymentRequest } from 'secret-pay';
+import type { SecretNetworkClient } from 'secretjs';
 import { SSCRT_ADDRESS } from '../config';
 import { invoiceAsset, type InvoiceAsset } from '../tokens';
 import { client, wallet } from '../wallet.svelte';
@@ -11,10 +12,10 @@ import { quoteInto, type PaddedQuote } from './quote';
 export type QuoteState = { kind: 'none' } | { kind: 'loading' } | { kind: 'ready'; quote: PaddedQuote } | { kind: 'unavailable' };
 
 /** sSCRT needed to deliver `amount` of `asset` (a swap quote when it isn't sSCRT itself). */
-export async function quoteFor(asset: InvoiceAsset, amount: bigint): Promise<QuoteState> {
+export async function quoteFor(asset: InvoiceAsset, amount: bigint, via?: SecretNetworkClient): Promise<QuoteState> {
 	if (!needsSwap(asset)) return { kind: 'none' };
 	try {
-		const q = await quoteInto(client(), SSCRT_ADDRESS, asset.token.address, amount);
+		const q = await quoteInto(via ?? client(), SSCRT_ADDRESS, asset.token.address, amount);
 		return q ? { kind: 'ready', quote: q } : { kind: 'unavailable' };
 	} catch {
 		return { kind: 'unavailable' };

@@ -25,7 +25,30 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-            <!-- secret: payment links (Secret Payment URI) open DarkShell -->
+            <!-- lightning: invoices are paid through FixedFloat -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="lightning" />
+            </intent-filter>
+
+        </activity>
+
+        <!-- The payment sheet over the browser or app that asked for a payment
+             (PayActivity / src/PaySheetApp.svelte). -->
+        <activity
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density"
+            android:name=".PayActivity"
+            android:label="@string/title_activity_main"
+            android:theme="@style/AppTheme.PaySheet"
+            android:taskAffinity=""
+            android:excludeFromRecents="true"
+            android:launchMode="singleTop"
+            android:windowSoftInputMode="adjustResize"
+            android:exported="true">
+
+            <!-- secret: payment links (Secret Payment URI) -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -41,14 +64,16 @@
                 <data android:scheme="https" android:host="dashboard.nieuportlabs.cz" android:pathPrefix="/pay/" />
             </intent-filter>
 
-            <!-- lightning: invoices are paid through FixedFloat -->
+            <!-- other apps: startActivityForResult, result extras status / tx / id -->
             <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
+                <action android:name="cash.darkshell.wallet.action.PAY" />
                 <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="lightning" />
+                <data android:scheme="secret" />
             </intent-filter>
-
+            <intent-filter>
+                <action android:name="cash.darkshell.wallet.action.PAY" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
         </activity>
 
         <provider

@@ -4,7 +4,7 @@ import type { PaymentRequest } from './types.js';
 export const SCHEME = 'secret';
 
 /** Parameter order used by the encoder; keeps output stable for tests and diffs. */
-const ORDER = ['asset', 'amount', 'memo', 'id', 'exp', 'label', 'message', 'chain'] as const;
+const ORDER = ['asset', 'amount', 'memo', 'id', 'exp', 'label', 'message', 'return', 'chain'] as const;
 
 function query(req: PaymentRequest): string {
 	const pairs: [string, string][] = [];

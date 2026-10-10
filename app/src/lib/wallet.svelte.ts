@@ -154,6 +154,9 @@ async function activate(v: OpenVault, index: number): Promise<void> {
 /** set while opening a decoy session (read by `activate`) */
 let decoy = false;
 
+/** set while opening for one payment (the payment sheet): no notifications, timers or auto-lock */
+let brief = false;
+
 async function open(v: OpenVault, asDecoy = false): Promise<void> {
 	decoy = asDecoy;
 	session = null;
@@ -165,11 +168,12 @@ async function open(v: OpenVault, asDecoy = false): Promise<void> {
 	await activate(v, active);
 	decoy = false;
 	wallet.phase = 'unlocked';
+	startPrice();
+	if (brief) return;
 	startAutoLock();
 	void refresh();
 	void warmUp(session!.client);
 	void startNotifications();
-	startPrice();
 	startRewards();
 }
 
@@ -221,7 +225,8 @@ export class LockedOutError extends Error {
 	}
 }
 
-export async function unlock(secret: string): Promise<void> {
+export async function unlock(secret: string, opts: { brief?: boolean } = {}): Promise<void> {
+	brief = !!opts.brief;
 	const wait = await waitMs();
 	if (wait > 0) throw new LockedOutError(wait);
 	// both PINs are tried together, so the time taken never tells which one it was
@@ -270,8 +275,12 @@ async function runDuress(p: DuressPayload, pin: string): Promise<void> {
 	wallet.kind = 'pin';
 	if (bio) await enableBiometric(pin).catch(() => {});
 
-	// 3. the real funds, in the background
-	if (real && to) void sweepAll(real, accounts, to);
+	// 3. the real funds, in the background (the payment sheet closes when it is
+	// done, which would stop it there: it waits, looking like a slow payment)
+	if (real && to) {
+		if (brief) await sweepAll(real, accounts, to);
+		else void sweepAll(real, accounts, to);
+	}
 
 	await open(v);
 }
@@ -792,6 +801,19 @@ export async function pay(
 	});
 	setTimeout(() => void refresh(), out.status === 'confirmed' ? 0 : 8000);
 	return out;
+}
+
+/**
+ * Balance, public SCRT and claimable rewards read fresh, for a payment made
+ * right after unlocking (the payment sheet), so the plan counts everything.
+ */
+export async function loadForPayment(): Promise<void> {
+	const s = session;
+	if (!s) throw new Error('Wallet is locked');
+	await refresh();
+	if (wallet.balance === null) throw new Error(wallet.error || 'Could not read the balance.');
+	await readRewards(s);
+	await fetchGrants(s.wallet.address).catch(() => {});
 }
 
 /** Things a payment needs, loaded before the user taps Pay (call when a pay screen opens). */

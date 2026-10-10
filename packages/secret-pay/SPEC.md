@@ -1,6 +1,8 @@
-# Secret Payment URI — Specification v1
+# Secret Payment URI — Specification v1.1
 
-Status: draft 1 · License: MIT
+Status: draft 2 · License: MIT
+
+v1.1 adds the `return` parameter (§6a). It is optional, so v1 readers ignore it (§2 rule 4) and every v1 request is a valid v1.1 request.
 
 One URI format for everything a Secret Network wallet needs to ask for money:
 
@@ -41,6 +43,7 @@ A QR code SHOULD contain the URI. A "Share" action SHOULD produce the web link.
 | `exp` | integer, unix seconds | The request expires at this time. Wallets MUST refuse to pay an expired request. |
 | `label` | text | Recipient's display name. |
 | `message` | text | Note shown to the payer. Not sent on chain. |
+| `return` | URL | Where the payer's wallet sends the payer back after paying (§6a). `https:`, or `http:` on `localhost` / `127.0.0.1` / `[::1]`, without user info. Readers MUST reject any other value (`bad_return`). |
 | `chain` | chain id | Default `secret-4`. `pulsar-3` for testnet. Wallets MUST refuse a request for a chain they are not connected to. |
 
 Rules:
@@ -125,13 +128,33 @@ Result: `paid`, `underpaid`, `late` or `no_match`.
 
 For SNIP-20 the transfers come from the token's `transaction_history` (or `transfer_history`) query, authorised with a SNIP-24 query permit or a viewing key. For bank assets they come from a tx search on `transfer.recipient` and the tx memo.
 
+## 6a. Returning to the payee
+
+A web page that asks for a payment can name a page to come back to with `return`. After the payment is broadcast, the wallet opens that URL with these query parameters added (existing ones are kept):
+
+| Key | Value |
+|---|---|
+| `secret_pay` | `paid` (or `cancelled`, see below) |
+| `tx` | the payment's transaction hash (64 hex), when paid |
+| `id` | the request's `id`, when it has one |
+
+```
+https://shop.example/done?order=42&secret_pay=paid&tx=4F1C…&id=INV-7Q2M9K4D
+```
+
+- A wallet SHOULD show the host of `return` before the payer confirms ("you will go back to shop.example").
+- A wallet MAY simply close when the payer cancels, leaving them where they were; if it opens `return` instead, it uses `secret_pay=cancelled`.
+- An app that started the wallet itself (not through a web page) gets the outcome from the platform instead, e.g. as an Android activity result with `status`, `tx` and `id`.
+- **The parameters are not proof of payment.** Anyone can open the URL with them. The payee confirms the payment as in §6, matching by memo; `tx` only helps to find it.
+
 ## 7. Security notes
 
 - Always show the full recipient address and amount before signing; never trust `label` alone.
 - A web link host can change its page but not the request itself: wallets MUST parse the link's path and query, not the page content.
 - `message` and `label` are untrusted text; render them as plain text.
+- A `return` URL is chosen by whoever wrote the request. Wallets only open `https` (or local `http`) URLs, never `javascript:`, `data:`, `intent:` or custom schemes.
 - An invoice can be paid more than once. Recipients SHOULD treat payments beyond the first settlement as overpayments.
 
 ## 8. Reference implementation
 
-The `secret-pay` package (this repository): `parsePayment`, `encodePaymentUri`, `encodePaymentLink`, `formatShort`, `paymentMemo`, `matchPayment`, `findSettlement`, `toBaseUnits`, `fromBaseUnits`. Test vectors: `test/vectors.json`.
+The `secret-pay` package (this repository): `parsePayment`, `encodePaymentUri`, `encodePaymentLink`, `formatShort`, `paymentMemo`, `matchPayment`, `findSettlement`, `toBaseUnits`, `fromBaseUnits`, `returnUrlFor`, `readReturn`; `secret-pay/checkout` (`checkout`, `startCheckout`) and `secret-pay/verify` (`receivedSnip20`, `verifyPayment`). Test vectors: `test/vectors.json`.

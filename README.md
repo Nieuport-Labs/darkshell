@@ -87,6 +87,7 @@ The APK build needs the Android SDK (path in `app/android/local.properties`) and
 - Showing tokens other than sSCRT that end up in the account (swap leftovers, refunds on the Cosmos Hub).
 - Payments to Ethereum through Axelar.
 - A tool for funding the first gas credits.
+- Payment sheet: a `secret:` link, a /pay/ web link or another app (`cash.darkshell.wallet.action.PAY`, for a result) opens DarkShell as a sheet over the caller, like Google Pay: the sSCRT it costs, who gets it, Confirm (fingerprint, else PIN), and back to the page given in the request's `return` URL. Details (address, reference, fee) are one tap away. Requests without an amount, Lightning and other chains open the full app. Websites use `secret-pay/checkout` (see packages/secret-pay/README.md).
 - Shared invoices are Secret Dashboard links (`https://dashboard.nieuportlabs.cz/pay/…`, override with `VITE_PAY_ORIGIN`). For Android to open them in DarkShell without asking, the dashboard must serve `/.well-known/assetlinks.json` for `cash.darkshell.wallet`.
 
 Third-party code: [THIRD_PARTY.md](./THIRD_PARTY.md).
