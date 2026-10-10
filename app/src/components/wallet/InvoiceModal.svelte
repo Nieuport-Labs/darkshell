@@ -1,11 +1,12 @@
 <script lang="ts">
 	// After Secret_Dashboard InvoiceModal, with an id (sent as the private memo)
 	// and an expiry so DarkShell can tell when it has been paid.
-	import { Check, Share2, Trash2 } from '@lucide/svelte';
+	import { Check, Nfc, Share2, Trash2 } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 	import { encodePaymentLink, encodePaymentUri, newInvoiceId, normalizeAmount, toBaseUnits, type PaymentRequest } from 'secret-pay';
 	import { CHAIN_ID, PAY_LINK_ORIGIN, SSCRT_ADDRESS } from '../../lib/config';
 	import { shareTarget } from '../../lib/pay/share';
+	import { nfc, shareOverNfc } from '../../lib/nfc.svelte';
 	import { addInvoice, invoices, loadInvoices, reconcile, removeInvoice, type IssuedInvoice } from '../../lib/pay/invoices.svelte';
 	import { close, open } from '../../lib/ui.svelte';
 	import { wallet } from '../../lib/wallet.svelte';
@@ -43,6 +44,13 @@
 	});
 
 	const shown = $derived(shownId ? invoices.list.find((i) => i.request.id === shownId) : undefined);
+
+	// while an unpaid invoice is open, a phone held to this one gets its link over NFC
+	$effect(() => {
+		const inv = shown;
+		if (!inv || inv.status === 'paid' || inv.status === 'expired' || !nfc.enabled) return;
+		return shareOverNfc(shareTarget(inv.request));
+	});
 
 	// paid while it is on screen: celebrate once
 	let celebrate = $state(false);
@@ -134,6 +142,11 @@
 			</div>
 			{/if}
 			<div class="mx-auto w-full max-w-[340px]"><Qr fill value={target === 'uri' ? encodePaymentUri(shown.request) : encodePaymentLink(PAY_LINK_ORIGIN, shown.request)} label="Invoice QR code" /></div>
+			{#if nfc.sharing}
+				<p class="flex items-center justify-center gap-1.5 text-base text-text-muted"><Nfc size={18} class="text-accent" /> Or hold their phone to the back of this one</p>
+			{:else if nfc.canShare && !nfc.enabled}
+				<p class="flex items-center justify-center gap-1.5 text-label text-text-faint"><Nfc size={15} /> Turn on NFC to let a phone tap to pay</p>
+			{/if}
 		{/if}
 
 		<p class="text-center text-label text-text-faint">

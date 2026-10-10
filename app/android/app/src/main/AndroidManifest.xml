@@ -93,6 +93,16 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Keeps one connection to a Secret Network node open to notify the user of incoming private payments (SNIP-52)." />
         </service>
+        <!-- the open invoice as an NFC tag (NfcPlugin.share) -->
+        <service
+            android:name=".InvoiceHceService"
+            android:exported="true"
+            android:permission="android.permission.BIND_NFC_SERVICE">
+            <intent-filter>
+                <action android:name="android.nfc.cardemulation.action.HOST_APDU_SERVICE" />
+            </intent-filter>
+            <meta-data android:name="android.nfc.cardemulation.host_apdu_service" android:resource="@xml/apduservice" />
+        </service>
         <receiver android:name=".BootReceiver" android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
@@ -115,6 +125,9 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- QR scanning in the WebView (getUserMedia) -->
     <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.NFC" />
+    <uses-feature android:name="android.hardware.nfc" android:required="false" />
+    <uses-feature android:name="android.hardware.nfc.hce" android:required="false" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <!-- payment notifications (Android 13+ asks first) and the always-on watcher -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />

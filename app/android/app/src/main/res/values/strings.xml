@@ -4,4 +4,5 @@
     <string name="title_activity_main">DarkShell</string>
     <string name="package_name">cash.darkshell.wallet</string>
     <string name="custom_url_scheme">cash.darkshell.wallet</string>
+    <string name="nfc_invoice">DarkShell invoice</string>
 </resources>

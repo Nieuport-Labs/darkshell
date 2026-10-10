@@ -4,6 +4,7 @@ import { App } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import { close, goTab, openPayment, ui } from './ui.svelte';
 import { resetEndpoint } from './chain/client';
+import { initNfc } from './nfc.svelte';
 import { initTor } from './tor.svelte';
 import { refresh, wallet } from './wallet.svelte';
 
@@ -28,11 +29,14 @@ export function initNative(): void {
 		if (wallet.phase === 'unlocked') void refresh();
 	});
 
-	// payment links (dashboard /pay/ links, `secret:`, `lightning:`) open the payment
-	void App.addListener('appUrlOpen', ({ url }) => {
+	// payment links (dashboard /pay/ links, `secret:`, `lightning:`) open the payment;
+	// so does an NFC sticker or a phone sharing an invoice, read while the app is open
+	const handle = (url: string) => {
 		if (wallet.phase === 'unlocked') openPayment(url);
 		else pendingLink = url;
-	});
+	};
+	void App.addListener('appUrlOpen', ({ url }) => handle(url));
+	void initNfc(handle);
 	void App.getLaunchUrl().then((r) => {
 		if (r?.url) pendingLink = r.url;
 	});

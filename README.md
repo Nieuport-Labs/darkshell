@@ -88,6 +88,7 @@ The APK build needs the Android SDK (path in `app/android/local.properties`) and
 - Payments to Ethereum through Axelar.
 - A tool for funding the first gas credits.
 - Payment sheet: a `secret:` link, a /pay/ web link or another app (`cash.darkshell.wallet.action.PAY`, for a result) opens DarkShell as a sheet over the caller, like Google Pay: the sSCRT it costs, who gets it, Confirm (fingerprint, else PIN), and back to the page given in the request's `return` URL. Details (address, reference, fee) are one tap away. Requests without an amount, Lightning and other chains open the full app. Websites use `secret-pay/checkout` (see packages/secret-pay/README.md).
+- NFC: while an unpaid invoice is open, the phone acts as an NFC tag (NFC Forum Type 4, host card emulation, `InvoiceHceService`) holding the invoice link. A phone held to it reads it like a sticker: with DarkShell closed, Android opens the payment sheet; with DarkShell open, the app reads it (reader mode) and shows the full invoice. Stickers are read the same way while the app is open.
 - Shared invoices are Secret Dashboard links (`https://dashboard.nieuportlabs.cz/pay/…`, override with `VITE_PAY_ORIGIN`). Android opens them in DarkShell's payment sheet because the dashboard serves `/.well-known/assetlinks.json` for `cash.darkshell.wallet` (release key); invoice QR codes show this link by default, so a phone camera opens the wallet. The sheet sends the payer back to such a page in the browser, never to itself.
 
 Third-party code: [THIRD_PARTY.md](./THIRD_PARTY.md).
