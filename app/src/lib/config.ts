@@ -17,11 +17,15 @@ export const SSCRT_SYMBOL = 'sSCRT';
 /** gas-vault contract from github.com/jirkacepelka/fee-granter (code id 2611). */
 export const GAS_VAULT_ADDRESS = 'secret1kkmu4vydkppkhzmx00glm20vn47t09544adv0g';
 
+/**
+ * Public LCD nodes, asked all at once; the first to answer for secret-4 wins.
+ * Checked October 2026: Secret Saturn, secret.express and secret-api.lavenderfive
+ * no longer resolve, and Keplr's answers in ~10 s (often 503).
+ */
 export const LCD_URLS = [
+	'https://rest.lavenderfive.com:443/secretnetwork',
+	'https://secretnetwork-api.lavenderfive.com',
 	'https://lcd-secret.keplr.app',
-	'https://lcd.mainnet.secretsaturn.net',
-	'https://lcd.secret.express',
-	'https://secret-api.lavenderfive.com',
 ];
 
 export const EXPLORER_TX = 'https://www.mintscan.io/secret/tx/{hash}';

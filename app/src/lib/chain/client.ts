@@ -2,7 +2,9 @@ import { SecretNetworkClient, type Wallet } from 'secretjs';
 import { CHAIN_ID, LCD_URLS } from '../config';
 import { kv } from '../storage';
 
-const PROBE_TIMEOUT_MS = 8000;
+// generous: a slow node (or Tor) still counts; the probes run side by side, so a
+// fast node answers long before a slow one times out
+const PROBE_TIMEOUT_MS = 15000;
 
 async function probe(url: string): Promise<boolean> {
 	const ctl = new AbortController();
@@ -25,10 +27,14 @@ let resolved: Promise<string> | null = null;
 export function lcdUrl(): Promise<string> {
 	return (resolved ??= (async () => {
 		const custom = (await kv.get<string>('settings.lcd'))?.trim();
-		const list = [...(custom ? [custom.replace(/\/+$/, '')] : []), ...LCD_URLS];
-		for (const url of list) if (await probe(url)) return url;
-		resolved = null;
-		throw new Error('No Secret Network node is reachable right now. Check your connection.');
+		// a node set in Settings is used when it answers; otherwise the first public one to answer
+		if (custom && (await probe(custom.replace(/\/+$/, '')))) return custom.replace(/\/+$/, '');
+		try {
+			return await Promise.any(LCD_URLS.map(async (url) => ((await probe(url)) ? url : Promise.reject(new Error(url)))));
+		} catch {
+			resolved = null;
+			throw new Error('No Secret Network node is reachable right now. Check your connection.');
+		}
 	})());
 }
 
@@ -40,9 +46,14 @@ export async function readClient(): Promise<SecretNetworkClient> {
 	return new SecretNetworkClient({ url: await lcdUrl(), chainId: CHAIN_ID });
 }
 
+/**
+ * The wallet's client. Opening the wallet never waits on the network: with no
+ * node answering, it uses the first public one, and the balance shows the error
+ * (with a retry) instead of the lock screen refusing the PIN.
+ */
 export async function signingClient(wallet: Wallet, encryptionSeed: Uint8Array): Promise<SecretNetworkClient> {
 	return new SecretNetworkClient({
-		url: await lcdUrl(),
+		url: await lcdUrl().catch(() => LCD_URLS[0]!),
 		chainId: CHAIN_ID,
 		wallet,
 		walletAddress: wallet.address,
