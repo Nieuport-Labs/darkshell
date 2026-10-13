@@ -1,7 +1,7 @@
 // Lightning payments in flight: FixedFloat orders this account created,
 // kept per account so progress survives closing the app.
 
-import { addrKey, kv } from '../storage';
+import { accountKv } from '../crypto/localStore';
 import { wallet } from '../wallet.svelte';
 import { getOrder, type FfStatus } from './fixedfloat';
 
@@ -25,16 +25,15 @@ export interface LnOrder {
 
 export const lnOrders = $state({ list: [] as LnOrder[] });
 
-const key = () => addrKey('ln-orders', wallet.address);
 
 export async function loadLnOrders(): Promise<void> {
-	lnOrders.list = (await kv.get<LnOrder[]>(key())) ?? [];
+	lnOrders.list = (await accountKv.get<LnOrder[]>('ln-orders', wallet.address)) ?? [];
 }
 
 export async function saveLnOrder(o: LnOrder): Promise<void> {
 	const rest = lnOrders.list.filter((x) => x.id !== o.id);
 	lnOrders.list = [o, ...rest].slice(0, 50);
-	await kv.set(key(), $state.snapshot(lnOrders.list));
+	await accountKv.set('ln-orders', wallet.address, $state.snapshot(lnOrders.list));
 }
 
 export function isFinal(s: LnOrder['status']): boolean {

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Check, ChevronLeft, Copy, Eye, Fingerprint, Globe, KeyRound, LayoutGrid, ShieldAlert, ShieldCheck, Sparkles, Wallet } from '@lucide/svelte';
+	import { ChevronLeft, Eye, Fingerprint, Globe, KeyRound, LayoutGrid, ShieldAlert, ShieldCheck, Sparkles, Wallet } from '@lucide/svelte';
 	import { isBech32Address } from 'secret-pay';
 	import Button from '../components/ui/Button.svelte';
 	import PinPad from '../components/ui/PinPad.svelte';
@@ -14,7 +14,6 @@
 	let mode = $state<'create' | 'import'>('create');
 	let mnemonic = $state('');
 	let revealed = $state(false);
-	let copied = $state(false);
 	let checks = $state<number[]>([]);
 	let answers = $state<string[]>(['', '', '']);
 	let importText = $state('');
@@ -41,20 +40,6 @@
 		mnemonic = newMnemonic();
 		revealed = false;
 		go('words');
-	}
-
-	async function copyAll() {
-		try {
-			await navigator.clipboard.writeText(mnemonic);
-			copied = true;
-			// don't leave the seed in the clipboard forever
-			setTimeout(() => {
-				copied = false;
-				void navigator.clipboard.writeText('').catch(() => {});
-			}, 60_000);
-		} catch {
-			/* clipboard blocked */
-		}
 	}
 
 	function startVerify() {
@@ -196,7 +181,7 @@
 	{:else if step === 'words'}
 		<div>
 			<h1 class="text-headline">Your recovery phrase</h1>
-			<p class="mt-1.5 text-base text-text-muted">Write these 24 words down, in order. They are the only way to restore your account, and anyone who has them can take your money.</p>
+			<p class="mt-1.5 text-base text-text-muted">Write these 24 words down, in order. They are the only way to restore your account, and anyone who has them can take your money. On paper, not in a screenshot or a notes app.</p>
 		</div>
 		<div class="card relative p-4">
 			<ol class="grid grid-cols-2 gap-x-4 gap-y-2 font-mono text-sm transition-[filter] duration-700 ease-[var(--ease-out-expo)] {revealed ? '' : 'select-none blur-md'}">
@@ -208,12 +193,6 @@
 				</button>
 			{/if}
 		</div>
-		{#if revealed}
-			<Button variant="secondary" shape="control" class="-mt-3 self-start" onclick={copyAll}>
-				{#snippet icon()}{#if copied}<Check size={16} class="text-positive" />{:else}<Copy size={16} />{/if}{/snippet}
-				{copied ? 'Copied — clears in 1 min' : 'Copy all 24 words'}
-			</Button>
-		{/if}
 		<div class="mt-auto flex flex-col gap-1 pb-2">
 			<Button block size="lg" disabled={!revealed} onclick={startVerify}>I wrote them down</Button>
 			<Button variant="ghost" block disabled={!revealed} onclick={() => go('pin')}>Skip the check</Button>

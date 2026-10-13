@@ -4,9 +4,34 @@ import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
+/**
+ * Content Security Policy for built pages (dev keeps Vite's inline client).
+ * Scripts only from the app itself; 'wasm-unsafe-eval' is Argon2id (hash-wasm)
+ * and the QR reader. Nodes are https (a node set in Settings may be http).
+ */
+const CSP = [
+	"default-src 'self'",
+	"script-src 'self' 'wasm-unsafe-eval'",
+	"worker-src 'self'",
+	"style-src 'self' 'unsafe-inline'",
+	"img-src 'self' data: blob: https:",
+	"font-src 'self'",
+	"connect-src 'self' https: wss: http:",
+	"media-src 'self' blob:",
+	"object-src 'none'",
+	"frame-src 'none'",
+	"base-uri 'none'",
+	"form-action 'none'",
+].join('; ');
+
 export default defineConfig({
 	plugins: [
 		svelte(),
+		{
+			name: 'darkshell-csp',
+			apply: 'build',
+			transformIndexHtml: () => [{ tag: 'meta', attrs: { 'http-equiv': 'Content-Security-Policy', content: CSP }, injectTo: 'head-prepend' }],
+		},
 		VitePWA({
 			// The Android app ships its files inside the APK; a service worker there
 			// would only serve stale builds after an update, so it removes itself.

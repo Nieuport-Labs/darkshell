@@ -4,7 +4,7 @@
 import { findSettlement, isExpired, type MatchStatus, type PaymentRequest, type ReceivedTransfer } from 'secret-pay';
 import type { HistoryItem } from '../chain/sscrt';
 import { SSCRT_ADDRESS } from '../config';
-import { addrKey, kv } from '../storage';
+import { accountKv } from '../crypto/localStore';
 import { wallet } from '../wallet.svelte';
 
 export interface IssuedInvoice {
@@ -15,16 +15,15 @@ export interface IssuedInvoice {
 	paidTx?: string;
 }
 
-const key = () => addrKey('invoices', wallet.address);
 
 export const invoices = $state({ list: [] as IssuedInvoice[] });
 
 export async function loadInvoices(): Promise<void> {
-	invoices.list = (await kv.get<IssuedInvoice[]>(key())) ?? [];
+	invoices.list = (await accountKv.get<IssuedInvoice[]>('invoices', wallet.address)) ?? [];
 }
 
 async function save() {
-	await kv.set(key(), $state.snapshot(invoices.list));
+	await accountKv.set('invoices', wallet.address, $state.snapshot(invoices.list));
 }
 
 export async function addInvoice(request: PaymentRequest): Promise<IssuedInvoice> {

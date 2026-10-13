@@ -1,5 +1,6 @@
-// Tiny IndexedDB key/value store. Everything secret goes through the vault
-// first; this layer only ever sees ciphertext or public data.
+// Tiny IndexedDB key/value store. The wallet secret goes through the vault and
+// per-account records through crypto/localStore.ts first; what is kept here in
+// the clear is settings and public data (prices, validator images).
 
 const DB_NAME = 'darkshell';
 const STORE = 'kv';
@@ -38,7 +39,7 @@ export const kv = {
 	clear: () => run<void>('readwrite', (s) => s.clear()),
 };
 
-/** Data that belongs to one account lives under `<name>:<address>`. */
+/** Where per-account data lived before crypto/localStore.ts (read only by migrations). */
 export function addrKey(name: string, address: string): string {
 	return `${name}:${address}`;
 }

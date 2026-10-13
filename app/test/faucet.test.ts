@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const { claimFaucet, lastClaim, FaucetError } = await import('../src/lib/gas/faucet');
 const { kv } = await import('../src/lib/storage');
+const { closeLocalStore } = await import('../src/lib/crypto/localStore');
 
 const ADDR = 'secret1lr8f2gmfqwldtjehxn8xy8tyff9kemndl949y0';
 const reply = (status: number, body: unknown) => vi.fn(async () => new Response(JSON.stringify(body), { status }));
@@ -11,6 +12,8 @@ describe('fee faucet', () => {
 	afterEach(async () => {
 		vi.unstubAllGlobals();
 		await kv.clear();
+		closeLocalStore();
+		closeLocalStore();
 	});
 
 	it('claims a grant and remembers when', async () => {

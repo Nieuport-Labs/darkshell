@@ -5,6 +5,7 @@
 	import { biometricEnabled, biometricPin, disableBiometric } from '../lib/crypto/biometric';
 	import PinPad from '../components/ui/PinPad.svelte';
 	import { WrongPasswordError } from '../lib/crypto/vault';
+	import { sheetWord } from '../lib/sheetWord';
 	import { forgetDevice, LockedOutError, unlock, wallet } from '../lib/wallet.svelte';
 
 	let pw = $state('');
@@ -13,6 +14,8 @@
 	let reset = $state(0);
 	let confirmForget = $state(false);
 	let bio = $state(false);
+	let word = $state('');
+	void sheetWord().then((w) => (word = w));
 
 	async function withFingerprint() {
 		if (busy) return;
@@ -71,6 +74,7 @@
 <div class="mx-auto flex w-full max-w-[420px] flex-1 flex-col">
 	<div class="flex flex-col items-center pt-6 text-center">
 		<span class="halo enter size-16"><img src="/avatar.webp" alt="" class="size-16 rounded-pill object-cover" /></span>
+		{#if word}<span class="mt-3 max-w-[70%] truncate rounded-pill border border-border bg-surface px-3 py-0.5 text-label font-medium" title="Your sheet word">{word}</span>{/if}
 	</div>
 
 	{#if wallet.kind === 'pin'}

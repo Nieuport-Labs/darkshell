@@ -21,6 +21,7 @@
 	import { quoteFor, type QuoteState } from './lib/pay/plan';
 	import { fitsSheet, leaveSheet, openInApp, type SheetRequest } from './lib/pay/sheet';
 	import { startPrice, usdValue } from './lib/price.svelte';
+	import { sheetWord } from './lib/sheetWord';
 	import { initTor, tor, torReady } from './lib/tor.svelte';
 	import { init, loadForPayment, lock, LockedOutError, spendable, unlock, wallet } from './lib/wallet.svelte';
 
@@ -44,6 +45,9 @@
 	let details = $state(false);
 	let paidHash = '';
 	let outcome = $state<TxOutcome | null>(null);
+	/** the user's sheet word (lib/sheetWord.ts): proof this sheet is DarkShell's */
+	let word = $state<string | null>(null);
+	void sheetWord().then((w) => (word = w));
 
 	const cost = $derived(facts ? sscrtCost(facts, quote) : null);
 	const parts = $derived(splitAmount(cost));
@@ -52,6 +56,8 @@
 	/** not enough money: trying again won't help */
 	const short = $derived(failure.startsWith('Not enough'));
 	const payee = $derived(target ? (target.request.label ?? shortAddress(target.request.address, 10, 6)) : '');
+	/** where the money goes, always: the label is only what the payee wrote */
+	const payeeAddress = $derived(target ? shortAddress(target.request.address, 10, 6) : '');
 
 	async function requote() {
 		if (!target || !facts?.swapping) return;
@@ -104,7 +110,7 @@
 			return;
 		}
 		try {
-			const pin = await confirmPin('Confirm payment', `${formatAmount(cost)} sSCRT to ${payee}`);
+			const pin = await confirmPin('Confirm payment', `${formatAmount(cost)} sSCRT to ${payeeAddress}`);
 			await payWith(pin);
 		} catch (e) {
 			if (biometricInvalidated(e)) {
@@ -205,6 +211,9 @@
 			<header class="flex items-center gap-2.5 pt-3">
 				<img src="/avatar.webp" alt="" class="size-7 rounded-pill object-cover" />
 				<span class="flex-1 text-base font-medium">DarkShell</span>
+				{#if word}
+					<span class="max-w-[45%] truncate rounded-pill border border-border bg-surface px-2.5 py-0.5 text-label font-medium" title="Your sheet word">{word}</span>
+				{/if}
 				{#if tor.enabled && !torReady()}<span class="text-label text-text-faint">Connecting through Tor…</span>{/if}
 				{#if phase !== 'paying' && phase !== 'done'}
 					<button type="button" onclick={cancel} aria-label="Cancel" class="state-layer -mr-1.5 rounded-pill p-1.5 text-text-muted"><X size={20} /></button>
@@ -273,7 +282,15 @@
 						{#if usdValue(cost)}≈ {usdValue(cost)}{/if}
 					</p>
 					<p class="text-base text-text-muted">to <span class="font-medium text-text">{payee}</span></p>
+					{#if target.request.label}<p class="font-mono text-label text-text-faint">{payeeAddress}</p>{/if}
+					<p class="mt-2 text-label text-text-faint">{req.caller ? `Requested by ${req.caller.name}` : 'Opened from a payment link'}</p>
 				</div>
+
+				{#if word === ''}
+					<p class="text-center text-label text-text-faint">
+						Tip: set a sheet word in DarkShell's Settings. This sheet will show it, and a fake one can't, so you'll know where you type your PIN.
+					</p>
+				{/if}
 
 				{#if why || failure}
 					<p class="mt-3 break-words text-center text-base text-negative animate-[shake_400ms_var(--ease-standard)]" role="alert">{why || failure}</p>

@@ -7,7 +7,7 @@ import { returnUrlFor, type ReturnStatus } from 'secret-pay';
 import type { Target } from './classify';
 
 interface PaySheetPlugin {
-	info(): Promise<{ url: string | null; forResult: boolean; caller?: string | null }>;
+	info(): Promise<{ url: string | null; forResult: boolean; caller?: string | null; callerName?: string | null }>;
 	finish(o: { status: ReturnStatus; tx?: string; id?: string }): Promise<void>;
 	openUrl(o: { url: string }): Promise<void>;
 	openInApp(o: { url?: string }): Promise<void>;
@@ -19,6 +19,8 @@ export interface SheetRequest {
 	url: string;
 	/** another app started it for a result */
 	forResult: boolean;
+	/** that app, as Android names it (package and label); absent for links */
+	caller?: { pkg: string; name: string };
 }
 
 const devUrl = () => (import.meta.env.DEV ? new URLSearchParams(location.search).get('sheet') : null);
@@ -30,7 +32,8 @@ export async function sheetRequest(): Promise<SheetRequest | null> {
 	if (!Capacitor.isNativePlatform()) return null;
 	try {
 		const i = await PaySheet.info();
-		return i.url ? { url: i.url, forResult: i.forResult } : null;
+		if (!i.url) return null;
+		return { url: i.url, forResult: i.forResult, ...(i.caller ? { caller: { pkg: i.caller, name: i.callerName || i.caller } } : {}) };
 	} catch {
 		return null;
 	}

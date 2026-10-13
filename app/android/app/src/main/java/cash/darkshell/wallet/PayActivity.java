@@ -27,8 +27,10 @@ public class PayActivity extends BridgeActivity {
         registerPlugin(PaySheetPlugin.class);
         registerPlugin(PaymentWatchPlugin.class);
         registerPlugin(TorPlugin.class);
+        registerPlugin(VaultKeyPlugin.class);
         if (TorManager.isEnabled(this)) TorManager.get(this).start();
         super.onCreate(savedInstanceState);
+        WindowShield.apply(this);
         // edge to edge: the dimmed backdrop also covers the status and navigation bars
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
         coverSystemBars();

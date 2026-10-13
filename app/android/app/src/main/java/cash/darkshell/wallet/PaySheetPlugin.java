@@ -34,7 +34,10 @@ public class PaySheetPlugin extends Plugin {
             String url = data != null ? data.toString() : i.getStringExtra("request");
             r.put("url", url);
             r.put("forResult", a.getCallingActivity() != null);
-            r.put("caller", a.getCallingActivity() != null ? a.getCallingActivity().getPackageName() : null);
+            // the app that asked for a result (Android vouches for it; a link's referrer could be made up)
+            String caller = a.getCallingActivity() != null ? a.getCallingActivity().getPackageName() : null;
+            r.put("caller", caller);
+            r.put("callerName", caller != null ? appName(a, caller) : null);
         } else {
             r.put("url", null);
             r.put("forResult", false);
@@ -83,6 +86,15 @@ public class PaySheetPlugin extends Plugin {
         }
         call.resolve();
         a.runOnUiThread(a::finish);
+    }
+
+    private static String appName(Activity a, String pkg) {
+        try {
+            PackageManager pm = a.getPackageManager();
+            return pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString();
+        } catch (PackageManager.NameNotFoundException e) {
+            return pkg;
+        }
     }
 
     private static String defaultBrowser(Activity a) {

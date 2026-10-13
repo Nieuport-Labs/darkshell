@@ -11,9 +11,11 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(PaySheetPlugin.class);
         registerPlugin(NfcPlugin.class);
         registerPlugin(TorPlugin.class);
+        registerPlugin(VaultKeyPlugin.class);
         // with Tor on, route everything through it before the WebView loads anything
         if (TorManager.isEnabled(this)) TorManager.get(this).start();
         super.onCreate(savedInstanceState);
+        WindowShield.apply(this);
     }
 
     @Override

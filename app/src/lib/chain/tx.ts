@@ -14,7 +14,7 @@ import { BroadcastMode, MsgExecuteContract, type Msg, type SecretNetworkClient, 
 import { CREDIT_FLOOR, CREDIT_REFILL, CREDIT_URGENT, DENOM, GAS, GAS_PRICE, GAS_VAULT_ADDRESS, MIN_REFILL, REFILL_COOLDOWN_MS, REFILL_SHARE, SSCRT_ADDRESS } from '../config';
 import { MSG_EXECUTE, fetchGrants, planFee, type FeePlan } from '../gas/feePayer';
 import { availableFee, type FeeGrant } from '../gas/feegrant-sdk';
-import { addrKey, kv } from '../storage';
+import { accountKv } from '../crypto/localStore';
 import { codeHash, nativeBalance } from './client';
 import { torReady } from '../tor.svelte';
 
@@ -89,7 +89,7 @@ async function refillMessages(client: SecretNetworkClient, sender: string, amoun
 const REFILL_GAS = GAS.unwrap + GAS.buyGasCredit;
 
 async function cooldownUntil(address: string): Promise<number> {
-	return (await kv.get<number>(addrKey('refill.until', address))) ?? 0;
+	return (await accountKv.get<number>('refill.until', address)) ?? 0;
 }
 
 /** Credits are below the floor and no refill is still on its way. */
@@ -196,13 +196,13 @@ export async function sendTx(
 			sent = await broadcastOnce(client, await client.tx.signTx(all, { ...options, gasLimit: plan.gasLimit, feeGranter: plan.feeGranter }));
 		}
 		opts.onBroadcast?.({ status: 'pending', hash: sent, plan, refilled });
-		if (refilled > 0n) await kv.set(addrKey('refill.until', address), Date.now() + REFILL_COOLDOWN_MS);
+		if (refilled > 0n) await accountKv.set('refill.until', address, Date.now() + REFILL_COOLDOWN_MS);
 
 		const wait = opts.waitMs ?? 120_000;
 		const tx = wait > 0 ? await waitFor(client, sent, wait) : null;
 		if (!tx) return { status: 'pending', hash: sent, plan, refilled };
 		if (tx.code !== 0) {
-			if (refilled > 0n) await kv.del(addrKey('refill.until', address));
+			if (refilled > 0n) await accountKv.del('refill.until', address);
 			throw new TxFailedError(humanizeTxError(tx.rawLog || `error code ${tx.code}`), sent);
 		}
 		return { status: 'confirmed', hash: sent, plan, refilled, tx };

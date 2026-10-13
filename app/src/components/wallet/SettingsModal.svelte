@@ -1,11 +1,13 @@
 <script lang="ts">
-	import { Bell, BookUser, Check, ChevronDown, Copy, Fingerprint, Fuel, Globe, KeyRound, Lock, ShieldAlert, Shuffle, Users, Zap } from '@lucide/svelte';
+	import { Bell, BookUser, ChevronDown, Fingerprint, Fuel, Globe, KeyRound, Lock, ShieldAlert, ShieldCheck, Shuffle, Users, Zap } from '@lucide/svelte';
 	import { biometricAvailable, biometricEnabled } from '../../lib/crypto/biometric';
 	import { allowBackground, backgroundUnrestricted, canNotify } from '../../lib/notify/background';
 	import { isBech32Address } from 'secret-pay';
 	import type { Snippet } from 'svelte';
 	import { resetEndpoint } from '../../lib/chain/client';
 	import { CREDIT_FLOOR, CREDIT_REFILL, CREDIT_URGENT, GAS_VAULT_ADDRESS, REFILL_SHARE } from '../../lib/config';
+	import { duressNeedsRebind } from '../../lib/crypto/duress';
+	import { SHEET_WORD_MAX, setSheetWord, sheetWord } from '../../lib/sheetWord';
 	import { WrongPasswordError } from '../../lib/crypto/vault';
 	import { builtInFf } from '../../lib/ff/fixedfloat';
 	import { checkTor, setTor, tor, torAvailable, torLabel } from '../../lib/tor.svelte';
@@ -33,7 +35,7 @@
 	import Modal from '../ui/Modal.svelte';
 	import PoweredByFF from './PoweredByFF.svelte';
 
-	let openSection = $state<'gas' | 'phrase' | 'password' | 'network' | 'ff' | 'bio' | 'notify' | 'emergency' | null>('gas');
+	let openSection = $state<'gas' | 'phrase' | 'password' | 'network' | 'ff' | 'bio' | 'notify' | 'emergency' | 'word' | null>('gas');
 
 	/* fingerprint */
 	let bioAvailable = $state(false);
@@ -93,8 +95,21 @@
 		}
 	}
 
+	/* sheet word */
+	let word = $state('');
+	let wordSaved = $state('');
+	let wordMsg = $state('');
+	void sheetWord().then((w) => (word = wordSaved = w));
+	async function wordSave(e: SubmitEvent) {
+		e.preventDefault();
+		wordSaved = word = await setSheetWord(word);
+		wordMsg = wordSaved ? 'Saved. Look for it whenever DarkShell asks for your PIN.' : 'Removed.';
+	}
+
 	/* emergency PIN */
 	let em = $state(emergencyPin());
+	let emRebind = $state(false);
+	void duressNeedsRebind().then((v) => (emRebind = v));
 	let emEdit = $state(false);
 	let emTo = $state('');
 	let emPin = $state('');
@@ -112,6 +127,7 @@
 		try {
 			await setEmergencyPin(emCurrent, emPin, emTo.trim() || undefined);
 			em = emergencyPin();
+			emRebind = false;
 			emEdit = false;
 			emPin = emCurrent = '';
 			emMsg = 'Emergency PIN saved.';
@@ -134,7 +150,6 @@
 	let oldPw = $state('');
 	let newPw = $state('');
 	let pwMsg = $state('');
-	let phraseCopied = $state(false);
 
 	const own = ffCredentials();
 	let ffKey = $state(own?.key ?? '');
@@ -147,14 +162,6 @@
 		ffMsg = ffKey.trim() ? 'Saved. Your own key is used from now on.' : builtInFf() ? 'Removed. The built-in key is used.' : 'Removed.';
 	}
 
-	async function copyPhrase() {
-		await navigator.clipboard.writeText(phrase).catch(() => {});
-		phraseCopied = true;
-		setTimeout(() => {
-			phraseCopied = false;
-			void navigator.clipboard.writeText('').catch(() => {});
-		}, 60_000);
-	}
 
 	const secretName = $derived(wallet.kind === 'pin' ? 'PIN' : 'password');
 	let torChecking = $state(false);
@@ -257,6 +264,18 @@
 	{#if bioMsg}<p class="text-label text-text-muted">{bioMsg}</p>{/if}
 {/snippet}
 
+{#snippet wordBody()}
+	<p class="text-label text-text-faint">
+		A word only you know, shown at the top of the payment sheet and the lock screen. Another app could draw a look-alike sheet to catch your PIN, but it can't show your
+		word. No word, no PIN.
+	</p>
+	<form class="flex gap-2" onsubmit={wordSave}>
+		<input class="min-w-0 flex-1 rounded-control border border-border bg-surface px-3 py-2.5 text-base outline-none" placeholder="e.g. Lighthouse" maxlength={SHEET_WORD_MAX} autocomplete="off" spellcheck="false" bind:value={word} />
+		<Button type="submit" variant="secondary" shape="control" disabled={word.trim() === wordSaved}>Save</Button>
+	</form>
+	{#if wordMsg}<p class="text-label text-text-muted">{wordMsg}</p>{/if}
+{/snippet}
+
 {#snippet notifyBody()}
 	<p class="text-label text-text-faint">
 		While DarkShell is open, every incoming sSCRT payment shows up within seconds, and an open invoice turns paid by itself. It uses SNIP-52 private notifications: the
@@ -284,6 +303,13 @@
 		A second PIN for when someone forces you to unlock. It erases your wallet from this phone, sends your funds to a safe address if you set one, and opens a separate
 		empty wallet as if nothing happened. That wallet is made now, in the background, and is never shown anywhere.
 	</p>
+	<p class="text-label text-text-faint">
+		The transfer to the safe address runs while the app is open. If the phone is offline, or the app is closed before it goes out, the funds stay where they are, and
+		only your written-down recovery phrase reaches them.
+	</p>
+	{#if em && emRebind}
+		<p class="text-label text-negative">Saved before this phone's hardware key was used. Change it (same PIN is fine) to bind it to this phone.</p>
+	{/if}
 	{#if em && !emEdit}
 		<div class="rounded-control bg-surface px-3 py-2.5 text-base">
 			<span class="font-medium">On.</span>
@@ -339,11 +365,8 @@
 		<ol class="grid grid-cols-2 gap-x-4 gap-y-1 font-mono text-sm">
 			{#each phrase.split(' ') as w, i (i)}<li><span class="inline-block w-6 text-right text-text-faint">{i + 1}</span> {w}</li>{/each}
 		</ol>
+		<p class="text-label text-text-faint">Write it down on paper. It can't be copied: other apps and the keyboard can read what is copied.</p>
 		<div class="flex flex-wrap gap-2">
-			<Button variant="secondary" shape="control" onclick={copyPhrase}>
-				{#snippet icon()}{#if phraseCopied}<Check size={16} class="text-positive" />{:else}<Copy size={16} />{/if}{/snippet}
-				{phraseCopied ? 'Copied — clears in 1 min' : 'Copy all'}
-			</Button>
 			<Button variant="secondary" shape="control" onclick={() => (phrase = '')}>Hide</Button>
 		</div>
 	{:else}
@@ -420,6 +443,7 @@
 		{@render section('phrase', 'Recovery phrase', KeyRound, phraseBody)}
 		{@render section('password', wallet.kind === 'pin' ? 'PIN' : 'Password', Lock, passwordBody)}
 		{#if bioAvailable && wallet.kind === 'pin'}{@render section('bio', 'Fingerprint', Fingerprint, bioBody)}{/if}
+		{@render section('word', 'Sheet word', ShieldCheck, wordBody)}
 		{@render section('emergency', 'Emergency PIN', ShieldAlert, emergencyBody)}
 		{@render section('notify', 'Notifications', Bell, notifyBody)}
 		{@render section('ff', 'Lightning (FixedFloat)', Zap, ffBody)}

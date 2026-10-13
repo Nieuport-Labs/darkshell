@@ -6,6 +6,7 @@ import type { Msg, Permit, SecretNetworkClient, Wallet } from 'secretjs';
 import { encryptionSeedFor, newMnemonic, walletFromMnemonic } from './crypto/account';
 import { recordFailure, resetFailures, waitMs } from './crypto/lockout';
 import {
+	bindVaultToDevice,
 	changeSecret,
 	createVault,
 	hasVault,
@@ -26,7 +27,8 @@ import { CREDIT_FLOOR, CREDIT_REFILL, CREDIT_URGENT, GAS, GAS_PRICE, GAS_VAULT_A
 import { fetchGrants, forgetGrants, NoGasError } from './gas/feePayer';
 import { readCreditStatus, type CreditStatus } from './gas/gasCredits';
 import { wrapPayment, type PaymentPlan } from './pay/payments';
-import { addrKey, kv, migrateLegacy } from './storage';
+import { kv, migrateLegacy } from './storage';
+import { accountKv, closeLocalStore, encryptPlainRecords, openLocalStore } from './crypto/localStore';
 import { rePrefix } from './chain/ibc';
 import { biometricEnabled, disableBiometric, enableBiometric } from './crypto/biometric';
 import { clearDuress, hasDuress, openDuress, resealDuress, setDuress, type DuressPayload } from './crypto/duress';
@@ -45,6 +47,7 @@ import { fromPlan, overallOf, stepsOf, type Overall, type Step } from './txSteps
 import { queryDelegations } from './chain/staking';
 import { MSG_EXECUTE } from './gas/feePayer';
 import { startPrice, stopPrice } from './price.svelte';
+import { SHEET_WORD_KEY } from './sheetWord';
 
 export type Phase = 'loading' | 'onboarding' | 'locked' | 'unlocked';
 
@@ -166,12 +169,19 @@ async function open(v: OpenVault, asDecoy = false): Promise<void> {
 	wallet.accounts = list.map((a) => ({ ...a, address: walletFromMnemonic(v.secrets.mnemonic, a.index).address }));
 	wallet.contacts = v.secrets.contacts ?? [];
 	await migrateLegacy(wallet.accounts.find((a) => a.index === 0)?.address ?? wallet.accounts[0]!.address);
+	await openLocalStore(v.secrets.mnemonic);
+	await encryptPlainRecords(wallet.accounts.map((a) => a.address));
 	const active = list.some((a) => a.index === v.secrets.active) ? v.secrets.active! : list[0]!.index;
 	await activate(v, active);
 	decoy = false;
 	wallet.phase = 'unlocked';
 	startPrice();
-	if (brief) return;
+	if (brief) {
+		// one payment needs this account's key only: the phrase is not kept around
+		// (the session is never written back in this mode, see persist)
+		session!.vault = { key: v.key, secrets: { ...v.secrets, mnemonic: '', duress: undefined } };
+		return;
+	}
 	startAutoLock();
 	void refresh();
 	void warmUp(session!.client);
@@ -248,7 +258,8 @@ export async function unlock(secret: string, opts: { brief?: boolean } = {}): Pr
 		throw real;
 	}
 	await resetFailures();
-	await open(real);
+	// vaults from before the device key are sealed again under it, once
+	await open(await bindVaultToDevice(secret, real).catch(() => real));
 }
 
 /* ------------------------------- emergency PIN ------------------------------ */
@@ -269,11 +280,12 @@ async function runDuress(p: DuressPayload, pin: string): Promise<void> {
 
 	// 1. erase (without passing through the onboarding screen); how the app looks
 	// stays as it was, so the decoy doesn't give itself away
-	const look = await Promise.all([kv.get<boolean>('settings.simple'), kv.get<boolean>('settings.hideBalance')]);
+	const look = await Promise.all([kv.get<boolean>('settings.simple'), kv.get<boolean>('settings.hideBalance'), kv.get<string>(SHEET_WORD_KEY)]);
 	await Promise.allSettled([disableBiometric(), clearBackground()]);
 	await kv.clear();
 	if (look[0]) await kv.set('settings.simple', true);
 	if (look[1]) await kv.set('settings.hideBalance', true);
+	if (look[2]) await kv.set(SHEET_WORD_KEY, look[2]);
 
 	// 2. the decoy, as a real vault behind the same PIN
 	const decoySeed = p.decoy ?? newMnemonic();
@@ -451,7 +463,7 @@ export async function changePin(current: string, pin: string): Promise<void> {
 /* --------------------------------- accounts --------------------------------- */
 
 async function persist(): Promise<void> {
-	if (!session || session.decoy) return;
+	if (!session || session.decoy || brief) return;
 	session.vault.secrets.accounts = wallet.accounts.map(({ index, name }) => ({ index, name }));
 	session.vault.secrets.contacts = wallet.contacts.map(({ name, address }) => ({ name, address }));
 	session.vault.secrets.active = wallet.active;
@@ -550,6 +562,7 @@ export function cosmosAddress(): string {
 
 export function lock(): void {
 	session = null;
+	closeLocalStore();
 	stopWatcher();
 	stopPrice();
 	stopRewards();
@@ -723,11 +736,10 @@ async function topUp(s: Session, spends: bigint): Promise<TopUp | null> {
 /** Adds or updates (by hash) an entry of the local transaction log. */
 export async function log(entry: LoggedTx) {
 	if (session?.decoy) return;
-	const key = addrKey('txlog', wallet.address);
-	const list = (await kv.get<LoggedTx[]>(key)) ?? [];
+	const list = (await accountKv.get<LoggedTx[]>('txlog', wallet.address)) ?? [];
 	const old = list.find((l) => l.hash === entry.hash);
 	const next = old ? { ...old, ...Object.fromEntries(Object.entries(entry).filter(([, v]) => v !== undefined)) } : entry;
-	await kv.set(key, [next, ...list.filter((l) => l !== old)].slice(0, 200));
+	await accountKv.set('txlog', wallet.address, [next, ...list.filter((l) => l !== old)].slice(0, 200));
 	wallet.logged++;
 }
 
@@ -746,7 +758,7 @@ async function settlePending(s: Session): Promise<void> {
 }
 
 export async function txLog(): Promise<LoggedTx[]> {
-	return (await kv.get<LoggedTx[]>(addrKey('txlog', wallet.address))) ?? [];
+	return (await accountKv.get<LoggedTx[]>('txlog', wallet.address)) ?? [];
 }
 
 /** Sends a built payment. A gas-credit refill rides along when one is due. */

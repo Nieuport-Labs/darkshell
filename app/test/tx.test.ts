@@ -14,6 +14,7 @@ vi.mock('../src/lib/chain/client', () => ({
 
 const { sendTx, BusyError, TxFailedError } = await import('../src/lib/chain/tx');
 const { kv } = await import('../src/lib/storage');
+const { closeLocalStore } = await import('../src/lib/crypto/localStore');
 
 const MSG = {} as import('secretjs').Msg;
 const ME = 'secret1ap26qrlp8mcq2pg6r47w43l0y8zkqm8a450s03';
@@ -47,6 +48,8 @@ describe('sendTx', () => {
 	beforeEach(async () => {
 		grants = [vaultGrant('50000000')];
 		await kv.clear();
+		closeLocalStore();
+		closeLocalStore();
 		vi.useRealTimers();
 	});
 

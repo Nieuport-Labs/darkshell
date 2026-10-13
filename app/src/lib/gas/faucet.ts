@@ -7,7 +7,7 @@
 
 import { Capacitor, CapacitorHttp } from '@capacitor/core';
 import { FAUCET_URL } from '../config';
-import { addrKey, kv } from '../storage';
+import { accountKv } from '../crypto/localStore';
 
 /** the faucet hands out one grant a day per address */
 const COOLDOWN_MS = 24 * 3600_000;
@@ -20,7 +20,7 @@ export function faucetConfigured(): boolean {
 
 /** When this address last asked the faucet (0 = never). */
 export async function lastClaim(address: string): Promise<number> {
-	return (await kv.get<number>(addrKey('faucet.at', address))) ?? 0;
+	return (await accountKv.get<number>('faucet.at', address)) ?? 0;
 }
 
 /**
@@ -51,7 +51,7 @@ export async function claimFaucet(address: string): Promise<void> {
 		const why = body?.error ? (typeof body.error === 'string' ? body.error : JSON.stringify(body.error)) : `HTTP ${status}`;
 		throw new FaucetError(`The faucet did not grant fees (${why}).`);
 	}
-	await kv.set(addrKey('faucet.at', address), Date.now());
+	await accountKv.set('faucet.at', address, Date.now());
 }
 
 function safeJson(s: string): unknown {

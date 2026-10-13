@@ -11,6 +11,7 @@
 
 import { kv } from '../storage';
 import { buf, fromB64, randomBytes, toB64 } from './bytes';
+import { deviceKeyAvailable } from './hwkey';
 import { DEFAULT_KDF, type KdfParams } from './kdf';
 import { aesKey, seal, unseal, type AccountEntry } from './vault';
 
@@ -31,6 +32,8 @@ export interface DuressPayload {
 
 interface DuressRecord {
 	kdf: KdfParams;
+	/** bound to this phone's Keystore key, like the vault (crypto/hwkey.ts) */
+	hw?: true;
 	hkdfSalt: string;
 	iv: string;
 	ct: string;
@@ -44,8 +47,9 @@ export async function hasDuress(): Promise<boolean> {
 export async function setDuress(pin: string, payload: DuressPayload, cost: { t: number; m: number; p: number } = DEFAULT_KDF): Promise<string> {
 	const kdf: KdfParams = { alg: 'argon2id', ...cost, salt: toB64(randomBytes(32)) };
 	const hkdfSalt = randomBytes(32);
-	const key = await aesKey(pin, kdf, hkdfSalt, true);
-	await kv.set(KEY, { kdf, hkdfSalt: toB64(hkdfSalt), ...(await seal(payload, key)) } satisfies DuressRecord);
+	const hw = await deviceKeyAvailable();
+	const key = await aesKey(pin, kdf, hkdfSalt, true, hw);
+	await kv.set(KEY, { kdf, hkdfSalt: toB64(hkdfSalt), ...(hw ? { hw: true as const } : {}), ...(await seal(payload, key)) } satisfies DuressRecord);
 	return toB64(new Uint8Array(await crypto.subtle.exportKey('raw', key)));
 }
 
@@ -62,11 +66,17 @@ export async function openDuress(pin: string): Promise<DuressPayload | null> {
 	const record = await kv.get<DuressRecord>(KEY);
 	if (!record) return null;
 	try {
-		const key = await aesKey(pin, record.kdf, fromB64(record.hkdfSalt));
+		const key = await aesKey(pin, record.kdf, fromB64(record.hkdfSalt), false, record.hw);
 		return await unseal<DuressPayload>(record.iv, record.ct, key);
 	} catch {
 		return null;
 	}
+}
+
+/** An emergency PIN saved before the device key: saving it again binds it to this phone. */
+export async function duressNeedsRebind(): Promise<boolean> {
+	const record = await kv.get<DuressRecord>(KEY);
+	return !!record && !record.hw && (await deviceKeyAvailable());
 }
 
 export async function clearDuress(): Promise<void> {

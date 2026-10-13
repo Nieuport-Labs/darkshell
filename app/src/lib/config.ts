@@ -28,6 +28,14 @@ export const LCD_URLS = [
 	'https://lcd-secret.keplr.app',
 ];
 
+/**
+ * secret-4's consensus IO public key (registration/v1beta1/tx-key). Pinned so
+ * a node cannot hand out its own (lib/chain/client.ts). Checked October 2026:
+ * Lavender Five and Keplr's nodes answer the same. It only changes if the
+ * network re-keys; then every contract call fails until this is updated.
+ */
+export const CONSENSUS_IO_PUBKEY = 'OXDCbUQIpNSfknDX6FvjK7ewuDBe67PleZyT38f5SEs=';
+
 export const EXPLORER_TX = 'https://www.mintscan.io/secret/tx/{hash}';
 
 /**

@@ -1,5 +1,6 @@
-import { SecretNetworkClient, type Wallet } from 'secretjs';
-import { CHAIN_ID, LCD_URLS } from '../config';
+import { EncryptionUtilsImpl, SecretNetworkClient, type Wallet } from 'secretjs';
+import { CHAIN_ID, CONSENSUS_IO_PUBKEY, LCD_URLS } from '../config';
+import { fromB64 } from '../crypto/bytes';
 import { kv } from '../storage';
 
 // generous: a slow node (or Tor) still counts; the probes run side by side, so a
@@ -42,8 +43,21 @@ export function resetEndpoint(): void {
 	resolved = null;
 }
 
+/**
+ * Contract messages and queries are encrypted to the chain's consensus key.
+ * secretjs would ask the node for it, and a node that answered with its own key
+ * could read every query (permits included) and every contract message. The
+ * key is fixed for secret-4, so it is written down instead of asked for.
+ */
+function pinnedEncryption(url: string, seed?: Uint8Array): EncryptionUtilsImpl {
+	const utils = new EncryptionUtilsImpl(url, seed);
+	(utils as unknown as { consensusIoPubKey: Uint8Array }).consensusIoPubKey = fromB64(CONSENSUS_IO_PUBKEY);
+	return utils;
+}
+
 export async function readClient(): Promise<SecretNetworkClient> {
-	return new SecretNetworkClient({ url: await lcdUrl(), chainId: CHAIN_ID });
+	const url = await lcdUrl();
+	return new SecretNetworkClient({ url, chainId: CHAIN_ID, encryptionUtils: pinnedEncryption(url) });
 }
 
 /**
@@ -52,12 +66,13 @@ export async function readClient(): Promise<SecretNetworkClient> {
  * (with a retry) instead of the lock screen refusing the PIN.
  */
 export async function signingClient(wallet: Wallet, encryptionSeed: Uint8Array): Promise<SecretNetworkClient> {
+	const url = await lcdUrl().catch(() => LCD_URLS[0]!);
 	return new SecretNetworkClient({
-		url: await lcdUrl().catch(() => LCD_URLS[0]!),
+		url,
 		chainId: CHAIN_ID,
 		wallet,
 		walletAddress: wallet.address,
-		encryptionSeed,
+		encryptionUtils: pinnedEncryption(url, encryptionSeed),
 	});
 }
 

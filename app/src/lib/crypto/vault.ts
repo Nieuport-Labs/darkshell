@@ -11,6 +11,7 @@
 
 import { kv } from '../storage';
 import { buf, fromB64, randomBytes, td, te, toB64, wipe } from './bytes';
+import { deviceKeyAvailable, mixRoot } from './hwkey';
 import { DEFAULT_KDF, deriveRoot, type KdfParams } from './kdf';
 
 const KEY = 'vault';
@@ -54,6 +55,8 @@ export interface VaultRecord {
 	address: string;
 	/** how the vault is unlocked; absent on vaults made before PINs existed */
 	kind?: SecretKind;
+	/** the root also went through this phone's Keystore key (crypto/hwkey.ts) */
+	hw?: true;
 	created: number;
 }
 
@@ -69,10 +72,14 @@ export interface OpenVault {
 	key: CryptoKey;
 }
 
-export async function aesKey(secret: string, kdf: KdfParams, hkdfSalt: Uint8Array, extractable = false): Promise<CryptoKey> {
+export async function aesKey(secret: string, kdf: KdfParams, hkdfSalt: Uint8Array, extractable = false, hw?: boolean): Promise<CryptoKey> {
 	const pw = te.encode(secret.normalize('NFKC'));
-	const root = await deriveRoot(pw, fromB64(kdf.salt), kdf);
-	wipe(pw);
+	let root: Uint8Array;
+	try {
+		root = await mixRoot(await deriveRoot(pw, fromB64(kdf.salt), kdf), hw);
+	} finally {
+		wipe(pw);
+	}
 	try {
 		const base = await crypto.subtle.importKey('raw', buf(root), 'HKDF', false, ['deriveKey']);
 		return await crypto.subtle.deriveKey(
@@ -148,11 +155,13 @@ export async function createVault(
 	address: string,
 	kind: SecretKind = 'pin',
 	cost: { t: number; m: number; p: number } = DEFAULT_KDF,
+	created = Date.now(),
 ): Promise<OpenVault> {
 	const kdf: KdfParams = { alg: 'argon2id', ...cost, salt: toB64(randomBytes(32)) };
 	const hkdfSalt = randomBytes(32);
-	const key = await aesKey(secret, kdf, hkdfSalt);
-	const record: VaultRecord = { v: 1, kdf, hkdfSalt: toB64(hkdfSalt), ...(await seal(secrets, key)), address, kind, created: Date.now() };
+	const hw = await deviceKeyAvailable();
+	const key = await aesKey(secret, kdf, hkdfSalt, false, hw);
+	const record: VaultRecord = { v: 1, kdf, hkdfSalt: toB64(hkdfSalt), ...(await seal(secrets, key)), address, kind, ...(hw ? { hw: true as const } : {}), created };
 	await kv.set(KEY, record);
 	return { secrets, key };
 }
@@ -160,8 +169,20 @@ export async function createVault(
 export async function openVault(secret: string): Promise<OpenVault> {
 	const record = await vaultRecord();
 	if (!record) throw new Error('No wallet on this device');
-	const key = await aesKey(secret, record.kdf, fromB64(record.hkdfSalt));
+	const key = await aesKey(secret, record.kdf, fromB64(record.hkdfSalt), false, record.hw);
 	return { secrets: await unseal<WalletSecrets>(record.iv, record.ct, key), key };
+}
+
+/**
+ * A vault made before the device key (or in a browser build) is sealed again
+ * under it, once, right after it was opened with `secret`. Returns the vault to
+ * keep using: its key changes, so the caller must drop the old one.
+ */
+export async function bindVaultToDevice(secret: string, open: OpenVault): Promise<OpenVault> {
+	const record = await vaultRecord();
+	if (!record || record.hw || !(await deviceKeyAvailable())) return open;
+	const { t, m, p } = record.kdf;
+	return createVault(secret, open.secrets, record.address, record.kind ?? 'password', { t, m, p }, record.created);
 }
 
 /** Kept for callers that only need the secrets. */
@@ -171,6 +192,8 @@ export async function unlockVault(secret: string): Promise<WalletSecrets> {
 
 /** Re-encrypts changed secrets under the already unlocked key (no PIN prompt). */
 export async function saveVault(open: OpenVault, address?: string): Promise<void> {
+	// a session opened for one payment drops the phrase; it must never be saved
+	if (!open.secrets.mnemonic) throw new Error('refusing to save a vault without its recovery phrase');
 	const record = (await vaultRecord())!;
 	await kv.set(KEY, { ...record, ...(await seal(open.secrets, open.key)), ...(address ? { address } : {}) });
 }
@@ -179,7 +202,7 @@ export async function saveVault(open: OpenVault, address?: string): Promise<void
 export async function changeSecret(oldSecret: string, newSecret: string, kind: SecretKind = 'pin', cost = DEFAULT_KDF): Promise<OpenVault> {
 	const record = (await vaultRecord())!;
 	const { secrets } = await openVault(oldSecret);
-	return createVault(newSecret, secrets, record.address, kind, cost);
+	return createVault(newSecret, secrets, record.address, kind, cost, record.created);
 }
 
 /** Removes the wallet from this device. Funds stay on chain; only the seed can restore it. */

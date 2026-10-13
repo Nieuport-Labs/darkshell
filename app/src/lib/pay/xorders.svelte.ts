@@ -1,7 +1,7 @@
 // Payments to other chains in flight (FixedFloat orders),
 // kept per account so their progress survives closing the app.
 
-import { addrKey, kv } from '../storage';
+import { accountKv } from '../crypto/localStore';
 import { wallet } from '../wallet.svelte';
 import { getOrder, type FfStatus } from '../ff/fixedfloat';
 import type { Coin, EvmNetwork } from './external';
@@ -30,16 +30,15 @@ export interface XOrder {
 
 export const xOrders = $state({ list: [] as XOrder[] });
 
-const key = () => addrKey('x-orders', wallet.address);
 
 export async function loadXOrders(): Promise<void> {
-	xOrders.list = (await kv.get<XOrder[]>(key())) ?? [];
+	xOrders.list = (await accountKv.get<XOrder[]>('x-orders', wallet.address)) ?? [];
 }
 
 export async function saveXOrder(o: XOrder): Promise<void> {
 	const rest = xOrders.list.filter((x) => x.id !== o.id);
 	xOrders.list = [o, ...rest].slice(0, 50);
-	await kv.set(key(), $state.snapshot(xOrders.list));
+	await accountKv.set('x-orders', wallet.address, $state.snapshot(xOrders.list));
 }
 
 export const isFinalX = (s: XStatus) => s === 'DONE' || s === 'EXPIRED' || s === 'FAILED';
