@@ -6,7 +6,8 @@
 // The native proxy fails closed anyway; this keeps requests from failing and
 // the app from showing errors while Tor connects.
 
-import { Capacitor, registerPlugin, type PluginListenerHandle } from '@capacitor/core';
+import { registerPlugin, type PluginListenerHandle } from '@capacitor/core';
+import { can } from './platform';
 
 type Status = 'OFF' | 'STARTING' | 'ON' | 'STOPPING';
 
@@ -26,7 +27,7 @@ interface TorPlugin {
 
 const Tor = registerPlugin<TorPlugin>('Tor');
 
-export const torAvailable = Capacitor.isNativePlatform();
+export const torAvailable = can.tor;
 
 /** `stuck`: still not connected after STUCK_MS (shown as "can't connect") */
 export const tor = $state({ enabled: false, status: 'OFF' as Status, stuck: false });

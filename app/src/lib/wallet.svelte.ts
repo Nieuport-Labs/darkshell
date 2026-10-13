@@ -2,7 +2,7 @@
 // unlocked; locking drops every reference to them. Nothing here ever sends a
 // transaction on its own — every transaction is one the user confirmed.
 
-import type { Msg, Permit, SecretNetworkClient, Wallet } from 'secretjs';
+import type { EncryptionUtilsImpl, Msg, Permit, SecretNetworkClient, Wallet } from 'secretjs';
 import { encryptionSeedFor, newMnemonic, walletFromMnemonic } from './crypto/account';
 import { recordFailure, resetFailures, waitMs } from './crypto/lockout';
 import {
@@ -20,7 +20,9 @@ import {
 	type OpenVault,
 	type SecretKind,
 } from './crypto/vault';
-import { nativeBalance, signingClient } from './chain/client';
+import { encryptionFor, nativeBalance, signingClient } from './chain/client';
+import type { DappAccount, SignRequest, SignResult } from './dapp/provider';
+import { signRequest } from './dapp/sign';
 import { signPermit, sscrtBalance, sscrtHistory, type HistoryItem } from './chain/sscrt';
 import { isSending, refillDue, refillSource, sendTx, type TxOutcome } from './chain/tx';
 import { CREDIT_FLOOR, CREDIT_REFILL, CREDIT_URGENT, GAS, GAS_PRICE, GAS_VAULT_ADDRESS, MIN_REFILL, SSCRT_ADDRESS } from './config';
@@ -56,6 +58,8 @@ interface Session {
 	wallet: Wallet;
 	client: SecretNetworkClient;
 	permit: Permit;
+	/** the account's transaction encryption, also what a connected dApp encrypts with */
+	enigma: EncryptionUtilsImpl;
 	/** opened with the emergency PIN after a sweep: nothing is ever written back */
 	decoy?: boolean;
 }
@@ -142,7 +146,9 @@ async function activate(v: OpenVault, index: number): Promise<void> {
 	const seed = await encryptionSeedFor(mnemonic, index);
 	const client = await signingClient(w, seed);
 	const permit = await signPermit(w);
-	session = { vault: v, wallet: w, client, permit, decoy: session?.vault === v ? session.decoy : decoy };
+	const changed = session?.wallet.address !== w.address;
+	session = { vault: v, wallet: w, client, permit, enigma: encryptionFor(seed), decoy: session?.vault === v ? session.decoy : decoy };
+	if (changed) keystoreChanged();
 	wallet.address = w.address;
 	wallet.active = index;
 	wallet.balance = null;
@@ -561,7 +567,9 @@ export function cosmosAddress(): string {
 }
 
 export function lock(): void {
+	const had = !!session;
 	session = null;
+	if (had) keystoreChanged();
 	closeLocalStore();
 	stopWatcher();
 	stopPrice();
@@ -575,6 +583,40 @@ export function lock(): void {
 	wallet.chainActivity = [];
 	wallet.phase = wallet.address ? 'locked' : 'onboarding';
 	stopAutoLock();
+}
+
+/* ------------------------------- dApp support -------------------------------- */
+//
+// What a connected site may use (lib/dapp): the active account's address and
+// public key, its encryption, and a signature on a request the user confirmed
+// on screen. Never the phrase or the private key.
+
+const keystoreListeners = new Set<() => void>();
+
+function keystoreChanged(): void {
+	for (const cb of keystoreListeners) cb();
+}
+
+/** Called when the active account changes or the wallet locks: connected sites ask again. */
+export function onKeystoreChange(cb: () => void): () => void {
+	keystoreListeners.add(cb);
+	return () => keystoreListeners.delete(cb);
+}
+
+/** The active account as a site sees it; null while locked. */
+export function dappAccount(): DappAccount | null {
+	if (!session) return null;
+	return { name: activeName(), address: session.wallet.address, pubkey: session.wallet.publicKey };
+}
+
+export function dappEnigma(): EncryptionUtilsImpl | null {
+	return session?.enigma ?? null;
+}
+
+/** Signs a request the user has just confirmed (the caller shows it first). */
+export async function dappSign(req: SignRequest): Promise<SignResult> {
+	if (!session) throw new Error('Wallet is locked');
+	return signRequest(session.wallet, req);
 }
 
 export function client(): SecretNetworkClient {

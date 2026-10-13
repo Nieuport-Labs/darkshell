@@ -2,9 +2,10 @@
 // DarkShell as a sheet over itself. This module talks to the native side
 // (PaySheetPlugin.java). In a dev browser, `?sheet=<payment link>` previews it.
 
-import { Capacitor, registerPlugin } from '@capacitor/core';
+import { registerPlugin } from '@capacitor/core';
 import { returnUrlFor, type ReturnStatus } from 'secret-pay';
 import type { Target } from './classify';
+import { can } from '../platform';
 
 interface PaySheetPlugin {
 	info(): Promise<{ url: string | null; forResult: boolean; caller?: string | null; callerName?: string | null }>;
@@ -29,7 +30,7 @@ const devUrl = () => (import.meta.env.DEV ? new URLSearchParams(location.search)
 export async function sheetRequest(): Promise<SheetRequest | null> {
 	const dev = devUrl();
 	if (dev) return { url: dev, forResult: false };
-	if (!Capacitor.isNativePlatform()) return null;
+	if (!can.paySheet) return null;
 	try {
 		const i = await PaySheet.info();
 		if (!i.url) return null;

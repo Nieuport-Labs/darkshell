@@ -4,8 +4,9 @@
 // on this phone: a copy of the app's data gives nothing to guess a PIN against.
 // In a browser (and in tests) there is no such key and the root is used as is.
 
-import { Capacitor, registerPlugin } from '@capacitor/core';
+import { registerPlugin } from '@capacitor/core';
 import { fromB64, toB64, wipe } from './bytes';
+import { can } from '../platform';
 
 interface VaultKeyPlugin {
 	available(): Promise<{ available: boolean }>;
@@ -18,7 +19,7 @@ let known: Promise<boolean> | null = null;
 
 /** Whether new records can be bound to this device. */
 export function deviceKeyAvailable(): Promise<boolean> {
-	if (!Capacitor.isNativePlatform()) return Promise.resolve(false);
+	if (!can.hwKey) return Promise.resolve(false);
 	return (known ??= VaultKey.available()
 		.then((r) => r.available)
 		.catch(() => false));
@@ -26,7 +27,7 @@ export function deviceKeyAvailable(): Promise<boolean> {
 
 /** HMAC-SHA256(device key, root). Throws when the record needs the key and the device has none. */
 export async function bindToDevice(root: Uint8Array): Promise<Uint8Array> {
-	if (!Capacitor.isNativePlatform()) throw new Error('This wallet can only be opened on the phone it was made on.');
+	if (!can.hwKey) throw new Error('This wallet can only be opened on the phone it was made on.');
 	const data = toB64(root);
 	const { out } = await VaultKey.mix({ data });
 	return fromB64(out);

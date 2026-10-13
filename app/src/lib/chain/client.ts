@@ -55,6 +55,14 @@ function pinnedEncryption(url: string, seed?: Uint8Array): EncryptionUtilsImpl {
 	return utils;
 }
 
+/**
+ * The same encryption on its own, for a dApp page (its `getEnigmaUtils`). The
+ * consensus key is pinned, so no node is ever asked and the URL is unused.
+ */
+export function encryptionFor(seed: Uint8Array): EncryptionUtilsImpl {
+	return pinnedEncryption(LCD_URLS[0]!, seed);
+}
+
 export async function readClient(): Promise<SecretNetworkClient> {
 	const url = await lcdUrl();
 	return new SecretNetworkClient({ url, chainId: CHAIN_ID, encryptionUtils: pinnedEncryption(url) });

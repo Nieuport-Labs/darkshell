@@ -6,10 +6,11 @@
 // Credentials: the user's own (Settings, stored in the vault) win over the
 // ones built into the app (VITE_FF_KEY / VITE_FF_SECRET at build time).
 
-import { Capacitor, CapacitorHttp } from '@capacitor/core';
+import { CapacitorHttp } from '@capacitor/core';
 import { te } from '../crypto/bytes';
 import { ffCredentials } from '../wallet.svelte';
 import { tor } from '../tor.svelte';
+import { can } from '../platform';
 
 const BASE = 'https://ff.io/api/v2/';
 
@@ -65,7 +66,7 @@ export async function ffCall<T>(
 }
 
 async function post(url: string, headers: Record<string, string>, body: string): Promise<unknown> {
-	if (Capacitor.isNativePlatform()) {
+	if (can.nativeHttp) {
 		const r = await CapacitorHttp.post({ url, headers, data: body, responseType: 'json', connectTimeout: 15_000, readTimeout: 20_000 });
 		if (typeof r.data !== 'string') return r.data;
 		try {
@@ -83,8 +84,8 @@ async function post(url: string, headers: Record<string, string>, body: string):
 		const r = await fetch(url, { method: 'POST', headers, body });
 		return await r.json();
 	} catch {
-		// ff.io sends no CORS headers, so browsers block it; the Android app uses native HTTP
-		throw new FfError('Payments through FixedFloat work in the DarkShell Android app (FixedFloat cannot be reached from a browser).');
+		// ff.io sends no CORS headers, so a web page is blocked; the apps use native HTTP, the extension its host permission
+		throw new FfError('Payments through FixedFloat work in the DarkShell app and browser extension (FixedFloat cannot be reached from a web page).');
 	}
 }
 

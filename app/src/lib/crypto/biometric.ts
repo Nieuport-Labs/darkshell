@@ -4,8 +4,8 @@
 // removed. The app never sees anything but the PIN coming back; the vault is
 // then opened exactly as if it had been typed.
 
-import { Capacitor } from '@capacitor/core';
 import { kv } from '../storage';
+import { can } from '../platform';
 
 const SERVER = 'cash.darkshell.wallet.pin';
 
@@ -14,7 +14,7 @@ async function plugin() {
 }
 
 export async function biometricAvailable(): Promise<boolean> {
-	if (!Capacitor.isNativePlatform()) return false;
+	if (!can.biometric) return false;
 	try {
 		const { NativeBiometric } = await plugin();
 		return (await NativeBiometric.isAvailable({ useFallback: false })).isAvailable;
@@ -24,7 +24,7 @@ export async function biometricAvailable(): Promise<boolean> {
 }
 
 export async function biometricEnabled(): Promise<boolean> {
-	return Capacitor.isNativePlatform() && (await kv.get<boolean>('bio.enabled')) === true;
+	return can.biometric && (await kv.get<boolean>('bio.enabled')) === true;
 }
 
 /** Stores the PIN behind the fingerprint (shows the system prompt). */
@@ -58,7 +58,7 @@ export const biometricInvalidated = (e: unknown) => /no protected credentials|in
 
 export async function disableBiometric(): Promise<void> {
 	await kv.del('bio.enabled');
-	if (!Capacitor.isNativePlatform()) return;
+	if (!can.biometric) return;
 	try {
 		const { NativeBiometric } = await plugin();
 		await NativeBiometric.deleteCredentials({ server: SERVER });
