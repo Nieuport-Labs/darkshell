@@ -9,7 +9,7 @@ import { allow, isConnected, revoke, touch } from './permissions';
 import { RejectedError, type DappAccount, type DappHost, type Enigma, type SignRequest, type SignResult } from './provider';
 
 export type Pending =
-	| { id: number; kind: 'connect'; origin: string; account: DappAccount }
+	| { id: number; kind: 'connect'; origin: string; account: DappAccount; warnings?: string[] }
 	| { id: number; kind: 'sign'; origin: string; account: DappAccount; review: Review; request: SignRequest };
 
 type Unnumbered = Pending extends infer P ? (P extends Pending ? Omit<P, 'id'> : never) : never;
@@ -52,6 +52,20 @@ export function rejectAll(): void {
 
 function locked(): never {
 	throw new RejectedError('DarkShell is locked. Unlock it and try again.');
+}
+
+/**
+ * A site asks to connect from elsewhere (WalletConnect): always on screen, with
+ * what is known about where it really comes from. Resolves with the account.
+ */
+export async function askConnect(origin: string, warnings: string[] = []): Promise<DappAccount> {
+	const a = dappAccount();
+	if (!a) locked();
+	if (!(await ask({ kind: 'connect', origin, account: a, warnings }))) throw new RejectedError();
+	const now = dappAccount();
+	if (!now || now.address !== a.address) throw new RejectedError('The account changed. Try again.');
+	await allow(a.address, origin);
+	return a;
 }
 
 export const walletHost: DappHost = {

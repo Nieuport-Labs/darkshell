@@ -56,6 +56,11 @@ export function close(): void {
 
 /** Routes anything scanned or pasted: an invoice with an amount goes to Pay, the rest to Send. */
 export function openPayment(raw: string): void {
+	// a site's WalletConnect QR code (or wc: link): pairs, and the site's request shows up
+	if (/^wc:/i.test(raw.trim())) {
+		void import('./dapp/walletconnect.svelte').then((m) => m.pairWalletConnect(raw.trim())).catch(() => {});
+		return;
+	}
 	const target = classify(raw);
 	if (target.kind === 'secret' && target.request.amount !== undefined) open({ name: 'pay', target, raw });
 	else if (target.kind === 'lightning') open({ name: 'lightning', target });

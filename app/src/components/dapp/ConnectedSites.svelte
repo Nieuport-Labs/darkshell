@@ -3,6 +3,7 @@
 	import { Globe } from '@lucide/svelte';
 	import { connections, revoke, siteName, type Connection } from '../../lib/dapp/permissions';
 	import { wallet } from '../../lib/wallet.svelte';
+	import { disconnectSite, wcAvailable } from '../../lib/dapp/walletconnect.svelte';
 
 	let list = $state<Connection[] | null>(null);
 
@@ -14,7 +15,9 @@
 	});
 
 	async function drop(origin: string) {
-		await revoke(wallet.address, origin);
+		// also ends its WalletConnect sessions, if it came that way
+		if (wcAvailable) await disconnectSite(origin);
+		else await revoke(wallet.address, origin);
 		list = await connections(wallet.address);
 	}
 

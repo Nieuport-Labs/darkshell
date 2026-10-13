@@ -51,6 +51,13 @@ export const PAY_LINK_ORIGIN: string = import.meta.env.VITE_PAY_ORIGIN || 'https
  */
 export const FAUCET_URL: string = import.meta.env.VITE_FAUCET_URL ?? 'https://faucet.libertarianskastrana.cz';
 
+/**
+ * WalletConnect (Reown Cloud) project id: how a site on another device (a
+ * computer's browser) reaches this phone, through Reown's relay. Public, not a
+ * secret. Without it, WalletConnect is off. VITE_WC_PROJECT_ID sets it.
+ */
+export const WC_PROJECT_ID: string = import.meta.env.VITE_WC_PROJECT_ID ?? '';
+
 export const GAS_BUFFER = 1.2;
 export function withGasBuffer(gas: number): number {
 	return Math.ceil(gas * GAS_BUFFER);

@@ -63,6 +63,13 @@
 	</div>
 
 	{#if item.kind === 'connect'}
+		{#if item.warnings?.length}
+			<div class="flex flex-col gap-2 rounded-card border border-negative bg-surface-1 px-4 py-3 text-base" role="alert">
+				{#each item.warnings as w (w)}
+					<p class="flex items-start gap-2"><AlertTriangle size={16} class="mt-0.5 shrink-0 text-negative" />{w}</p>
+				{/each}
+			</div>
+		{/if}
 		<dl class="flex flex-col divide-y divide-border rounded-card border border-border bg-surface-1 text-base">
 			{@render row('Account', item.account.name, shortAddress(item.account.address, 12, 6))}
 			{@render row('The site sees', 'Your address', 'and can ask you to sign; every request comes here first')}

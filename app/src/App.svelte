@@ -26,6 +26,9 @@
 	import Onboarding from './screens/Onboarding.svelte';
 	import Unlock from './screens/Unlock.svelte';
 	import Notices from './components/wallet/Notices.svelte';
+	import DappRequestSheet from './components/dapp/DappRequestSheet.svelte';
+	import { dappUi, rejectAll } from './lib/dapp/host.svelte';
+	import { resumeWalletConnect, suspendWalletConnect, wcAvailable } from './lib/dapp/walletconnect.svelte';
 
 	// a shared /pay/… link opens straight on the payment once unlocked
 	const pending = takePendingPayLink();
@@ -48,6 +51,16 @@
 			close();
 			ui.scanning = false;
 			ui.tab = 'home';
+		}
+	});
+
+	// WalletConnect sessions are live only while the wallet is unlocked
+	$effect(() => {
+		if (!wcAvailable) return;
+		if (wallet.phase === 'unlocked') void resumeWalletConnect();
+		else {
+			rejectAll();
+			void suspendWalletConnect();
 		}
 	});
 
@@ -124,6 +137,9 @@
 		<LightningModal target={ui.dialog.target} orderId={ui.dialog.orderId} />
 	{:else if ui.dialog?.name === 'external'}
 		{#key ui.dialog.orderId ?? ui.dialog.target?.address}<ExternalModal target={ui.dialog.target} orderId={ui.dialog.orderId} />{/key}
+	{/if}
+	{#if dappUi.pending}
+		{#key dappUi.pending.id}<DappRequestSheet item={dappUi.pending} />{/key}
 	{/if}
 	{#if ui.scanning}
 		<Scanner
