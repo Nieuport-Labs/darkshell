@@ -4,8 +4,10 @@
 	// digit; the pressed look is a short flash we control instead of :active /
 	// :hover, which stick on touch screens. Calls `oncomplete` on the 6th digit;
 	// the parent clears the entry (via `reset`) after a wrong PIN.
-	import { Delete } from '@lucide/svelte';
+	// In the browser (extension, web) the PIN is typed on the keyboard: no keypad.
+	import { Delete, Keyboard } from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
+	import { isNative } from '../../lib/platform';
 
 	let {
 		title,
@@ -101,6 +103,10 @@
 		{#if busy}Checking…{:else}{error}{/if}
 	</p>
 
+	{#if !isNative}
+		<p class="mt-6 flex items-center gap-2 text-label text-text-faint"><Keyboard size={14} /> Type your PIN</p>
+		{#if aux}<div class="mt-4">{@render aux()}</div>{/if}
+	{:else}
 	<div class="mt-auto grid w-full max-w-[340px] grid-cols-3 gap-x-4 gap-y-2 pb-3">
 		{#each KEYS as k (k || 'blank')}
 			{#if k === ''}
@@ -121,4 +127,5 @@
 			{/if}
 		{/each}
 	</div>
+	{/if}
 </div>
