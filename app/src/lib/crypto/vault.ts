@@ -55,7 +55,7 @@ export interface VaultRecord {
 	address: string;
 	/** how the vault is unlocked; absent on vaults made before PINs existed */
 	kind?: SecretKind;
-	/** the root also went through this phone's Keystore key (crypto/hwkey.ts) */
+	/** the root also went through this device's key (crypto/hwkey.ts) */
 	hw?: true;
 	created: number;
 }

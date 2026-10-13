@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { Bell, BookUser, ChevronDown, Fingerprint, Fuel, Globe, KeyRound, Lock, ShieldAlert, ShieldCheck, Shuffle, Users, Zap } from '@lucide/svelte';
+	import { Bell, BookUser, ChevronDown, Fingerprint, Fuel, Globe, KeyRound, Link2, Lock, ShieldAlert, ShieldCheck, Shuffle, Users, Zap } from '@lucide/svelte';
+	import ConnectedSites from '../dapp/ConnectedSites.svelte';
 	import { biometricAvailable, biometricEnabled } from '../../lib/crypto/biometric';
 	import { allowBackground, backgroundUnrestricted, canNotify } from '../../lib/notify/background';
 	import { isBech32Address } from 'secret-pay';
@@ -35,7 +36,7 @@
 	import Modal from '../ui/Modal.svelte';
 	import PoweredByFF from './PoweredByFF.svelte';
 
-	let openSection = $state<'gas' | 'phrase' | 'password' | 'network' | 'ff' | 'bio' | 'notify' | 'emergency' | 'word' | null>('gas');
+	let openSection = $state<'gas' | 'phrase' | 'password' | 'network' | 'ff' | 'bio' | 'notify' | 'emergency' | 'word' | 'sites' | null>('gas');
 
 	/* fingerprint */
 	let bioAvailable = $state(false);
@@ -419,6 +420,10 @@
 	</form>
 {/snippet}
 
+{#snippet sitesBody()}
+	<ConnectedSites />
+{/snippet}
+
 {#snippet content()}
 	<div class="card px-4 py-3">
 		{@render toggle(ui.simple, 'Simple app', () => void setSimple(!ui.simple))}
@@ -446,6 +451,7 @@
 		{@render section('word', 'Sheet word', ShieldCheck, wordBody)}
 		{@render section('emergency', 'Emergency PIN', ShieldAlert, emergencyBody)}
 		{@render section('notify', 'Notifications', Bell, notifyBody)}
+		{@render section('sites', 'Connected sites', Link2, sitesBody)}
 		{@render section('ff', 'Lightning (FixedFloat)', Zap, ffBody)}
 		{@render section('network', 'Network', Globe, networkBody)}
 	</div>

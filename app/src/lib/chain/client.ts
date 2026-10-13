@@ -1,7 +1,9 @@
-import { EncryptionUtilsImpl, SecretNetworkClient, type Wallet } from 'secretjs';
-import { CHAIN_ID, CONSENSUS_IO_PUBKEY, LCD_URLS } from '../config';
-import { fromB64 } from '../crypto/bytes';
+import { SecretNetworkClient, type Wallet } from 'secretjs';
+import { CHAIN_ID, LCD_URLS } from '../config';
 import { kv } from '../storage';
+import { pinnedEncryption } from './enigma';
+
+export { encryptionFor } from './enigma';
 
 // generous: a slow node (or Tor) still counts; the probes run side by side, so a
 // fast node answers long before a slow one times out
@@ -41,26 +43,6 @@ export function lcdUrl(): Promise<string> {
 
 export function resetEndpoint(): void {
 	resolved = null;
-}
-
-/**
- * Contract messages and queries are encrypted to the chain's consensus key.
- * secretjs would ask the node for it, and a node that answered with its own key
- * could read every query (permits included) and every contract message. The
- * key is fixed for secret-4, so it is written down instead of asked for.
- */
-function pinnedEncryption(url: string, seed?: Uint8Array): EncryptionUtilsImpl {
-	const utils = new EncryptionUtilsImpl(url, seed);
-	(utils as unknown as { consensusIoPubKey: Uint8Array }).consensusIoPubKey = fromB64(CONSENSUS_IO_PUBKEY);
-	return utils;
-}
-
-/**
- * The same encryption on its own, for a dApp page (its `getEnigmaUtils`). The
- * consensus key is pinned, so no node is ever asked and the URL is unused.
- */
-export function encryptionFor(seed: Uint8Array): EncryptionUtilsImpl {
-	return pinnedEncryption(LCD_URLS[0]!, seed);
 }
 
 export async function readClient(): Promise<SecretNetworkClient> {

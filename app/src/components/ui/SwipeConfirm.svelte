@@ -2,8 +2,12 @@
 	// Slide to confirm: a square handle that has to be dragged all the way to
 	// the right before a payment goes out. Released early, it springs back.
 	// Keyboard and screen readers: the handle is a button; Enter/Space confirms.
+	// In the browser (extension, web) a slider is a phone gesture with a mouse:
+	// there it is a plain Confirm button under the recap ("Swipe to pay" → "Pay").
 	import { ChevronsRight, Loader2 } from '@lucide/svelte';
 	import { haptic } from '../../lib/haptics';
+	import { isNative } from '../../lib/platform';
+	import Button from './Button.svelte';
 
 	let {
 		label,
@@ -23,6 +27,8 @@
 	const PAD = 4;
 	const max = () => (track ? Math.max(0, track.clientWidth - HANDLE - PAD * 2) : 0);
 	const progress = $derived(max() > 0 ? x / max() : 0);
+	/** "Swipe to pay" → "Pay" */
+	const action = $derived(label.replace(/^Swipe to (\w)/, (_, c: string) => c.toUpperCase()));
 
 	// a finished swipe resets when the payment ends without leaving the screen (e.g. an error)
 	$effect(() => {
@@ -68,6 +74,9 @@
 	}
 </script>
 
+{#if !isNative}
+	<Button block size="xl" loading={loading || done} disabled={disabled || done} onclick={confirm}>{action}</Button>
+{:else}
 <div
 	bind:this={track}
 	class="relative h-16 w-full shrink-0 select-none overflow-hidden rounded-[1.25rem] bg-surface {disabled ? 'opacity-50' : ''}"
@@ -95,3 +104,4 @@
 		{#if loading || done}<Loader2 size={22} class="animate-spin" />{:else}<ChevronsRight size={24} />{/if}
 	</button>
 </div>
+{/if}

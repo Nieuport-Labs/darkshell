@@ -60,6 +60,8 @@ interface Session {
 	permit: Permit;
 	/** the account's transaction encryption, also what a connected dApp encrypts with */
 	enigma: EncryptionUtilsImpl;
+	/** its seed: privacy of this account's contract calls, not its funds (the extension keeps it per browser session) */
+	enigmaSeed: Uint8Array;
 	/** opened with the emergency PIN after a sweep: nothing is ever written back */
 	decoy?: boolean;
 }
@@ -147,7 +149,7 @@ async function activate(v: OpenVault, index: number): Promise<void> {
 	const client = await signingClient(w, seed);
 	const permit = await signPermit(w);
 	const changed = session?.wallet.address !== w.address;
-	session = { vault: v, wallet: w, client, permit, enigma: encryptionFor(seed), decoy: session?.vault === v ? session.decoy : decoy };
+	session = { vault: v, wallet: w, client, permit, enigma: encryptionFor(seed), enigmaSeed: seed, decoy: session?.vault === v ? session.decoy : decoy };
 	if (changed) keystoreChanged();
 	wallet.address = w.address;
 	wallet.active = index;
@@ -611,6 +613,11 @@ export function dappAccount(): DappAccount | null {
 
 export function dappEnigma(): EncryptionUtilsImpl | null {
 	return session?.enigma ?? null;
+}
+
+/** The enigma seed itself, for the extension's background (it answers a site's encrypt/decrypt while the popup is closed). */
+export function dappEnigmaSeed(): Uint8Array | null {
+	return session ? session.enigmaSeed.slice() : null;
 }
 
 /** Signs a request the user has just confirmed (the caller shows it first). */

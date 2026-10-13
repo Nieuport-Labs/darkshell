@@ -11,6 +11,16 @@ export interface Connection {
 	used?: number;
 }
 
+const listeners = new Set<() => void>();
+
+/** Called after a site is connected or disconnected (the extension mirrors the list for its background). */
+export function onConnectionsChange(cb: () => void): () => void {
+	listeners.add(cb);
+	return () => listeners.delete(cb);
+}
+
+const changed = () => listeners.forEach((cb) => cb());
+
 export async function connections(address: string): Promise<Connection[]> {
 	return (await accountKv.get<Connection[]>('dapps', address)) ?? [];
 }
@@ -23,6 +33,7 @@ export async function allow(address: string, origin: string): Promise<void> {
 	const list = await connections(address);
 	if (list.some((c) => c.origin === origin)) return;
 	await accountKv.set('dapps', address, [{ origin, since: Date.now() }, ...list]);
+	changed();
 }
 
 export async function touch(address: string, origin: string): Promise<void> {
@@ -36,6 +47,7 @@ export async function touch(address: string, origin: string): Promise<void> {
 export async function revoke(address: string, origin: string): Promise<void> {
 	const list = await connections(address);
 	await accountKv.set('dapps', address, list.filter((c) => c.origin !== origin));
+	changed();
 }
 
 /** "https://dashboard.nieuportlabs.cz" → "dashboard.nieuportlabs.cz" */

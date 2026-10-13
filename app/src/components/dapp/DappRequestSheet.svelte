@@ -5,6 +5,7 @@
 	import { AlertTriangle, Eye, Globe, KeyRound, Link2, ShieldCheck, ShieldHalf } from '@lucide/svelte';
 	import { answer, dappUi, type Pending } from '../../lib/dapp/host.svelte';
 	import { siteName } from '../../lib/dapp/permissions';
+	import { isNative } from '../../lib/platform';
 	import { shortAddress } from '../../lib/format';
 	import { tokenByAddress, privateSymbol } from '../../lib/tokens';
 	import { OVERALL_LABEL, overallOf } from '../../lib/txSteps';
@@ -34,6 +35,7 @@
 	};
 
 	const title = $derived(item.kind === 'connect' ? 'Connect to site' : (review?.title ?? 'Approve'));
+	const confirmLabel = $derived(item.kind === 'connect' ? 'Connect' : review?.permit ? 'Allow' : review?.text !== undefined ? 'Sign' : 'Approve');
 	const swipe = $derived(item.kind === 'connect' ? 'Swipe to connect' : review?.permit ? 'Swipe to allow' : review?.text !== undefined ? 'Swipe to sign' : 'Swipe to approve');
 
 	function approve() {
@@ -138,8 +140,16 @@
 
 	{#if dappUi.error}<p class="break-address text-base text-negative" role="alert">{dappUi.error}</p>{/if}
 
-	<div class="mt-auto flex flex-col gap-3 pt-4">
-		<SwipeConfirm label={swipe} loading={dappUi.busy} onconfirm={approve} />
-		<Button variant="secondary" block size="lg" onclick={reject}>Reject</Button>
-	</div>
+	{#if isNative}
+		<div class="mt-auto flex flex-col gap-3 pt-4">
+			<SwipeConfirm label={swipe} loading={dappUi.busy} onconfirm={approve} />
+			<Button variant="secondary" block size="lg" onclick={reject}>Reject</Button>
+		</div>
+	{:else}
+		<!-- with a mouse: plain buttons right under the recap -->
+		<div class="flex gap-3 pt-2">
+			<Button variant="secondary" block size="lg" class="flex-1" onclick={reject}>Reject</Button>
+			<Button block size="lg" class="flex-1" loading={dappUi.busy} onclick={approve}>{confirmLabel}</Button>
+		</div>
+	{/if}
 </Modal>
