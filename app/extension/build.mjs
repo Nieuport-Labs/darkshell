@@ -14,7 +14,9 @@ import { build } from 'vite';
 const app = fileURLToPath(new URL('..', import.meta.url));
 const out = `${app}dist-extension`;
 const common = `${out}/common`;
-const version = /versionName "([\d.]+)"/.exec(readFileSync(`${app}android/app/build.gradle`, 'utf8'))?.[1] ?? '0.0.0';
+// the app's version; browsers take digits only, the full name (1.1.0-beta.1) goes in version_name
+const versionName = /versionName "([^"]+)"/.exec(readFileSync(`${app}android/app/build.gradle`, 'utf8'))?.[1] ?? '0.0.0';
+const version = /^[\d.]+/.exec(versionName)?.[0] ?? '0.0.0';
 
 const shared = {
 	configFile: false,
@@ -65,6 +67,7 @@ const base = {
 	manifest_version: 3,
 	name: 'DarkShell',
 	version,
+	...(versionName !== version ? { version_name: versionName } : {}),
 	description: 'A private sSCRT account on Secret Network. Connects to Secret dApps.',
 	icons: { 16: 'favicon.png', 48: 'icon-192.png', 128: 'icon-192.png' },
 	action: { default_popup: 'popup.html', default_title: 'DarkShell' },
@@ -100,4 +103,4 @@ for (const [browser, manifest] of Object.entries(manifests)) {
 	writeFileSync(`${dir}/manifest.json`, `${JSON.stringify(manifest, null, 2)}\n`);
 }
 rmSync(common, { recursive: true, force: true });
-console.log(`→ dist-extension/chrome, dist-extension/firefox (version ${version})`);
+console.log(`→ dist-extension/chrome, dist-extension/firefox (version ${versionName})`);
