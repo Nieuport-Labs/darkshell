@@ -1,14 +1,14 @@
-// Android shell integration (Capacitor). No-ops in a browser.
+// Shell integration in the Android and iOS apps (Capacitor). No-ops in a browser.
 
 import { App } from '@capacitor/app';
-import { Capacitor } from '@capacitor/core';
 import { close, goTab, openPayment, ui } from './ui.svelte';
 import { resetEndpoint } from './chain/client';
 import { initNfc } from './nfc.svelte';
 import { initTor } from './tor.svelte';
 import { refresh, wallet } from './wallet.svelte';
+import { isNative } from './platform';
 
-export const isNative = Capacitor.isNativePlatform();
+export { isNative } from './platform';
 
 let pendingLink: string | null = null;
 

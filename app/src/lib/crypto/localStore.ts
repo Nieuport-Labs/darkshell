@@ -13,7 +13,8 @@ import { normalizeMnemonic } from './account';
 import { buf, fromB64, randomBytes, td, te, toB64, wipe } from './bytes';
 
 /** Records that belong to one account. */
-export type AccountRecord = 'txlog' | 'invoices' | 'ln-orders' | 'x-orders' | 'refill.until' | 'faucet.at';
+export type AccountRecord = 'txlog' | 'invoices' | 'ln-orders' | 'x-orders' | 'refill.until' | 'faucet.at' | 'dapps' | 'walletconnect';
+/** the ones that were once kept in the clear */
 const RECORDS: AccountRecord[] = ['txlog', 'invoices', 'ln-orders', 'x-orders', 'refill.until', 'faucet.at'];
 
 interface Sealed {

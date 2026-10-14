@@ -93,7 +93,7 @@ describe('vault', () => {
 	});
 
 	it('a device-bound record cannot be opened where there is no device key', async () => {
-		await expect(mixRoot(new Uint8Array(32), true)).rejects.toThrow(/phone it was made on/);
+		await expect(mixRoot(new Uint8Array(32), true)).rejects.toThrow(/device it was made on/);
 		const root = new Uint8Array([1, 2, 3]);
 		expect(await mixRoot(root, false)).toBe(root);
 	});

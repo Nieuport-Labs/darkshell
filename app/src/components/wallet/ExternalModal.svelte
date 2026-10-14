@@ -267,7 +267,7 @@
 		</div>
 		<div class="mt-auto flex flex-col gap-2 pt-4">
 			{#if target && !error.includes('Settings')}<Button variant="secondary" block size="xl" onclick={() => (step = 'amount')}>Change amount</Button>{/if}
-			<Button variant="ghost" block onclick={() => (error.includes('Settings') ? open({ name: 'settings' }) : close())}>{error.includes('Settings') ? 'Open Settings' : 'Close'}</Button>
+			<Button variant="ghost" block onclick={() => (error.includes('Settings') ? open({ name: 'settings', page: 'advanced' }) : close())}>{error.includes('Settings') ? 'Open Settings' : 'Close'}</Button>
 		</div>
 	{:else if (step === 'confirm' || step === 'sending') && quote && target && dest}
 		<div class="flex flex-col items-center gap-1 pt-6 text-center">

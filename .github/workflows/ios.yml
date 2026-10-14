@@ -1,0 +1,63 @@
+# Builds the iPhone app on a macOS runner (there is no Mac here).
+# - a simulator build, to prove the Swift code and the plugins compile;
+# - an unsigned .ipa, which a sideloading tool (Sideloadly, AltStore) signs
+#   with a free Apple ID to put it on your own iPhone (valid for 7 days).
+# Signed TestFlight / App Store builds need an Apple Developer account first.
+name: iOS
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+  pull_request:
+    paths: ['app/ios/**', 'app/native/**', 'app/src/**', 'app/package.json', '.github/workflows/ios.yml']
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Web build and Capacitor sync
+        working-directory: app
+        env:
+          CAPACITOR: '1'
+          VITE_WC_PROJECT_ID: ${{ vars.WC_PROJECT_ID }}
+          VITE_FF_KEY: ${{ secrets.FF_KEY }}
+          VITE_FF_SECRET: ${{ secrets.FF_SECRET }}
+        run: |
+          npx vite build
+          npx cap sync ios
+
+      - name: Build for the simulator
+        working-directory: app/ios/App
+        run: |
+          xcodebuild -project App.xcodeproj -scheme App -configuration Debug \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build/sim CODE_SIGNING_ALLOWED=NO build | tail -n 40
+
+      - name: Build an unsigned iPhone app (.ipa)
+        working-directory: app/ios/App
+        run: |
+          xcodebuild -project App.xcodeproj -scheme App -configuration Release \
+            -sdk iphoneos -destination 'generic/platform=iOS' \
+            -derivedDataPath build/device \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build | tail -n 40
+          mkdir -p Payload
+          cp -R build/device/Build/Products/Release-iphoneos/App.app Payload/
+          zip -qr DarkShell-unsigned.ipa Payload
+          shasum -a 256 DarkShell-unsigned.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DarkShell-ios-unsigned
+          path: app/ios/App/DarkShell-unsigned.ipa
+          retention-days: 30

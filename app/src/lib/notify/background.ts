@@ -7,11 +7,12 @@
 // only lets someone recognise incoming sSCRT payments — it cannot spend, and
 // it is never sent anywhere — so this is opt-in.
 
-import { Capacitor, registerPlugin } from '@capacitor/core';
+import { registerPlugin } from '@capacitor/core';
 import { kv } from '../storage';
 import { RPC_URLS, type Watch } from './snip52';
+import { can } from '../platform';
 
-export const canNotify = Capacitor.isNativePlatform();
+export const canNotify = can.bgNotify;
 const CHANNEL = 'payments';
 
 /** WebSocket endpoints that keep a subscription open (checked October 2026). */

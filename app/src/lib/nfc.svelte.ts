@@ -3,7 +3,8 @@
 // payment sheet; one with DarkShell open reads it here and shows the invoice.
 
 import { App } from '@capacitor/app';
-import { Capacitor, registerPlugin, type PluginListenerHandle } from '@capacitor/core';
+import { registerPlugin, type PluginListenerHandle } from '@capacitor/core';
+import { can } from './platform';
 
 interface NfcPlugin {
 	status(): Promise<{ available: boolean; enabled: boolean; hce: boolean }>;
@@ -32,7 +33,7 @@ async function readStatus(): Promise<void> {
 
 /** Reads tags while the app is open; every link read goes to `onUrl`. */
 export async function initNfc(onUrl: (url: string) => void): Promise<void> {
-	if (!Capacitor.isNativePlatform()) return;
+	if (!can.nfc) return;
 	await readStatus();
 	if (!nfc.available) return;
 	await Nfc.addListener('read', ({ url }) => {

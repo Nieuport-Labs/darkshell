@@ -33,6 +33,14 @@
                 <data android:scheme="lightning" />
             </intent-filter>
 
+            <!-- wc: a site on another device connecting through WalletConnect -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="wc" />
+            </intent-filter>
+
         </activity>
 
         <!-- The payment sheet over the browser or app that asked for a payment

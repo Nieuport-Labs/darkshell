@@ -2,15 +2,17 @@
 // unlocked; locking drops every reference to them. Nothing here ever sends a
 // transaction on its own — every transaction is one the user confirmed.
 
-import type { Msg, Permit, SecretNetworkClient, Wallet } from 'secretjs';
+import type { EncryptionUtilsImpl, Msg, Permit, SecretNetworkClient, Wallet } from 'secretjs';
 import { encryptionSeedFor, newMnemonic, walletFromMnemonic } from './crypto/account';
 import { recordFailure, resetFailures, waitMs } from './crypto/lockout';
 import {
 	bindVaultToDevice,
 	changeSecret,
 	createVault,
+	exportVaultKey,
 	hasVault,
 	openVault,
+	resumeVault,
 	saveVault,
 	vaultAddress,
 	vaultKind,
@@ -20,7 +22,9 @@ import {
 	type OpenVault,
 	type SecretKind,
 } from './crypto/vault';
-import { nativeBalance, signingClient } from './chain/client';
+import { encryptionFor, nativeBalance, signingClient } from './chain/client';
+import type { DappAccount, SignRequest, SignResult } from './dapp/provider';
+import { signRequest } from './dapp/sign';
 import { signPermit, sscrtBalance, sscrtHistory, type HistoryItem } from './chain/sscrt';
 import { isSending, refillDue, refillSource, sendTx, type TxOutcome } from './chain/tx';
 import { CREDIT_FLOOR, CREDIT_REFILL, CREDIT_URGENT, GAS, GAS_PRICE, GAS_VAULT_ADDRESS, MIN_REFILL, SSCRT_ADDRESS } from './config';
@@ -48,6 +52,8 @@ import { queryDelegations } from './chain/staking';
 import { MSG_EXECUTE } from './gas/feePayer';
 import { startPrice, stopPrice } from './price.svelte';
 import { SHEET_WORD_KEY } from './sheetWord';
+import { platform } from './platform';
+import { allowScreenshots } from './screenshots';
 
 export type Phase = 'loading' | 'onboarding' | 'locked' | 'unlocked';
 
@@ -56,6 +62,10 @@ interface Session {
 	wallet: Wallet;
 	client: SecretNetworkClient;
 	permit: Permit;
+	/** the account's transaction encryption, also what a connected dApp encrypts with */
+	enigma: EncryptionUtilsImpl;
+	/** its seed: privacy of this account's contract calls, not its funds (the extension keeps it per browser session) */
+	enigmaSeed: Uint8Array;
 	/** opened with the emergency PIN after a sweep: nothing is ever written back */
 	decoy?: boolean;
 }
@@ -122,6 +132,7 @@ export interface LoggedTx {
 export type PayInfo = Pick<LoggedTx, 'to' | 'amount' | 'symbol' | 'memo' | 'wrapped'>;
 
 export async function init(): Promise<void> {
+	if (session) return; // already opened (resumeWallet)
 	if (await hasVault()) {
 		wallet.address = (await vaultAddress()) ?? '';
 		wallet.kind = await vaultKind();
@@ -142,7 +153,9 @@ async function activate(v: OpenVault, index: number): Promise<void> {
 	const seed = await encryptionSeedFor(mnemonic, index);
 	const client = await signingClient(w, seed);
 	const permit = await signPermit(w);
-	session = { vault: v, wallet: w, client, permit, decoy: session?.vault === v ? session.decoy : decoy };
+	const changed = session?.wallet.address !== w.address;
+	session = { vault: v, wallet: w, client, permit, enigma: encryptionFor(seed), enigmaSeed: seed, decoy: session?.vault === v ? session.decoy : decoy };
+	if (changed) keystoreChanged();
 	wallet.address = w.address;
 	wallet.active = index;
 	wallet.balance = null;
@@ -243,7 +256,7 @@ export async function unlock(secret: string, opts: { brief?: boolean } = {}): Pr
 	if (wait > 0) throw new LockedOutError(wait);
 	// both PINs are tried together, so the time taken never tells which one it was
 	const [real, duress] = await Promise.all([
-		openVault(secret).catch((e: unknown) => (e instanceof Error ? e : new Error(String(e)))),
+		openVault(secret, platform === 'extension').catch((e: unknown) => (e instanceof Error ? e : new Error(String(e)))),
 		hasDuress().then((has) => (has ? openDuress(secret) : null)),
 	]);
 	if (duress) {
@@ -260,6 +273,24 @@ export async function unlock(secret: string, opts: { brief?: boolean } = {}): Pr
 	await resetFailures();
 	// vaults from before the device key are sealed again under it, once
 	await open(await bindVaultToDevice(secret, real).catch(() => real));
+}
+
+/**
+ * The browser extension, within its idle timeout: opens with the vault key
+ * kept in the browser session (src/extension/unlock.ts) instead of the PIN.
+ */
+export async function resumeWallet(raw: Uint8Array): Promise<void> {
+	const v = await resumeVault(raw);
+	brief = false;
+	wallet.address = (await vaultAddress()) ?? '';
+	wallet.kind = await vaultKind();
+	await open(v);
+}
+
+/** The open vault's key, for the extension to resume with; null for a decoy or a key that can't leave. */
+export async function sessionVaultKey(): Promise<Uint8Array | null> {
+	if (!session || session.decoy) return null;
+	return exportVaultKey(session.vault);
 }
 
 /* ------------------------------- emergency PIN ------------------------------ */
@@ -561,7 +592,9 @@ export function cosmosAddress(): string {
 }
 
 export function lock(): void {
+	const had = !!session;
 	session = null;
+	if (had) keystoreChanged();
 	closeLocalStore();
 	stopWatcher();
 	stopPrice();
@@ -575,6 +608,45 @@ export function lock(): void {
 	wallet.chainActivity = [];
 	wallet.phase = wallet.address ? 'locked' : 'onboarding';
 	stopAutoLock();
+}
+
+/* ------------------------------- dApp support -------------------------------- */
+//
+// What a connected site may use (lib/dapp): the active account's address and
+// public key, its encryption, and a signature on a request the user confirmed
+// on screen. Never the phrase or the private key.
+
+const keystoreListeners = new Set<() => void>();
+
+function keystoreChanged(): void {
+	for (const cb of keystoreListeners) cb();
+}
+
+/** Called when the active account changes or the wallet locks: connected sites ask again. */
+export function onKeystoreChange(cb: () => void): () => void {
+	keystoreListeners.add(cb);
+	return () => keystoreListeners.delete(cb);
+}
+
+/** The active account as a site sees it; null while locked. */
+export function dappAccount(): DappAccount | null {
+	if (!session) return null;
+	return { name: activeName(), address: session.wallet.address, pubkey: session.wallet.publicKey };
+}
+
+export function dappEnigma(): EncryptionUtilsImpl | null {
+	return session?.enigma ?? null;
+}
+
+/** The enigma seed itself, for the extension's background (it answers a site's encrypt/decrypt while the popup is closed). */
+export function dappEnigmaSeed(): Uint8Array | null {
+	return session ? session.enigmaSeed.slice() : null;
+}
+
+/** Signs a request the user has just confirmed (the caller shows it first). */
+export async function dappSign(req: SignRequest): Promise<SignResult> {
+	if (!session) throw new Error('Wallet is locked');
+	return signRequest(session.wallet, req);
 }
 
 export function client(): SecretNetworkClient {
@@ -972,7 +1044,9 @@ async function faucetGrant(address: string): Promise<boolean> {
 
 /* ---------------------------------- auto-lock --------------------------------- */
 
-const IDLE_MS = 5 * 60_000;
+// the extension's popup closes whenever the user clicks away: there the
+// timeout runs in the background (an alarm), and a hidden popup doesn't lock
+const IDLE_MS = (platform === 'extension' ? 15 : 5) * 60_000;
 const HIDDEN_MS = 60_000;
 let idleTimer: ReturnType<typeof setTimeout> | undefined;
 let hiddenAt = 0;
@@ -983,6 +1057,7 @@ function bump() {
 }
 
 function onVisibility() {
+	if (platform === 'extension') return;
 	if (document.hidden) hiddenAt = Date.now();
 	else if (hiddenAt && Date.now() - hiddenAt > HIDDEN_MS) lock();
 	else if (session) void refresh();
@@ -1006,7 +1081,7 @@ function stopAutoLock() {
 
 export async function forgetDevice(): Promise<void> {
 	lock();
-	await Promise.allSettled([disableBiometric(), clearBackground()]);
+	await Promise.allSettled([disableBiometric(), clearBackground(), allowScreenshots(false)]);
 	await kv.clear();
 	wallet.address = '';
 	wallet.phase = 'onboarding';

@@ -5,9 +5,10 @@
 // The faucet sends no CORS headers, so the app calls it through native HTTP
 // (Capacitor); in a browser the call only works if the faucet allows it.
 
-import { Capacitor, CapacitorHttp } from '@capacitor/core';
+import { CapacitorHttp } from '@capacitor/core';
 import { FAUCET_URL } from '../config';
 import { accountKv } from '../crypto/localStore';
+import { can } from '../platform';
 
 /** the faucet hands out one grant a day per address */
 const COOLDOWN_MS = 24 * 3600_000;
@@ -34,7 +35,7 @@ export async function claimFaucet(address: string): Promise<void> {
 	let status: number;
 	let data: unknown;
 	try {
-		if (Capacitor.isNativePlatform()) {
+		if (can.nativeHttp) {
 			const r = await CapacitorHttp.get({ url, connectTimeout: 30_000, readTimeout: 60_000 });
 			status = r.status;
 			data = r.data;
