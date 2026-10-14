@@ -1,0 +1,12 @@
+{
+  "name": "darkshell-native",
+  "version": "1.0.0",
+  "private": true,
+  "description": "DarkShell's own iOS plugins: the vault's Secure Enclave key, and covering the screen in the app switcher.",
+  "files": ["Package.swift", "ios/Sources"],
+  "capacitor": {
+    "ios": {
+      "src": "ios"
+    }
+  }
+}

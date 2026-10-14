@@ -5,7 +5,7 @@
 // then opened exactly as if it had been typed.
 
 import { kv } from '../storage';
-import { can } from '../platform';
+import { can, platform } from '../platform';
 
 const SERVER = 'cash.darkshell.wallet.pin';
 
@@ -40,7 +40,7 @@ export async function biometricPin(): Promise<string> {
 	const c = await NativeBiometric.getSecureCredentials({
 		server: SERVER,
 		title: 'Unlock DarkShell',
-		subtitle: 'Use your fingerprint',
+		subtitle: platform === 'ios' ? 'Use Face ID' : 'Use your fingerprint',
 		negativeButtonText: 'Use PIN',
 	});
 	return c.password;
