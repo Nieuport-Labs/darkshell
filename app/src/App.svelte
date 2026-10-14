@@ -118,7 +118,7 @@
 	{:else if ui.dialog?.name === 'invoice'}
 		{#key ui.dialog.id}<InvoiceModal fromReceive={ui.dialog.fromReceive} id={ui.dialog.id} />{/key}
 	{:else if ui.dialog?.name === 'settings'}
-		<SettingsModal />
+		<SettingsModal start={ui.dialog.page} />
 	{:else if ui.dialog?.name === 'accounts'}
 		<AccountsModal />
 	{:else if ui.dialog?.name === 'contacts'}

@@ -46,7 +46,7 @@
 </script>
 
 <Modal full title="Receive sSCRT" onclose={close}>
-	<div class="mx-auto mt-4 w-full max-w-[340px] [animation:none]">
+	<div class="receive-qr mx-auto mt-4 w-full max-w-[340px] [animation:none]">
 		<Qr fill value={encodePaymentUri(req)} label="QR code asking for sSCRT" />
 	</div>
 

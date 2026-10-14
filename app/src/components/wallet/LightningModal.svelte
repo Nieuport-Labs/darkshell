@@ -286,7 +286,7 @@
 			<p class="text-base">{error}</p>
 		</div>
 		<div class="mt-auto pt-4">
-			<Button variant="secondary" block size="xl" onclick={() => (error.includes('Settings') ? open({ name: 'settings' }) : close())}>{error.includes('Settings') ? 'Open Settings' : 'Close'}</Button>
+			<Button variant="secondary" block size="xl" onclick={() => (error.includes('Settings') ? open({ name: 'settings', page: 'advanced' }) : close())}>{error.includes('Settings') ? 'Open Settings' : 'Close'}</Button>
 		</div>
 	{:else if (step === 'confirm' || step === 'sending') && target && ffPrice && quote}
 		<div class="flex flex-col items-center gap-1 pt-6 text-center">

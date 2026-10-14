@@ -11,7 +11,7 @@ export type Dialog =
 	| { name: 'pay'; target: Extract<Target, { kind: 'secret' }>; raw: string }
 	| { name: 'receive' }
 	| { name: 'invoice'; fromReceive?: boolean; id?: string }
-	| { name: 'settings' }
+	| { name: 'settings'; page?: 'security' | 'gas' | 'sites' | 'advanced' }
 	| { name: 'accounts' }
 	| { name: 'contacts' }
 	| { name: 'stake'; validator?: string; mode?: 'stake' | 'unstake' }

@@ -33,6 +33,8 @@ export const can = {
 	biometric: isNative,
 	/** requests without CORS (FixedFloat, the faucet): native HTTP, or an extension's host permissions */
 	crossOrigin: isNative || platform === 'extension',
+	/** screenshots and recording blocked unless allowed in Settings (FLAG_SECURE, iOS cover) */
+	screenShield: isNative,
 	/** native HTTP through Capacitor */
 	nativeHttp: isNative,
 };
