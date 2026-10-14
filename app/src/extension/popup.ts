@@ -2,9 +2,15 @@
 import { mount } from 'svelte';
 import App from '../App.svelte';
 import { startSync } from './sync';
+import { resume, watchIdle } from './unlock';
 import '../design/index.css';
 
-// the toolbar popup is sized by its page: a phone-sized one (popup.html?tab, in a tab, fills the tab)
-if (!new URLSearchParams(location.search).has('tab')) document.documentElement.classList.add('ext-popup');
+// the toolbar popup is sized by its page; in a tab (popup.html?tab) or the side panel (panel.html) it fills it
+const html = document.documentElement;
+html.classList.add('ext');
+if (!new URLSearchParams(location.search).has('tab') && !html.hasAttribute('data-panel')) html.classList.add('ext-popup');
 startSync();
+watchIdle();
+// still within the idle time: open without the PIN
+await resume();
 mount(App, { target: document.getElementById('app')! });

@@ -1,7 +1,8 @@
 // Builds the browser extension: `node extension/build.mjs` (from app/).
 // → dist-extension/chrome and dist-extension/firefox, each ready to load
 //   unpacked (chrome://extensions, about:debugging) or to zip for a store.
-// The pages (popup = the whole wallet, approve = the approval window) are the
+// The pages (popup = the whole wallet, panel = the same in the side panel,
+// approve = the approval window) are the
 // same Svelte app; the background, content and in-page scripts are single
 // files, as content scripts and Firefox backgrounds can't be ES modules.
 
@@ -38,7 +39,7 @@ await build({
 		target: 'es2022',
 		cssTarget: ['chrome110', 'firefox128'],
 		chunkSizeWarningLimit: 4096,
-		rollupOptions: { input: { popup: `${app}extension/popup.html`, approve: `${app}extension/approve.html` } },
+		rollupOptions: { input: { popup: `${app}extension/popup.html`, panel: `${app}extension/panel.html`, approve: `${app}extension/approve.html` } },
 	},
 });
 
@@ -77,10 +78,17 @@ const base = {
 };
 
 const manifests = {
-	chrome: { ...base, minimum_chrome_version: '111', background: { service_worker: 'background.js' } },
+	chrome: {
+		...base,
+		minimum_chrome_version: '116',
+		permissions: [...base.permissions, 'sidePanel'],
+		side_panel: { default_path: 'panel.html' },
+		background: { service_worker: 'background.js' },
+	},
 	firefox: {
 		...base,
 		background: { scripts: ['background.js'] },
+		sidebar_action: { default_panel: 'panel.html', default_title: 'DarkShell', default_icon: 'favicon.png', open_at_install: false },
 		browser_specific_settings: { gecko: { id: 'wallet@darkshell.cash', strict_min_version: '128.0' } },
 	},
 };

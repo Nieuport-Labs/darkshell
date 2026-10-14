@@ -43,6 +43,7 @@ declare namespace chrome {
 		function update(id: number, o: { focused?: boolean; drawAttention?: boolean }): Promise<unknown>;
 		function remove(id: number): Promise<void>;
 		function getLastFocused(): Promise<{ left?: number; top?: number; width?: number }>;
+		function getCurrent(): Promise<{ id?: number }>;
 		const onRemoved: { addListener(cb: (id: number) => void): void };
 	}
 	namespace tabs {
@@ -55,4 +56,6 @@ declare namespace chrome {
 		function clear(name: string): Promise<boolean>;
 		const onAlarm: { addListener(cb: (a: { name: string }) => void): void };
 	}
+	/** Chrome 116+ (Firefox has sidebarAction instead) */
+	const sidePanel: { open(o: { windowId: number }): Promise<void> } | undefined;
 }

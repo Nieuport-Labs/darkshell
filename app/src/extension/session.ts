@@ -3,7 +3,7 @@
 // it is connected to. Kept in `chrome.storage.session` (memory only, gone
 // when the browser closes, readable by the extension's own pages and
 // background, not by content scripts). Never the phrase, the private key or
-// the PIN: every signature still goes through the approval window and its PIN.
+// the PIN. (The vault key, while unlocked, is kept by unlock.ts.)
 
 export interface DappSession {
 	account: { name: string; address: string; pubkey: string };
@@ -30,6 +30,9 @@ export async function writeSession(s: DappSession | null): Promise<void> {
 }
 
 export const SESSION_KEY = KEY;
+
+/** the open vault's key while the wallet is unlocked (unlock.ts) */
+export const UNLOCK_KEY = 'unlock';
 
 /** A site the user disconnected while the wallet was locked: dropped from the vault's list at the next unlock. */
 export interface PendingRevoke {

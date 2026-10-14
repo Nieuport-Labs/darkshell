@@ -166,10 +166,29 @@ export async function createVault(
 	return { secrets, key };
 }
 
-export async function openVault(secret: string): Promise<OpenVault> {
+/** `extractable`: the browser extension keeps the key for its idle timeout (see resumeVault). */
+export async function openVault(secret: string, extractable = false): Promise<OpenVault> {
 	const record = await vaultRecord();
 	if (!record) throw new Error('No wallet on this device');
-	const key = await aesKey(secret, record.kdf, fromB64(record.hkdfSalt), false, record.hw);
+	const key = await aesKey(secret, record.kdf, fromB64(record.hkdfSalt), extractable, record.hw);
+	return { secrets: await unseal<WalletSecrets>(record.iv, record.ct, key), key };
+}
+
+/** The open vault's key as bytes, when it was opened extractable; else null. */
+export async function exportVaultKey(open: OpenVault): Promise<Uint8Array | null> {
+	if (!open.key.extractable) return null;
+	return new Uint8Array(await crypto.subtle.exportKey('raw', open.key));
+}
+
+/**
+ * Opens the vault with a key exported by `exportVaultKey` (the extension,
+ * within its idle timeout). Fails like a wrong PIN once the vault was sealed
+ * under another key (a new PIN).
+ */
+export async function resumeVault(raw: Uint8Array): Promise<OpenVault> {
+	const record = await vaultRecord();
+	if (!record) throw new Error('No wallet on this device');
+	const key = await crypto.subtle.importKey('raw', buf(raw), 'AES-GCM', true, ['encrypt', 'decrypt']);
 	return { secrets: await unseal<WalletSecrets>(record.iv, record.ct, key), key };
 }
 

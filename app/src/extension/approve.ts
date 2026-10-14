@@ -3,4 +3,6 @@ import { mount } from 'svelte';
 import ApproveApp from './ApproveApp.svelte';
 import '../design/index.css';
 
+document.documentElement.classList.add('ext');
+
 mount(ApproveApp, { target: document.getElementById('app')! });

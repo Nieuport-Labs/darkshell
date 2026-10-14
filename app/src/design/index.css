@@ -29,12 +29,23 @@
     color-scheme: normal;
   }
 
+  /* the browser extension's pages (popup, side panel, approval window): every
+     size is rem, so a smaller root makes the whole wallet denser on a desktop */
+  html.ext {
+    font-size: 14px;
+  }
+
   /* the browser extension's toolbar popup: sized by its page */
   html.ext-popup,
   html.ext-popup body {
     width: 380px;
     height: 600px;
     min-height: 0;
+  }
+
+  /* in the 600px popup the receive QR leaves room for the address and buttons */
+  html.ext-popup .receive-qr {
+    max-width: 13rem;
   }
 
   :focus-visible {

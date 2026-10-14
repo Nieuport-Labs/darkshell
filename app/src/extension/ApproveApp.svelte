@@ -1,7 +1,8 @@
 <script lang="ts">
 	// The extension's approval window. The background sends the requests a site
-	// made that need the user; this window unlocks the wallet for them (PIN,
-	// each time it opens), shows each one in full and answers. It closes when
+	// made that need the user; this window unlocks the wallet for them (the PIN,
+	// unless the wallet was used within the idle time), shows each one in full
+	// and answers. It closes when
 	// nothing is left. The sheet word shows it is DarkShell's own window.
 	import { Globe, Loader2 } from '@lucide/svelte';
 	import { onMount } from 'svelte';
@@ -16,6 +17,7 @@
 	import { sheetWord } from '../lib/sheetWord';
 	import { init, LockedOutError, unlock, wallet } from '../lib/wallet.svelte';
 	import { startSync, syncSession } from './sync';
+	import { resume, watchIdle } from './unlock';
 
 	let word = $state<string | null>(null);
 	let origin = $state('');
@@ -46,8 +48,10 @@
 
 	onMount(() => {
 		startSync();
+		watchIdle();
 		void sheetWord().then((w) => (word = w));
-		void init();
+		// unlocked a moment ago (within the idle time): no PIN
+		void resume().then((ok) => (ok ? void work() : init()));
 		port = chrome.runtime.connect({ name: 'approve' });
 		port.onMessage.addListener((msg: { type: string; origin?: string; req?: DappRequest }) => {
 			if (msg.type === 'request' && msg.origin && msg.req) {

@@ -6,7 +6,8 @@
 <script lang="ts">
 	// Layout after Vizor (account header, balance card, Send/Receive, recent
 	// activity); components and tokens from Secret_Dashboard.
-	import { ArrowDownToLine, ChevronDown, Eye, EyeOff, Loader2, Lock, ScanLine, Send } from '@lucide/svelte';
+	import { ArrowDownToLine, ChevronDown, Eye, EyeOff, Loader2, Lock, PanelRight, ScanLine, Send } from '@lucide/svelte';
+	import { openSidePanel, sidePanelAvailable } from '../lib/sidePanel';
 	import { formatAmount, shortAddress } from '../lib/format';
 	import { kv } from '../lib/storage';
 	import { price, usdValue } from '../lib/price.svelte';
@@ -61,11 +62,16 @@
 		</span>
 	</button>
 	<div class="flex shrink-0 items-center gap-1">
-		<TorIcon onclick={() => open({ name: 'settings' })} />
-		<GasChip onclick={() => open({ name: 'settings' })} />
+		<TorIcon onclick={() => open({ name: 'settings', page: 'advanced' })} />
+		<GasChip onclick={() => open({ name: 'settings', page: 'gas' })} />
 		<button type="button" onclick={() => (ui.scanning = true)} aria-label="Scan QR code" class="state-layer rounded-pill p-2 text-text-muted">
 			<ScanLine size={20} />
 		</button>
+		{#if sidePanelAvailable}
+			<button type="button" onclick={openSidePanel} aria-label="Keep open in the side panel" title="Keep open in the side panel" class="state-layer rounded-pill p-2 text-text-muted">
+				<PanelRight size={20} />
+			</button>
+		{/if}
 	</div>
 </header>
 

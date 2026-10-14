@@ -11,7 +11,7 @@ import { sha256 } from '@noble/hashes/sha2.js';
 import { fromB64 } from '../lib/crypto/bytes';
 import { encryptionFor } from '../lib/chain/enigma';
 import { DAPP_CHAIN_ID, decode, encode, validOrigin, type DappRequest, type DappResponse } from '../lib/dapp/protocol';
-import { IDLE_MINUTES, pendingRevokes, readSession, SESSION_KEY, setPendingRevokes, writeSession, type DappSession } from './session';
+import { IDLE_MINUTES, pendingRevokes, readSession, SESSION_KEY, UNLOCK_KEY, setPendingRevokes, writeSession, type DappSession } from './session';
 
 /* ------------------------------ answered here ------------------------------ */
 
@@ -178,7 +178,7 @@ async function touch(s: DappSession): Promise<void> {
 }
 
 chrome.alarms.onAlarm.addListener((a) => {
-	if (a.name === 'lock') void writeSession(null);
+	if (a.name === 'lock') void Promise.all([writeSession(null), chrome.storage.session.remove(UNLOCK_KEY)]);
 });
 
 /** Pages that asked for the account are told when it changes, or locks. */

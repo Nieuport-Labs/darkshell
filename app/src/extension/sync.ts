@@ -5,15 +5,20 @@
 
 import { toB64 } from '../lib/crypto/bytes';
 import { connections, onConnectionsChange, revoke } from '../lib/dapp/permissions';
-import { dappAccount, dappEnigmaSeed, onKeystoreChange } from '../lib/wallet.svelte';
+import { dappAccount, dappEnigmaSeed, onKeystoreChange, sessionVaultKey } from '../lib/wallet.svelte';
 import { pendingRevokes, setPendingRevokes, writeSession } from './session';
+import { rememberUnlock } from './unlock';
 
 let running: Promise<void> = Promise.resolve();
 
 async function sync(): Promise<void> {
 	const a = dappAccount();
 	const seed = dappEnigmaSeed();
-	if (!a || !seed) return writeSession(null);
+	if (!a || !seed) {
+		await rememberUnlock(null);
+		return writeSession(null);
+	}
+	await rememberUnlock(await sessionVaultKey());
 	// sites disconnected from the page while the wallet was locked
 	const revokes = await pendingRevokes();
 	const mine = revokes.filter((r) => r.address === a.address);
