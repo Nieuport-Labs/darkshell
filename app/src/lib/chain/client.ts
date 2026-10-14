@@ -1,5 +1,5 @@
 import { SecretNetworkClient, type Wallet } from 'secretjs';
-import { CHAIN_ID, LCD_URLS } from '../config';
+import { CHAIN_ID, DEFAULT_LCD, LCD_FALLBACKS, LCD_URLS } from '../config';
 import { kv } from '../storage';
 import { pinnedEncryption } from './enigma';
 
@@ -26,14 +26,15 @@ async function probe(url: string): Promise<boolean> {
 
 let resolved: Promise<string> | null = null;
 
-/** First endpoint that answers for the right chain; a user override in settings goes first. */
+/** The node set in Settings, else the default node, else the first public one to answer. */
 export function lcdUrl(): Promise<string> {
 	return (resolved ??= (async () => {
 		const custom = (await kv.get<string>('settings.lcd'))?.trim();
 		// a node set in Settings is used when it answers; otherwise the first public one to answer
 		if (custom && (await probe(custom.replace(/\/+$/, '')))) return custom.replace(/\/+$/, '');
+		if (await probe(DEFAULT_LCD)) return DEFAULT_LCD;
 		try {
-			return await Promise.any(LCD_URLS.map(async (url) => ((await probe(url)) ? url : Promise.reject(new Error(url)))));
+			return await Promise.any(LCD_FALLBACKS.map(async (url) => ((await probe(url)) ? url : Promise.reject(new Error(url)))));
 		} catch {
 			resolved = null;
 			throw new Error('No Secret Network node is reachable right now. Check your connection.');

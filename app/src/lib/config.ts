@@ -17,16 +17,22 @@ export const SSCRT_SYMBOL = 'sSCRT';
 /** gas-vault contract from github.com/jirkacepelka/fee-granter (code id 2611). */
 export const GAS_VAULT_ADDRESS = 'secret1kkmu4vydkppkhzmx00glm20vn47t09544adv0g';
 
+/** The node the wallet uses unless Settings name another (all platforms). */
+export const DEFAULT_LCD = 'https://lcd.secret.mainnet.secret3.dev';
+
 /**
- * Public LCD nodes, asked all at once; the first to answer for secret-4 wins.
- * Checked October 2026: Secret Saturn, secret.express and secret-api.lavenderfive
- * no longer resolve, and Keplr's answers in ~10 s (often 503).
+ * Public LCD nodes, asked all at once when the default does not answer; the
+ * first to answer for secret-4 wins. Checked October 2026: Secret Saturn,
+ * secret.express and secret-api.lavenderfive no longer resolve, and Keplr's
+ * answers in ~10 s (often 503).
  */
-export const LCD_URLS = [
+export const LCD_FALLBACKS = [
 	'https://rest.lavenderfive.com:443/secretnetwork',
 	'https://secretnetwork-api.lavenderfive.com',
 	'https://lcd-secret.keplr.app',
 ];
+
+export const LCD_URLS = [DEFAULT_LCD, ...LCD_FALLBACKS];
 
 /**
  * secret-4's consensus IO public key (registration/v1beta1/tx-key). Pinned so
