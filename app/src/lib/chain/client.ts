@@ -2,6 +2,7 @@ import { SecretNetworkClient, type Wallet } from 'secretjs';
 import { CHAIN_ID, DEFAULT_LCD, LCD_FALLBACKS, LCD_URLS } from '../config';
 import { kv } from '../storage';
 import { pinnedEncryption } from './enigma';
+import { t } from '../i18n/index.svelte';
 
 export { encryptionFor } from './enigma';
 
@@ -37,7 +38,7 @@ export function lcdUrl(): Promise<string> {
 			return await Promise.any(LCD_FALLBACKS.map(async (url) => ((await probe(url)) ? url : Promise.reject(new Error(url)))));
 		} catch {
 			resolved = null;
-			throw new Error('No Secret Network node is reachable right now. Check your connection.');
+			throw new Error(t('No Secret Network node is reachable right now. Check your connection.'));
 		}
 	})());
 }

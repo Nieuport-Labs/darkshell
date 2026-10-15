@@ -9,6 +9,7 @@ import { pay, wallet } from '../wallet.svelte';
 import type { Target } from './classify';
 import { buildPlan, type QuoteState } from './plan';
 import { needsSwap } from './payments';
+import { t as tr } from '../i18n/index.svelte';
 
 export type InvoiceTarget = Extract<Target, { kind: 'secret' }>;
 
@@ -47,11 +48,11 @@ export function sscrtCost(f: InvoiceFacts, quote: QuoteState): bigint | null {
 
 /** Why it can't be paid now, or '' (balance checked only when `available` is known). */
 export function blockReason(t: InvoiceTarget, f: InvoiceFacts, quote: QuoteState, available: bigint | null, me = wallet.address): string {
-	if (f.expired) return 'This request has expired.';
-	if (t.request.address === me) return 'This is your own request.';
-	if (quote.kind === 'unavailable') return `There is no ShadeSwap route from sSCRT to ${t.asset.symbol} right now.`;
+	if (f.expired) return tr('This request has expired.');
+	if (t.request.address === me) return tr('This is your own request.');
+	if (quote.kind === 'unavailable') return tr('There is no ShadeSwap route from sSCRT to {0} right now.', { 0: t.asset.symbol });
 	const cost = sscrtCost(f, quote);
-	if (cost !== null && available !== null && cost > available) return 'Not enough sSCRT.';
+	if (cost !== null && available !== null && cost > available) return tr('Not enough sSCRT.');
 	return '';
 }
 
@@ -68,7 +69,7 @@ export async function payInvoice(t: InvoiceTarget, f: InvoiceFacts, quote: Quote
 
 export function failureText(e: unknown): string {
 	return e instanceof NoGasError
-		? 'Nothing can pay the network fee: gas credits are empty. See Settings → Gas credits.'
+		? tr('Nothing can pay the network fee: gas credits are empty. See Settings → Gas credits.')
 		: e instanceof BusyError || e instanceof Error
 			? e.message
 			: String(e);

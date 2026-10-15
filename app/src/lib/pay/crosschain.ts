@@ -10,6 +10,7 @@ import { createOrder, ffConfigured, price, type FfOrder, type FfPrice } from '..
 import { DECIMALS, EVM_NETWORKS, fromBase, type Coin, type EvmNetwork } from './external';
 import { ATOM_TOKEN, lightningPayment, type PaymentPlan } from './payments';
 import { quoteInto, type PaddedQuote } from './quote';
+import { t } from '../i18n/index.svelte';
 
 export interface Destination {
 	coin: Coin;
@@ -42,22 +43,22 @@ export function atomBase(amount: string): bigint {
 }
 
 export function ffPriceError(p: FfPrice, d: Pick<Destination, 'coin' | 'network'>): string {
-	if (p.errors.includes('LIMIT_MIN')) return `Too small for FixedFloat: the minimum is about ${p.to.min ?? '?'} ${d.coin}.`;
-	if (p.errors.includes('LIMIT_MAX')) return `Too large for FixedFloat: the maximum is about ${p.to.max ?? '?'} ${d.coin}.`;
-	if (p.errors.some((e) => e.startsWith('MAINTENANCE') || e.startsWith('OFFLINE'))) return `FixedFloat is under maintenance for ATOM or ${d.coin}. Try later.`;
-	if (p.errors.some((e) => e.startsWith('RESERVE'))) return `FixedFloat does not have enough ${d.coin} right now.`;
-	return `FixedFloat cannot take this order (${p.errors.join(', ')}).`;
+	if (p.errors.includes('LIMIT_MIN')) return t('Too small for FixedFloat: the minimum is about {0} {1}.', { 0: p.to.min ?? '?', 1: d.coin });
+	if (p.errors.includes('LIMIT_MAX')) return t('Too large for FixedFloat: the maximum is about {0} {1}.', { 0: p.to.max ?? '?', 1: d.coin });
+	if (p.errors.some((e) => e.startsWith('MAINTENANCE') || e.startsWith('OFFLINE'))) return t('FixedFloat is under maintenance for ATOM or {0}. Try later.', { 0: d.coin });
+	if (p.errors.some((e) => e.startsWith('RESERVE'))) return t('FixedFloat does not have enough {0} right now.', { 0: d.coin });
+	return t('FixedFloat cannot take this order ({0}).', { 0: p.errors.join(', ') });
 }
 
 /** What the recipient's amount costs in sSCRT, through FixedFloat. */
 export async function quoteCross(client: SecretNetworkClient, d: Destination): Promise<CrossQuote> {
-	if (!ffConfigured()) throw new Error('Payments to other chains need a FixedFloat API key. Add one in Settings → Lightning (FixedFloat).');
+	if (!ffConfigured()) throw new Error(t('Payments to other chains need a FixedFloat API key. Add one in Settings → Lightning (FixedFloat).'));
 	const p = await price('ATOM', FF_CODE(d), fromBase(d.amount, DECIMALS[d.coin]));
 	if (p.errors.length) throw new Error(ffPriceError(p, d));
 	const atom = atomBase(p.from.amount);
 	const q = await quoteInto(client, SSCRT_ADDRESS, ATOM_TOKEN, atom);
-	if (!q) throw new Error('There is no ShadeSwap route from sSCRT to ATOM right now.');
-	return { sscrt: q.amountIn, minutes: d.coin === 'BTC' ? 40 : d.coin === 'XMR' ? 30 : 15, price: p, quote: q, atom, via: `FixedFloat · ${p.from.amount} ATOM` };
+	if (!q) throw new Error(t('There is no ShadeSwap route from sSCRT to ATOM right now.'));
+	return { sscrt: q.amountIn, minutes: d.coin === 'BTC' ? 40 : d.coin === 'XMR' ? 30 : 15, price: p, quote: q, atom, via: t('FixedFloat · {0} ATOM', { 0: p.from.amount }) };
 }
 
 /** Creates the order (fixes the ATOM amount, deposit address and memo), then the plan that pays it. */
@@ -70,7 +71,7 @@ export async function ffPlan(
 	const order = await createOrder('ATOM', FF_CODE(d), fromBase(d.amount, DECIMALS[d.coin]), d.address);
 	const atom = atomBase(order.from.amount);
 	const q = shown.amountOut >= atom ? shown : await quoteInto(client, SSCRT_ADDRESS, ATOM_TOKEN, atom);
-	if (!q) throw new Error('There is no ShadeSwap route from sSCRT to ATOM right now.');
+	if (!q) throw new Error(t('There is no ShadeSwap route from sSCRT to ATOM right now.'));
 	const plan = await lightningPayment(client, sender, q, atom, order.from.address, order.from.tag ?? '');
 	return { order, plan, atom, quote: q };
 }

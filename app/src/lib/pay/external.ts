@@ -9,6 +9,7 @@
 
 import { keccak_256 } from '@noble/hashes/sha3.js';
 import { sha256 } from '@noble/hashes/sha2.js';
+import { t } from '../i18n/index.svelte';
 
 export type Coin = 'ETH' | 'BTC' | 'XMR';
 export type EvmNetwork = 'ethereum' | 'arbitrum' | 'base' | 'optimism';
@@ -43,10 +44,10 @@ export class ExternalError extends Error {}
 /** "2.014e18" / "1000" (base units, as EIP-681 writes them) → bigint. */
 export function sciToBigInt(s: string): bigint {
 	const m = s.trim().match(/^(\d+)(?:\.(\d+))?(?:e(\d+))?$/i);
-	if (!m) throw new ExternalError('The amount in this request is not valid.');
+	if (!m) throw new ExternalError(t('The amount in this request is not valid.'));
 	const [, int, frac = '', exp = '0'] = m;
 	const e = Number(exp);
-	if (frac.length > e) throw new ExternalError('The amount in this request is not a whole number of base units.');
+	if (frac.length > e) throw new ExternalError(t('The amount in this request is not a whole number of base units.'));
 	return BigInt(int + frac + '0'.repeat(e - frac.length));
 }
 
@@ -196,14 +197,14 @@ export function parseExternal(raw: string): ExternalTarget | { lightning: string
 	// Ethereum
 	if (scheme === 'ethereum' || (!scheme && /^0x[0-9a-fA-F]{40}$/.test(s))) {
 		const m = rest.match(/^(?:pay-)?(0x[0-9a-fA-F]{40})(?:@(\d+))?(\/[A-Za-z]+)?(?:\?(.*))?$/);
-		if (!m) throw new ExternalError(scheme ? 'This Ethereum request could not be read.' : 'This is not a valid Ethereum address.');
+		if (!m) throw new ExternalError(scheme ? t('This Ethereum request could not be read.') : t('This is not a valid Ethereum address.'));
 		const [, address, chainId, fn, q] = m;
-		if (!isEthAddress(address!)) throw new ExternalError('This Ethereum address has a wrong checksum: it was probably mistyped.');
-		if (fn) throw new ExternalError('This asks for a token payment. DarkShell can send ETH to an Ethereum address, not tokens yet.');
+		if (!isEthAddress(address!)) throw new ExternalError(t('This Ethereum address has a wrong checksum: it was probably mistyped.'));
+		if (fn) throw new ExternalError(t('This asks for a token payment. DarkShell can send ETH to an Ethereum address, not tokens yet.'));
 		let network: EvmNetwork | undefined;
 		if (chainId) {
 			network = EVM_NETWORKS.find((n) => n.chainId === chainId)?.id;
-			if (!network) throw new ExternalError(`This request is for a network DarkShell can't pay on (chain id ${chainId}). Supported: Ethereum, Arbitrum, Base, Optimism.`);
+			if (!network) throw new ExternalError(t('This request is for a network DarkShell can\'t pay on (chain id {0}). Supported: Ethereum, Arbitrum, Base, Optimism.', { 0: chainId }));
 		}
 		const value = params(q).get('value');
 		const amount = value ? fromBase(sciToBigInt(value), 18) : undefined;
@@ -216,14 +217,14 @@ export function parseExternal(raw: string): ExternalTarget | { lightning: string
 		const p = params(q);
 		const ln = p.get('lightning');
 		if (ln) return { lightning: ln };
-		if (!addr && ln === null) throw new ExternalError('This Bitcoin request has no address.');
+		if (!addr && ln === null) throw new ExternalError(t('This Bitcoin request has no address.'));
 		if (!isBtcAddress(addr)) {
-			if (/^(tb1|bcrt1|[mn2])/i.test(addr)) throw new ExternalError('This is a Bitcoin testnet address. DarkShell pays mainnet only.');
+			if (/^(tb1|bcrt1|[mn2])/i.test(addr)) throw new ExternalError(t('This is a Bitcoin testnet address. DarkShell pays mainnet only.'));
 			if (!scheme && /^[13]/.test(addr)) return null; // could be anything base58
-			throw new ExternalError('This Bitcoin address is not valid (checksum failed): it was probably mistyped.');
+			throw new ExternalError(t('This Bitcoin address is not valid (checksum failed): it was probably mistyped.'));
 		}
 		const amount = p.get('amount') ?? undefined;
-		if (amount !== undefined && toBase(amount, 8) === null) throw new ExternalError('The amount in this Bitcoin request is not valid.');
+		if (amount !== undefined && toBase(amount, 8) === null) throw new ExternalError(t('The amount in this Bitcoin request is not valid.'));
 		const note = p.get('message') ?? p.get('label') ?? undefined;
 		return { kind: 'external', coin: 'BTC', address: /^bc1/i.test(addr) ? addr.toLowerCase() : addr, amount, note };
 	}
@@ -232,12 +233,12 @@ export function parseExternal(raw: string): ExternalTarget | { lightning: string
 	if (scheme === 'monero' || (!scheme && /^[48][1-9A-HJ-NP-Za-km-z]{94}(?:[1-9A-HJ-NP-Za-km-z]{11})?$/.test(s))) {
 		const [addr, q] = rest.split('?') as [string, string | undefined];
 		if (!isXmrAddress(addr)) {
-			if (/^[579AB]/.test(addr)) throw new ExternalError('This is a Monero testnet or stagenet address. DarkShell pays mainnet only.');
-			throw new ExternalError('This Monero address is not valid (checksum failed): it was probably mistyped.');
+			if (/^[579AB]/.test(addr)) throw new ExternalError(t('This is a Monero testnet or stagenet address. DarkShell pays mainnet only.'));
+			throw new ExternalError(t('This Monero address is not valid (checksum failed): it was probably mistyped.'));
 		}
 		const p = params(q);
 		const amount = p.get('tx_amount') ?? undefined;
-		if (amount !== undefined && toBase(amount, 12) === null) throw new ExternalError('The amount in this Monero request is not valid.');
+		if (amount !== undefined && toBase(amount, 12) === null) throw new ExternalError(t('The amount in this Monero request is not valid.'));
 		const note = p.get('tx_description') ?? p.get('recipient_name') ?? undefined;
 		return { kind: 'external', coin: 'XMR', address: addr, amount, note };
 	}

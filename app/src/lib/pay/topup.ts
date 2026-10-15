@@ -1,3 +1,4 @@
+import { t } from '../i18n/index.svelte';
 // How much of a payment comes from outside the sSCRT balance: claimable staking
 // rewards first, then public SCRT. Both are wrapped into sSCRT in front of the
 // payment, in the same transaction (wallet.svelte.ts `pay`).
@@ -26,6 +27,6 @@ export function planTopUp(spends: bigint, sscrt: bigint, rewards: bigint, native
 	const claim = rewards >= MIN_CLAIM && (shortfall > 0n || rewards >= CLAIM_ALONG);
 	const fromRewards = claim ? rewards : 0n;
 	const fromNative = shortfall > fromRewards ? shortfall - fromRewards : 0n;
-	if (fromNative > native) throw new ShortError('Not enough funds for this payment.');
+	if (fromNative > native) throw new ShortError(t('Not enough funds for this payment.'));
 	return { claim, fromRewards, fromNative, deposit: fromRewards + fromNative };
 }

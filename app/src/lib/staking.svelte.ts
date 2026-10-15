@@ -23,6 +23,7 @@ import {
 } from './chain/staking';
 import { queryMyVote, queryProposals, VOTE_LABELS, votePlan, type Proposal, type VoteOption } from './chain/governance';
 import { client, pay, wallet } from './wallet.svelte';
+import { t } from './i18n/index.svelte';
 
 export const staking = $state({
 	/** whose figures these are (they reset when the account changes) */
@@ -128,7 +129,7 @@ export async function unstake(validator: string, amount: bigint, onBroadcast?: O
 export async function claimAll(onBroadcast?: OnBroadcast): Promise<TxOutcome> {
 	// auto-restaked rewards can vanish before the transaction runs: leave those to the chain
 	const claimable = staking.rewards.filter((r) => !staking.restaking.includes(r.validator));
-	if (!claimable.length) throw new Error('No rewards to claim yet.');
+	if (!claimable.length) throw new Error(t('No rewards to claim yet.'));
 	const plan = await claimPlan(client(), wallet.address, claimable, staking.ownWithdraw);
 	const out = await pay(plan, 'claim', onBroadcast, { amount: plan.wrapped.toString(), symbol: 'SCRT', wrapped: plan.wrapped ? plan.wrapped.toString() : undefined });
 	setTimeout(() => void loadStaking(), out.status === 'confirmed' ? 0 : 8000);

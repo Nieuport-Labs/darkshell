@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '../../lib/i18n/index.svelte';
 	// Full-screen receive page (Vizor/Zashi style): one QR asking for private
 	// sSCRT, the account, share. While it is open, a phone held to this one gets
 	// the address over NFC (an amount-less link: the payer's wallet asks how much).
@@ -36,7 +37,7 @@
 		const text = shareTarget(req);
 		try {
 			if (navigator.share) {
-				return await navigator.share(text.startsWith('http') ? { title: 'My sSCRT address', text: formatShort(req), url: text } : { title: 'My address', text });
+				return await navigator.share(text.startsWith('http') ? { title: t('My sSCRT address'), text: formatShort(req), url: text } : { title: t('My address'), text });
 			}
 		} catch {
 			return;
@@ -45,9 +46,9 @@
 	}
 </script>
 
-<Modal full title="Receive sSCRT" onclose={close}>
+<Modal full title={t('Receive sSCRT')} onclose={close}>
 	<div class="receive-qr mx-auto mt-4 w-full max-w-[340px] [animation:none]">
-		<Qr fill value={encodePaymentUri(req)} label="QR code asking for sSCRT" />
+		<Qr fill value={encodePaymentUri(req)} label={t('QR code asking for sSCRT')} />
 	</div>
 
 	<div class="flex flex-col items-center gap-1.5 text-center">
@@ -58,29 +59,29 @@
 	{#if nfc.sharing}
 		<p class="nfc-hint flex items-center justify-center gap-2 text-base text-text-muted">
 			<span class="nfc-wave relative flex size-7 items-center justify-center text-accent"><Nfc size={18} aria-hidden="true" /></span>
-			Or hold their phone to the back of this one
+			{t('Or hold their phone to the back of this one')}
 		</p>
 	{:else if nfc.canShare && !nfc.enabled}
-		<p class="flex items-center justify-center gap-1.5 text-label text-text-faint"><Nfc size={15} aria-hidden="true" /> Turn on NFC to share it by tapping phones</p>
+		<p class="flex items-center justify-center gap-1.5 text-label text-text-faint"><Nfc size={15} aria-hidden="true" /> {t('Turn on NFC to share it by tapping phones')}</p>
 	{/if}
 
 	<div class="mt-auto flex flex-col items-center gap-3 pt-4">
 		<div class="flex w-full items-center gap-3">
 			<button type="button" onclick={share} class="state-layer flex h-14 flex-1 items-center justify-center gap-2.5 rounded-pill bg-text text-base font-medium text-bg">
 				<Share2 size={19} aria-hidden="true" />
-				Share address
+				{t('Share address')}
 			</button>
 			<button
 				type="button"
 				onclick={() => open({ name: 'invoice', fromReceive: true })}
-				aria-label="Create invoice"
+				aria-label={t('Create invoice')}
 				class="state-layer flex size-14 shrink-0 items-center justify-center rounded-pill bg-surface-3 text-text"
 			>
 				<ReceiptText size={20} aria-hidden="true" />
 			</button>
 		</div>
 		<button type="button" onclick={copy} class="state-layer flex items-center gap-2 rounded-pill px-4 py-2.5 text-base font-medium">
-			{#if copied}<Check size={18} class="text-positive" aria-hidden="true" /> Copied{:else}<Copy size={18} aria-hidden="true" /> Copy address{/if}
+			{#if copied}<Check size={18} class="text-positive" aria-hidden="true" /> {t('Copied')}{:else}<Copy size={18} aria-hidden="true" /> {t('Copy address')}{/if}
 		</button>
 	</div>
 </Modal>

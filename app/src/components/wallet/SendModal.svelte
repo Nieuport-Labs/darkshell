@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '../../lib/i18n/index.svelte';
 	// After Secret_Dashboard src/components/wallet/SendPanel.tsx.
 	import { ArrowLeftRight, BookUser, Eye, ScanLine, Send, ShieldCheck } from '@lucide/svelte';
 	import { fromBaseUnits, toBaseUnits } from 'secret-pay';
@@ -16,7 +17,7 @@
 	import Button from '../ui/Button.svelte';
 	import Modal from '../ui/Modal.svelte';
 	import SwipeConfirm from '../ui/SwipeConfirm.svelte';
-	import { usdValue } from '../../lib/price.svelte';
+	import { fiatValue } from '../../lib/price.svelte';
 	import ContactList from './ContactList.svelte';
 	import TxStage from './TxStage.svelte';
 
@@ -50,8 +51,8 @@
 		}
 	});
 	const spends = $derived(quote.kind === 'ready' ? quote.quote.amountIn : swapping ? null : base);
-	const amountError = $derived(amount && base === null ? 'Enter a valid amount.' : spends !== null && spendable() !== null && spends > spendable()! ? 'More than your balance.' : '');
-	const recipientError = $derived(target?.kind === 'error' ? target.message : target && 'request' in target && target.request.address === wallet.address ? 'This is your own address.' : '');
+	const amountError = $derived(amount && base === null ? t('Enter a valid amount.') : spends !== null && spendable() !== null && spends > spendable()! ? t('More than your balance.') : '');
+	const recipientError = $derived(target?.kind === 'error' ? target.message : target && 'request' in target && target.request.address === wallet.address ? t('This is your own address.') : '');
 	/** names the recipient when it is one of yours or in the address book */
 	const contactName = $derived.by(() => {
 		const a = toAddressOf(target);
@@ -107,7 +108,7 @@
 			haptic.error();
 			failure =
 				e instanceof NoGasError
-					? 'Nothing can pay the network fee: gas credits are empty. See Settings → Gas credits.'
+					? t('Nothing can pay the network fee: gas credits are empty. See Settings → Gas credits.')
 					: e instanceof BusyError
 						? e.message
 						: e instanceof Error
@@ -118,7 +119,7 @@
 		}
 	}
 
-	const label = $derived(!recipient.trim() ? 'Enter a recipient' : !amount ? 'Enter an amount' : 'Review');
+	const label = $derived(!recipient.trim() ? t('Enter a recipient') : !amount ? t('Enter an amount') : t('Review'));
 	const toAddress = $derived(target?.kind === 'ibc' ? target.address : target?.kind === 'secret' ? target.request.address : recipient.trim());
 	const isPrivate = $derived(target?.kind === 'secret' && target.asset.private);
 
@@ -127,7 +128,7 @@
 
 <Modal
 	full
-	title={picking ? 'Choose recipient' : reviewing && !outcome && !sending ? 'Confirm' : 'Send'}
+	title={picking ? t('Choose recipient') : reviewing && !outcome && !sending ? t('Confirm') : t('Send')}
 	onclose={close}
 	onback={picking ? () => (picking = false) : reviewing && !outcome && !sending ? () => ((reviewing = false), (failure = '')) : undefined}
 >
@@ -141,61 +142,61 @@
 	{:else if outcome || sending}
 		<TxStage
 			{outcome}
-			verbs={['Sending', 'Sent']}
+			verbs={[t('Sending'), t('Sent')]}
 			{amount}
 			unit={symbol}
-			sub={symbol === 'sSCRT' && base !== null && usdValue(base) ? `≈ ${usdValue(base)}` : undefined}
-			line="to {contactName || shortAddress(toAddress, 10, 6)}"
+			sub={symbol === 'sSCRT' && base !== null && fiatValue(base) ? `≈ ${fiatValue(base)}` : undefined}
+			line={t('to {0}', { 0: contactName || shortAddress(toAddress, 10, 6) })}
 			ondone={close}
 		>
 			{#snippet icon()}<Send size={30} />{/snippet}
 		</TxStage>
 	{:else if reviewing}
 		<div class="flex flex-col items-center gap-1 pt-6 text-center">
-			<span class="text-label text-text-faint">You're sending</span>
+			<span class="text-label text-text-faint">{t('You\'re sending')}</span>
 			<div class="flex items-baseline gap-2">
 				<span class="text-[2.75rem] font-semibold leading-tight tracking-[-0.03em] tabular-nums">{amount}</span>
 				<span class="text-title text-text-muted">{symbol}</span>
 			</div>
-			{#if symbol === 'sSCRT' && base !== null && usdValue(base)}<span class="text-base tabular-nums text-text-faint">≈ {usdValue(base)}</span>{/if}
+			{#if symbol === 'sSCRT' && base !== null && fiatValue(base)}<span class="text-base tabular-nums text-text-faint">≈ {fiatValue(base)}</span>{/if}
 		</div>
 		<dl class="flex flex-col divide-y divide-border rounded-card border border-border bg-surface-1 text-base">
 			<div class="flex flex-col gap-1 px-4 py-3.5">
-				<dt class="text-text-faint">To{contactName ? ` · ${contactName}` : ''}{target?.kind === 'ibc' ? ` · ${target.dest.name}` : ''}</dt>
+				<dt class="text-text-faint">{t('To')}{contactName ? ` · ${contactName}` : ''}{target?.kind === 'ibc' ? ` · ${target.dest.name}` : ''}</dt>
 				<dd class="break-all font-mono text-[0.875rem]">{toAddress}</dd>
 			</div>
 			{#if memo.trim()}
-				<div class="flex items-start justify-between gap-4 px-4 py-3.5"><dt class="text-text-faint">Memo</dt><dd class="break-words text-right">{memo.trim()}</dd></div>
+				<div class="flex items-start justify-between gap-4 px-4 py-3.5"><dt class="text-text-faint">{t('Memo')}</dt><dd class="break-words text-right">{memo.trim()}</dd></div>
 			{/if}
 			{#if quote.kind === 'ready'}
 				<div class="flex items-start justify-between gap-4 px-4 py-3.5">
-					<dt class="text-text-faint">You pay</dt><dd class="text-right tabular-nums">≈ {formatAmount(quote.quote.amountIn)} sSCRT <span class="block text-label text-text-faint">swapped on ShadeSwap</span></dd>
+					<dt class="text-text-faint">{t('You pay')}</dt><dd class="text-right tabular-nums">≈ {formatAmount(quote.quote.amountIn)} sSCRT <span class="block text-label text-text-faint">{t('swapped on ShadeSwap')}</span></dd>
 				</div>
 			{/if}
 			<div class="flex items-start justify-between gap-4 px-4 py-3.5">
-				<dt class="text-text-faint">Privacy</dt>
-				<dd class="flex items-center gap-1.5 text-right">{#if isPrivate}<ShieldCheck size={14} class="text-accent" /> Private{:else}<Eye size={14} /> Public{/if}</dd>
+				<dt class="text-text-faint">{t('Privacy')}</dt>
+				<dd class="flex items-center gap-1.5 text-right">{#if isPrivate}<ShieldCheck size={14} class="text-accent" /> {t('Private')}{:else}<Eye size={14} /> {t('Public')}{/if}</dd>
 			</div>
-			<div class="flex items-start justify-between gap-4 px-4 py-3.5"><dt class="text-text-faint">Network fee</dt><dd class="text-right">Paid from gas credits</dd></div>
+			<div class="flex items-start justify-between gap-4 px-4 py-3.5"><dt class="text-text-faint">{t('Network fee')}</dt><dd class="text-right">{t('Paid from gas credits')}</dd></div>
 		</dl>
 		{#if failure}<p class="break-address text-base text-negative animate-[shake_400ms_var(--ease-standard)]" role="alert">{failure}</p>{/if}
-		<div class="mt-auto pt-4"><SwipeConfirm label="Swipe to send" loading={sending} disabled={!ready && !sending} onconfirm={submit} /></div>
+		<div class="mt-auto pt-4"><SwipeConfirm label={t('Swipe to send')} loading={sending} disabled={!ready && !sending} onconfirm={submit} /></div>
 	{:else}
 		<div class="flex items-center gap-2 rounded-pill bg-surface py-1.5 pl-5 pr-1.5">
 			<input
 				value={recipient}
 				oninput={(e) => read(e.currentTarget.value)}
-				placeholder="Address or invoice"
-				aria-label="Recipient"
+				placeholder={t('Address or invoice')}
+				aria-label={t('Recipient')}
 				spellcheck="false"
 				autocomplete="off"
 				autocapitalize="none"
 				class="min-w-0 flex-1 bg-transparent py-2 font-mono text-sm outline-none placeholder:font-sans placeholder:text-base placeholder:text-text-faint"
 			/>
-			<button type="button" class="state-layer flex size-10 shrink-0 items-center justify-center rounded-pill bg-surface-3" aria-label="Address book" onclick={() => (picking = true)}>
+			<button type="button" class="state-layer flex size-10 shrink-0 items-center justify-center rounded-pill bg-surface-3" aria-label={t('Address book')} onclick={() => (picking = true)}>
 				<BookUser size={18} />
 			</button>
-			<button type="button" class="state-layer flex size-10 shrink-0 items-center justify-center rounded-pill bg-surface-3" aria-label="Scan QR code" onclick={() => (ui.scanning = true)}>
+			<button type="button" class="state-layer flex size-10 shrink-0 items-center justify-center rounded-pill bg-surface-3" aria-label={t('Scan QR code')} onclick={() => (ui.scanning = true)}>
 				<ScanLine size={18} />
 			</button>
 		</div>
@@ -205,26 +206,26 @@
 		<div class="flex flex-1 flex-col items-center justify-center gap-2">
 			<AmountHero bind:amount {symbol} fiat={symbol === 'sSCRT'} max={swapping ? undefined : () => spendable() !== null && (amount = fromBaseUnits(spendable()!, 6))} />
 			<p class="text-label text-text-faint">
-				{#if quote.kind === 'ready'}≈ {formatAmount(quote.quote.amountIn)} sSCRT via ShadeSwap
-				{:else if quote.kind === 'loading'}Finding a price…
-				{:else if quote.kind === 'unavailable'}No ShadeSwap route to {symbol}
-				{:else}{formatAmount(spendable())} available{/if}
+				{#if quote.kind === 'ready'}{t('≈ {0} sSCRT via ShadeSwap', { 0: formatAmount(quote.quote.amountIn) })}
+				{:else if quote.kind === 'loading'}{t('Finding a price…')}
+				{:else if quote.kind === 'unavailable'}{t('No ShadeSwap route to {0}', { 0: symbol })}
+				{:else}{t('{0} available', { 0: formatAmount(spendable()) })}{/if}
 			</p>
 			{#if amountError}<p class="text-label text-negative" role="alert">{amountError}</p>{/if}
 			{#if target}
 				<span class="mt-1 inline-flex items-center gap-1.5 rounded-pill bg-surface px-3 py-1 text-label text-text-muted">
-					{#if target.kind === 'ibc'}<ArrowLeftRight size={12} /> Public · to {target.dest.name}
-					{:else if target.kind === 'secret' && !target.asset.private}<Eye size={12} /> Public {target.asset.symbol}
-					{:else}<ShieldCheck size={12} class="text-accent" /> Private{/if}
+					{#if target.kind === 'ibc'}<ArrowLeftRight size={12} /> {t('Public · to {0}', { 0: target.dest.name })}
+					{:else if target.kind === 'secret' && !target.asset.private}<Eye size={12} /> {t('Public {0}', { 0: target.asset.symbol })}
+					{:else}<ShieldCheck size={12} class="text-accent" /> {t('Private')}{/if}
 				</span>
 			{/if}
 		</div>
 
 		{#if target?.kind !== 'ibc'}
 			{#if showMemo || memo}
-				<input bind:value={memo} maxlength="256" placeholder="Private memo" aria-label="Memo" class="rounded-pill bg-surface px-5 py-3 text-base outline-none placeholder:text-text-faint" />
+				<input bind:value={memo} maxlength="256" placeholder={t('Private memo')} aria-label={t('Memo')} class="rounded-pill bg-surface px-5 py-3 text-base outline-none placeholder:text-text-faint" />
 			{:else}
-				<button type="button" onclick={() => (showMemo = true)} class="self-center text-label text-text-muted">+ Add memo</button>
+				<button type="button" onclick={() => (showMemo = true)} class="self-center text-label text-text-muted">{t('+ Add memo')}</button>
 			{/if}
 		{/if}
 

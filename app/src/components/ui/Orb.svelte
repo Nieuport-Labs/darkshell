@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '../../lib/i18n/index.svelte';
 	// A transaction in one shape (styles: `.orb` in design/index.css): a ring
 	// spinning while it is signed and sent, slower while it waits for a block,
 	// then a closed circle that fills, ticks and sends out ripples and sparks.
@@ -22,7 +23,7 @@
 	}));
 </script>
 
-<div class="orb {still ? 'is-still' : ''}" data-state={state} style="--orb-size: {size}" role="img" aria-label={label ?? (state === 'done' ? 'Done' : 'In progress')}>
+<div class="orb {still ? 'is-still' : ''}" data-state={state} style="--orb-size: {size}" role="img" aria-label={label ?? (state === 'done' ? t('Done') : t('In progress'))}>
 	<span class="orb-glow"></span>
 	<span class="orb-ripple"></span>
 	<span class="orb-ripple"></span>

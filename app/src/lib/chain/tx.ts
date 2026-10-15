@@ -17,6 +17,7 @@ import { availableFee, type FeeGrant } from '../gas/feegrant-sdk';
 import { accountKv } from '../crypto/localStore';
 import { codeHash, nativeBalance } from './client';
 import { torReady } from '../tor.svelte';
+import { t } from '../i18n/index.svelte';
 
 export class TxFailedError extends Error {
 	constructor(
@@ -32,17 +33,17 @@ class RejectedError extends TxFailedError {}
 
 export class BusyError extends Error {
 	constructor() {
-		super('A payment is already being sent. Wait for it to finish.');
+		super(t('A payment is already being sent. Wait for it to finish.'));
 	}
 }
 
 /** Turns chain errors into something a person can read. */
 export function humanizeTxError(raw: string): string {
-	if (/insufficient funds/i.test(raw)) return 'Not enough balance for this payment.';
-	if (/fee-grant not found|fee allowance|basic allowance/i.test(raw)) return 'The fee grant could not pay this fee.';
-	if (/out of gas/i.test(raw)) return 'The network needed more gas than expected.';
-	if (/account sequence mismatch/i.test(raw)) return 'Another transaction was still pending. Try again in a few seconds.';
-	if (/swap|expected_return|slippage|minimum/i.test(raw)) return 'The swap price moved. Try again for a new quote.';
+	if (/insufficient funds/i.test(raw)) return t('Not enough balance for this payment.');
+	if (/fee-grant not found|fee allowance|basic allowance/i.test(raw)) return t('The fee grant could not pay this fee.');
+	if (/out of gas/i.test(raw)) return t('The network needed more gas than expected.');
+	if (/account sequence mismatch/i.test(raw)) return t('Another transaction was still pending. Try again in a few seconds.');
+	if (/swap|expected_return|slippage|minimum/i.test(raw)) return t('The swap price moved. Try again for a new quote.');
 	return raw.length > 240 ? `${raw.slice(0, 240)}…` : raw;
 }
 
@@ -145,7 +146,7 @@ export async function sendTx(
 ): Promise<TxOutcome> {
 	if (inFlight) throw new BusyError();
 	// with Tor on, the network waits for Tor; a payment should not hang on it
-	if (!torReady()) throw new Error('Tor is still connecting. Try again once the onion at the top turns green.');
+	if (!torReady()) throw new Error(t('Tor is still connecting. Try again once the onion at the top turns green.'));
 	inFlight = true;
 	try {
 		const [grants, native] = await Promise.all([fetchGrants(address), nativeBalance(client, address)]);
@@ -174,7 +175,7 @@ export async function sendTx(
 				/* refill not affordable: send without it */
 			}
 		}
-		if (all.length === 0) throw new TxFailedError('Nothing to send.');
+		if (all.length === 0) throw new TxFailedError(t('Nothing to send.'));
 
 		const options = {
 			gasLimit: plan.gasLimit,
@@ -229,7 +230,7 @@ async function broadcastOnce(client: SecretNetworkClient, bytes: Uint8Array): Pr
 			await new Promise((r) => setTimeout(r, 1500));
 		}
 	}
-	throw new TxFailedError(`Could not reach the network: ${lastError instanceof Error ? lastError.message : String(lastError)}`);
+	throw new TxFailedError(t('Could not reach the network: {0}', { 0: lastError instanceof Error ? lastError.message : String(lastError) }));
 }
 
 async function hashOf(bytes: Uint8Array): Promise<string> {

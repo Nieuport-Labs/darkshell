@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '../../lib/i18n/index.svelte';
 	// "Payment received" toasts from SNIP-52 notifications (see lib/notify).
 	import { ArrowDownLeft } from '@lucide/svelte';
 	import { formatAmount } from '../../lib/format';
@@ -25,8 +26,8 @@
 		>
 			<span class="flex size-9 shrink-0 items-center justify-center rounded-pill bg-[color-mix(in_srgb,var(--color-positive)_15%,transparent)] text-positive"><ArrowDownLeft size={18} /></span>
 			<span class="flex min-w-0 flex-1 flex-col">
-				<span class="text-base font-medium tabular-nums">{n.amount !== undefined ? `+${formatAmount(n.amount)} sSCRT` : 'Payment received'}</span>
-				<span class="truncate text-label text-text-muted">{other ? `Received on ${other}` : 'Received privately'}</span>
+				<span class="text-base font-medium tabular-nums">{n.amount !== undefined ? t('+{0} sSCRT', { 0: formatAmount(n.amount) }) : t('Payment received')}</span>
+				<span class="truncate text-label text-text-muted">{other ? t('Received on {0}', { 0: other }) : t('Received privately')}</span>
 			</span>
 		</button>
 	{/each}

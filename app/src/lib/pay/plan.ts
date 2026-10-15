@@ -8,6 +8,7 @@ import { client, wallet } from '../wallet.svelte';
 import type { Target } from './classify';
 import { ibcPayment, needsSwap, requestPayment, sscrtTransfer, type PaymentPlan } from './payments';
 import { quoteInto, type PaddedQuote } from './quote';
+import { t } from '../i18n/index.svelte';
 
 export type QuoteState = { kind: 'none' } | { kind: 'loading' } | { kind: 'ready'; quote: PaddedQuote } | { kind: 'unavailable' };
 
@@ -29,7 +30,7 @@ export function assetOf(target: Target): InvoiceAsset | undefined {
 export async function buildPlan(target: Target, amount: bigint, memo: string | undefined, quote?: PaddedQuote): Promise<PaymentPlan> {
 	const sender = wallet.address;
 	if (target.kind === 'ibc') return ibcPayment(client(), sender, target.address, target.dest, amount, memo);
-	if (target.kind !== 'secret') throw new Error('Nothing to pay.');
+	if (target.kind !== 'secret') throw new Error(t('Nothing to pay.'));
 	const req: PaymentRequest = target.request;
 	if (target.asset.token.address === SSCRT_ADDRESS && target.asset.private) {
 		return sscrtTransfer(client(), sender, req.address, amount, (memo ?? req.memo ?? req.id) || undefined);

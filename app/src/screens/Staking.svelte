@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '../lib/i18n/index.svelte';
 	// Staking and governance. Staking works from the private balance: sSCRT is
 	// unwrapped and delegated in one transaction; claimed rewards go straight
 	// back into sSCRT; unstaked SCRT comes back public after 21 days and is made
@@ -9,7 +10,7 @@
 	import ValidatorAvatar from '../components/wallet/ValidatorAvatar.svelte';
 	import { STATUS_LABELS, timeLeft, VOTE_LABELS } from '../lib/chain/governance';
 	import { formatAmount } from '../lib/format';
-	import { usdValue } from '../lib/price.svelte';
+	import { fiatValue } from '../lib/price.svelte';
 	import { loadGovernance, loadStaking, staking, totalRewards, totalStaked, validatorName, validatorOf } from '../lib/staking.svelte';
 	import { kv } from '../lib/storage';
 	import { open, ui } from '../lib/ui.svelte';
@@ -40,16 +41,16 @@
 
 	function days(d: Date): string {
 		const n = Math.ceil((d.getTime() - Date.now()) / 86_400_000);
-		return n <= 0 ? 'any moment' : n === 1 ? 'tomorrow' : `in ${n} days`;
+		return n <= 0 ? t('any moment') : n === 1 ? t('tomorrow') : t('in {0} days', { 0: n });
 	}
 	const pct = (x: number) => `${+(x * 100).toFixed(1)} %`;
 </script>
 
 <div class="flex flex-col gap-7">
-	<PageHeader title="Earn" />
+	<PageHeader title={t('Earn')} />
 
 	<div class="-mt-5 grid grid-cols-2 gap-1 rounded-pill bg-surface p-1" role="tablist">
-		{#each [['staking', 'Staking'], ['governance', 'Vote']] as [v, label] (v)}
+		{#each [['staking', t('Staking')], ['governance', t('Vote')]] as [v, label] (v)}
 			<button
 				type="button"
 				role="tab"
@@ -64,37 +65,37 @@
 		<!-- what you have staked and what it earns: one card -->
 		<section class="flex flex-col gap-4 rounded-card border border-border bg-surface-1 p-5">
 			<div class="flex flex-col gap-1">
-				<span class="text-label text-text-faint">Staked</span>
+				<span class="text-label text-text-faint">{t('Staked')}</span>
 				<div class="flex items-baseline gap-2">
 					<span class="text-[2.5rem] font-semibold leading-none tracking-[-0.03em] tabular-nums">{staking.loaded ? hide(formatAmount(staked, 2)) : '—'}</span>
 					<span class="text-title text-text-muted">SCRT</span>
 				</div>
 				<span class="text-base text-text-faint">
-					{#if staking.apr}Earns ≈ {pct(staking.apr)} a year{:else}Earn SCRT for helping run the network{/if}{#if staking.loaded && staked > 0n && usdValue(staked) && !ui.hideBalance}
-						· ≈ {usdValue(staked)}{/if}
+					{#if staking.apr}{t('Earns ≈ {0} a year', { 0: pct(staking.apr) })}{:else}{t('Earn SCRT for helping run the network')}{/if}{#if staking.loaded && staked > 0n && fiatValue(staked) && !ui.hideBalance}
+						· ≈ {fiatValue(staked)}{/if}
 				</span>
 			</div>
 			{#if rewards > 0n}
 				<div class="flex items-center justify-between gap-3 border-t border-border pt-4">
 					<span class="min-w-0">
-						<span class="block text-label text-text-faint">Earned so far</span>
+						<span class="block text-label text-text-faint">{t('Earned so far')}</span>
 						<span class="block text-title tabular-nums text-positive">+{hide(formatAmount(rewards, 6))} SCRT</span>
 					</span>
-					<Button variant="soft" size="sm" onclick={() => open({ name: 'action', action: 'claim' })}>Collect</Button>
+					<Button variant="soft" size="sm" onclick={() => open({ name: 'action', action: 'claim' })}>{t('Collect')}</Button>
 				</div>
 			{/if}
 		</section>
-		{#if rewards > 0n}<p class="-mt-5 px-1 text-label text-text-faint">Already counted in your balance; collected for you whenever you pay.</p>{/if}
+		{#if rewards > 0n}<p class="-mt-5 px-1 text-label text-text-faint">{t('Already counted in your balance; collected for you whenever you pay.')}</p>{/if}
 
 		<div class="grid gap-3 {staked > 0n ? 'grid-cols-2' : 'grid-cols-1'}">
 			<Button block size="lg" onclick={() => open({ name: 'stake', mode: 'stake' })}>
 				{#snippet icon()}<Plus size={18} />{/snippet}
-				Stake
+				{t('Stake')}
 			</Button>
 			{#if staked > 0n}
 				<Button variant="secondary" block size="lg" onclick={() => open({ name: 'stake', mode: 'unstake' })}>
 					{#snippet icon()}<Minus size={18} />{/snippet}
-					Unstake
+					{t('Unstake')}
 				</Button>
 			{/if}
 		</div>
@@ -102,12 +103,12 @@
 		{#if publicScrt}
 			<div class="flex items-center justify-between gap-3 rounded-card border border-border bg-surface-1 px-4 py-3">
 				<span class="min-w-0">
-					<span class="block text-label text-text-faint">Public SCRT, not private yet</span>
+					<span class="block text-label text-text-faint">{t('Public SCRT, not private yet')}</span>
 					<span class="block text-title tabular-nums">{hide(formatAmount(publicScrt))} SCRT</span>
 				</span>
 				<Button variant="soft" size="sm" onclick={() => open({ name: 'action', action: 'wrap' })}>
 					{#snippet icon()}<ShieldCheck size={15} />{/snippet}
-					Make private
+					{t('Make private')}
 				</Button>
 			</div>
 		{/if}
@@ -115,11 +116,11 @@
 		{#if staking.error && !staking.loaded}
 			<p class="text-base text-negative">{staking.error}</p>
 		{:else if !staking.loaded}
-			<div class="flex items-center gap-2 text-base text-text-muted"><Loader2 size={16} class="animate-spin" /> Loading…</div>
+			<div class="flex items-center gap-2 text-base text-text-muted"><Loader2 size={16} class="animate-spin" /> {t('Loading…')}</div>
 		{:else}
 			{#if staking.unbondings.length}
 				<section class="flex flex-col">
-					<h2 class="pb-1 text-title">On the way back</h2>
+					<h2 class="pb-1 text-title">{t('On the way back')}</h2>
 					<ul class="flex flex-col divide-y divide-border">
 						{#each staking.unbondings as u, i (`${u.validator}-${i}`)}
 							<li class="flex items-center justify-between gap-4 py-3">
@@ -133,7 +134,7 @@
 
 			{#if staking.delegations.length}
 				<section class="flex flex-col">
-					<h2 class="pb-1 text-title">Staked with</h2>
+					<h2 class="pb-1 text-title">{t('Staked with')}</h2>
 					<ul class="flex flex-col">
 						{#each staking.delegations as d (d.validator)}
 							{@const v = validatorOf(d.validator)}
@@ -147,7 +148,7 @@
 									<ValidatorAvatar address={d.validator} name={validatorName(d.validator)} identity={v?.identity} size={36} />
 									<span class="min-w-0 flex-1">
 										<span class="block truncate text-base">{validatorName(d.validator)}</span>
-										{#if idle}<span class="block truncate text-label text-negative">Not earning — consider unstaking</span>{/if}
+										{#if idle}<span class="block truncate text-label text-negative">{t('Not earning — consider unstaking')}</span>{/if}
 									</span>
 									<span class="shrink-0 text-base tabular-nums text-text-muted">{hide(formatAmount(d.amount, 2))}</span>
 									<ChevronRight size={16} class="shrink-0 text-text-faint" />
@@ -158,9 +159,9 @@
 				</section>
 			{:else}
 				<ol class="flex flex-col gap-3 px-1 text-base text-text-muted">
-					<li class="flex gap-3"><span class="flex size-6 shrink-0 items-center justify-center rounded-pill bg-accent-soft text-label text-accent">1</span>Stake part of your balance. A validator is picked for you.</li>
-					<li class="flex gap-3"><span class="flex size-6 shrink-0 items-center justify-center rounded-pill bg-accent-soft text-label text-accent">2</span>It earns SCRT every few seconds; you see it grow in your balance.</li>
-					<li class="flex gap-3"><span class="flex size-6 shrink-0 items-center justify-center rounded-pill bg-accent-soft text-label text-accent">3</span>Unstake any time; it takes {Math.round(staking.unbondingSeconds / 86_400)} days to come back.</li>
+					<li class="flex gap-3"><span class="flex size-6 shrink-0 items-center justify-center rounded-pill bg-accent-soft text-label text-accent">1</span>{t('Stake part of your balance. A validator is picked for you.')}</li>
+					<li class="flex gap-3"><span class="flex size-6 shrink-0 items-center justify-center rounded-pill bg-accent-soft text-label text-accent">2</span>{t('It earns SCRT every few seconds; you see it grow in your balance.')}</li>
+					<li class="flex gap-3"><span class="flex size-6 shrink-0 items-center justify-center rounded-pill bg-accent-soft text-label text-accent">3</span>{t('Unstake any time; it takes {0} days to come back.', { 0: Math.round(staking.unbondingSeconds / 86_400) })}</li>
 				</ol>
 			{/if}
 		{/if}
@@ -168,10 +169,10 @@
 		{#if staking.govError && !staking.proposals.length}
 			<p class="text-base text-negative">{staking.govError}</p>
 		{:else if !staking.proposals.length}
-			<div class="flex items-center gap-2 text-base text-text-muted"><Loader2 size={16} class="animate-spin" /> Loading proposals…</div>
+			<div class="flex items-center gap-2 text-base text-text-muted"><Loader2 size={16} class="animate-spin" /> {t('Loading proposals…')}</div>
 		{:else}
 			{#if staking.loaded && totalStaked() === 0n}
-				<p class="px-1 text-base text-text-muted">Stakers decide how Secret Network changes. Stake first to vote; your vote counts by how much you stake.</p>
+				<p class="px-1 text-base text-text-muted">{t('Stakers decide how Secret Network changes. Stake first to vote; your vote counts by how much you stake.')}</p>
 			{/if}
 			{#snippet proposalRow(p: (typeof staking.proposals)[number])}
 				{@const mine = staking.votes[p.id]}
@@ -188,9 +189,9 @@
 						<span class="min-w-0 flex-1">
 							<span class="line-clamp-2 text-base font-medium leading-snug [overflow-wrap:anywhere]">{p.title}</span>
 							<span class="mt-1.5 flex flex-wrap items-center gap-x-1.5 text-label text-text-faint">
-								<span class={tone}>{STATUS_LABELS[p.status]}</span>
+								<span class={tone}>{t(STATUS_LABELS[p.status])}</span>
 								{#if timeLeft(p)}<span>·</span><span>{timeLeft(p)}</span>{/if}
-								{#if mine}<span>·</span><span class="text-accent">You voted {VOTE_LABELS[mine]}</span>{/if}
+								{#if mine}<span>·</span><span class="text-accent">{t('You voted {0}', { 0: t(VOTE_LABELS[mine]) })}</span>{/if}
 							</span>
 						</span>
 						<ChevronRight size={16} class="shrink-0 text-text-faint" />
@@ -199,14 +200,14 @@
 			{/snippet}
 			{#if openProposals.length}
 				<section class="flex flex-col">
-					<h2 class="pb-1 text-title">Open for voting</h2>
+					<h2 class="pb-1 text-title">{t('Open for voting')}</h2>
 					<ul class="flex flex-col divide-y divide-border">{#each openProposals as p (p.id)}{@render proposalRow(p)}{/each}</ul>
 				</section>
 			{:else}
-				<p class="text-base text-text-muted">No proposal is open for voting right now.</p>
+				<p class="text-base text-text-muted">{t('No proposal is open for voting right now.')}</p>
 			{/if}
 			<section class="flex flex-col">
-				<h2 class="pb-1 text-title">Recent</h2>
+				<h2 class="pb-1 text-title">{t('Recent')}</h2>
 				<ul class="flex flex-col divide-y divide-border">{#each pastProposals as p (p.id)}{@render proposalRow(p)}{/each}</ul>
 			</section>
 		{/if}

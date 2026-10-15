@@ -18,6 +18,7 @@ import { DENOM, GAS, SSCRT_ADDRESS } from '../config';
 import { MSG_EXECUTE, MSG_TRANSFER } from '../gas/feePayer';
 import type { InvoiceAsset } from '../tokens';
 import type { PaddedQuote } from './quote';
+import { t } from '../i18n/index.svelte';
 
 const MSG_SEND = '/cosmos.bank.v1beta1.MsgSend';
 
@@ -62,7 +63,7 @@ export async function requestPayment(
 	let spends = amount;
 
 	if (needsSwap(asset)) {
-		if (!quote) throw new Error('No price for this swap yet.');
+		if (!quote) throw new Error(t('No price for this swap yet.'));
 		msgs.push(await swapMessage(client, sender, quote.route, quote.amountIn, amount));
 		types.push(MSG_EXECUTE);
 		gas += swapGas(quote.route);

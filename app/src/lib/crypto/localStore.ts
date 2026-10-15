@@ -7,9 +7,8 @@
 // While the wallet is locked there is no key: reads and writes then go to
 // memory only (nothing in the app writes these while locked; tests do).
 
-import { mnemonicToSeed } from '@scure/bip39';
 import { kv } from '../storage';
-import { normalizeMnemonic } from './account';
+import { seedOf } from './account';
 import { buf, fromB64, randomBytes, td, te, toB64, wipe } from './bytes';
 
 /** Records that belong to one account. */
@@ -27,7 +26,7 @@ const memory = new Map<string, unknown>();
 
 /** Derives the store's keys from the phrase (on unlock). */
 export async function openLocalStore(mnemonic: string): Promise<void> {
-	const seed = await mnemonicToSeed(normalizeMnemonic(mnemonic));
+	const seed = await seedOf(mnemonic);
 	try {
 		const base = await crypto.subtle.importKey('raw', buf(seed), 'HKDF', false, ['deriveKey']);
 		const derive = (info: string, alg: AesKeyGenParams | HmacImportParams, usage: KeyUsage[]) =>

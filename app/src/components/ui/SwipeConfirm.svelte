@@ -28,7 +28,11 @@
 	const max = () => (track ? Math.max(0, track.clientWidth - HANDLE - PAD * 2) : 0);
 	const progress = $derived(max() > 0 ? x / max() : 0);
 	/** "Swipe to pay" → "Pay" */
-	const action = $derived(label.replace(/^Swipe to (\w)/, (_, c: string) => c.toUpperCase()));
+	// the translations follow the same pattern: "Přejetím zaplatit", "Wischen: Bezahlen"
+	const action = $derived.by(() => {
+		const rest = label.replace(/^(Swipe to |Přejetím |Wischen: )/, '');
+		return rest.charAt(0).toUpperCase() + rest.slice(1);
+	});
 
 	// a finished swipe resets when the payment ends without leaving the screen (e.g. an error)
 	$effect(() => {

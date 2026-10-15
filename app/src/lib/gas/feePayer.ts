@@ -7,6 +7,7 @@
 import { lcdUrl } from '../chain/client';
 import { GAS_PRICE, GAS_VAULT_ADDRESS } from '../config';
 import { estimateFee, fetchFeeGrants, selectFeeGrant, type FeeGrant } from './feegrant-sdk';
+import { t } from '../i18n/index.svelte';
 
 export type FeeSource = 'credits' | 'grant' | 'self';
 
@@ -19,7 +20,7 @@ export interface FeePlan {
 
 export class NoGasError extends Error {
 	constructor() {
-		super('No gas available: gas credits are empty and the wallet holds no SCRT for fees.');
+		super(t('No gas available: gas credits are empty and the wallet holds no SCRT for fees.'));
 	}
 }
 

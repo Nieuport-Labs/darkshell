@@ -1,19 +1,20 @@
 <script lang="ts">
+	import { t } from '../../lib/i18n/index.svelte';
 	import { House, ReceiptText, Sprout } from '@lucide/svelte';
 	import { goTab, ui, type Tab } from '../../lib/ui.svelte';
 	import { haptic } from '../../lib/haptics';
 
 	const TABS: { tab: Tab; label: string; icon: typeof House }[] = [
-		{ tab: 'home', label: 'Home', icon: House },
-		{ tab: 'invoices', label: 'Invoices', icon: ReceiptText },
-		{ tab: 'staking', label: 'Earn', icon: Sprout },
+		{ tab: 'home', label: t('Home'), icon: House },
+		{ tab: 'invoices', label: t('Invoices'), icon: ReceiptText },
+		{ tab: 'staking', label: t('Earn'), icon: Sprout },
 	];
 	const index = $derived(Math.max(0, TABS.findIndex((t) => t.tab === ui.tab)));
 </script>
 
 <nav
 	class="bar fixed inset-x-0 bottom-0 z-40 border-t border-glass-edge pb-[max(0.5rem,env(safe-area-inset-bottom),var(--safe-area-inset-bottom,0px))] pt-2"
-	aria-label="Main"
+	aria-label={t('Main')}
 >
 	<div class="relative mx-auto grid max-w-[560px] grid-cols-3 gap-1 px-3">
 		<!-- the active tab's pill slides (with a little give) to the tab tapped -->

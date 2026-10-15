@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t as tr, tn } from '../../lib/i18n/index.svelte';
 	// "Swap to sSCRT": the account's other tokens, each with what it brings in
 	// sSCRT; tick the ones to swap (dust left out unless asked), review, swipe.
 	import { Check, Loader2, RefreshCw, Shuffle } from '@lucide/svelte';
@@ -89,29 +90,29 @@
 	</button>
 {/snippet}
 
-<Modal full title="Swap to sSCRT" onclose={phase === 'sending' ? undefined : close} onback={phase === 'review' ? () => (phase = 'list') : undefined}>
+<Modal full title={tr('Swap to sSCRT')} onclose={phase === 'sending' ? undefined : close} onback={phase === 'review' ? () => (phase = 'list') : undefined}>
 	{#if phase === 'sending' || (phase === 'done' && last)}
 		<TxStage
 			outcome={phase === 'done' ? last : null}
-			verbs={['Swapping', 'Swapped']}
+			verbs={[tr('Swapping'), tr('Swapped')]}
 			amount="≈ {formatAmount(got, 2)}"
 			unit="sSCRT"
 			sub={usd(got) ? `≈ ${usd(got)}` : undefined}
-			line="{count} {count === 1 ? 'token' : 'tokens'} via ShadeSwap"
-			busyText={progress.total > 1 ? `Swapping ${Math.min(progress.done + 1, progress.total)} of ${progress.total}…` : undefined}
-			summary="It shows in your balance in a few seconds."
+			line={tr('{0} {1} via ShadeSwap', { 0: count, 1: count === 1 ? tr('token') : tr('tokens') })}
+			busyText={progress.total > 1 ? tr('Swapping {0} of {1}…', { 0: Math.min(progress.done + 1, progress.total), 1: progress.total }) : undefined}
+			summary={tr('It shows in your balance in a few seconds.')}
 			ondone={close}
 		>
 			{#snippet icon()}<Shuffle size={30} />{/snippet}
 		</TxStage>
 	{:else if phase === 'done'}
 		<div class="flex flex-1 flex-col items-center justify-center gap-3 text-center">
-			<p class="text-headline">Nothing to swap</p>
+			<p class="text-headline">{tr('Nothing to swap')}</p>
 		</div>
-		<Button block size="xl" onclick={close}>Done</Button>
+		<Button block size="xl" onclick={close}>{tr('Done')}</Button>
 	{:else if phase === 'review'}
 		<div class="flex flex-col items-center gap-1 pt-4 text-center">
-			<span class="text-base text-text-muted">You get about</span>
+			<span class="text-base text-text-muted">{tr('You get about')}</span>
 			<p class="flex items-baseline gap-2 tabular-nums">
 				<span class="text-[3rem] font-semibold leading-none tracking-[-0.035em]">{formatAmount(total, 2)}</span>
 				<span class="text-title text-text-muted">sSCRT</span>
@@ -120,46 +121,46 @@
 		</div>
 		<dl class="flex flex-col divide-y divide-border rounded-card border border-border bg-surface text-base">
 			<div class="flex justify-between gap-4 px-4 py-3">
-				<dt class="text-text-muted">Swapping</dt>
+				<dt class="text-text-muted">{tr('Swapping')}</dt>
 				<dd class="min-w-0 text-right">{chosen.map((t) => t.token.symbol).join(', ')}</dd>
 			</div>
 			<div class="flex justify-between gap-4 px-4 py-3">
-				<dt class="text-text-muted">At least</dt>
+				<dt class="text-text-muted">{tr('At least')}</dt>
 				<dd class="text-right tabular-nums">{formatAmount(least, 4)} sSCRT</dd>
 			</div>
 			<div class="flex justify-between gap-4 px-4 py-3">
-				<dt class="text-text-muted">Via</dt>
-				<dd class="text-right">ShadeSwap · {txs} {txs === 1 ? 'transaction' : 'transactions'}</dd>
+				<dt class="text-text-muted">{tr('Via')}</dt>
+				<dd class="text-right">ShadeSwap · {tn('{n} transactions', txs)}</dd>
 			</div>
 			<div class="flex justify-between gap-4 px-4 py-3">
-				<dt class="text-text-muted">Network fee</dt>
-				<dd class="text-right">From gas credits</dd>
+				<dt class="text-text-muted">{tr('Network fee')}</dt>
+				<dd class="text-right">{tr('From gas credits')}</dd>
 			</div>
 		</dl>
-		<p class="px-1 text-label text-text-faint">If a price moves further than its slippage before the swap runs, that transaction is refused and its tokens stay as they are. Public tokens are made private first, in the same transaction.</p>
+		<p class="px-1 text-label text-text-faint">{tr('If a price moves further than its slippage before the swap runs, that transaction is refused and its tokens stay as they are. Public tokens are made private first, in the same transaction.')}</p>
 		{#if failure}<p class="break-words text-base text-negative animate-[shake_400ms_var(--ease-standard)]" role="alert">{failure}</p>{/if}
 		<div class="mt-auto pt-4">
-			<SwipeConfirm label="Swipe to swap" disabled={!chosen.length} onconfirm={run} />
+			<SwipeConfirm label={tr('Swipe to swap')} disabled={!chosen.length} onconfirm={run} />
 		</div>
 	{:else}
-		<p class="text-base text-text-muted">Tokens on this account other than sSCRT. Swapping turns them into private sSCRT on ShadeSwap.</p>
+		<p class="text-base text-text-muted">{tr('Tokens on this account other than sSCRT. Swapping turns them into private sSCRT on ShadeSwap.')}</p>
 
 		<div class="card flex flex-col gap-4 px-4 py-3.5">
-			{@render switchRow(others.ignoreDust, 'Leave out dust', `Amounts under $${DUST_USD.toFixed(2)}, not worth a swap`, () => void setIgnoreDust(!others.ignoreDust))}
-			{@render switchRow(!others.mute, 'Remind me on Home', 'When there is something worth swapping', () => void setMute(!others.mute))}
+			{@render switchRow(others.ignoreDust, tr('Leave out dust'), tr('Amounts under ${0}, not worth a swap', { 0: DUST_USD.toFixed(2) }), () => void setIgnoreDust(!others.ignoreDust))}
+			{@render switchRow(!others.mute, tr('Remind me on Home'), tr('When there is something worth swapping'), () => void setMute(!others.mute))}
 		</div>
 
 		{#if others.loading && !others.list.length}
-			<p class="flex items-center justify-center gap-2 py-8 text-base text-text-muted"><Loader2 size={16} class="animate-spin" /> Looking for tokens…</p>
+			<p class="flex items-center justify-center gap-2 py-8 text-base text-text-muted"><Loader2 size={16} class="animate-spin" /> {tr('Looking for tokens…')}</p>
 		{:else if !shown.length}
 			<p class="py-8 text-center text-base text-text-muted">
-				{dustLeftOut ? `Only dust here (${dustLeftOut} ${dustLeftOut === 1 ? 'token' : 'tokens'}). Turn off “Leave out dust” to swap it anyway.` : 'No other tokens on this account.'}
+				{dustLeftOut ? tr('Only dust here ({0} {1}). Turn off “Leave out dust” to swap it anyway.', { 0: dustLeftOut, 1: dustLeftOut === 1 ? tr('token') : tr('tokens') }) : tr('No other tokens on this account.')}
 			</p>
 		{:else}
 			<div class="flex flex-col">
 				<div class="flex items-center justify-between px-1 pb-1">
-					<span class="text-label text-text-muted">{chosen.length} of {shown.length} selected</span>
-					<button type="button" onclick={() => (off = allOn ? new Set(shown.map((t) => t.key)) : new Set())} class="text-label font-medium text-accent">{allOn ? 'Select none' : 'Select all'}</button>
+					<span class="text-label text-text-muted">{tr('{0} of {1} selected', { 0: chosen.length, 1: shown.length })}</span>
+					<button type="button" onclick={() => (off = allOn ? new Set(shown.map((t) => t.key)) : new Set())} class="text-label font-medium text-accent">{allOn ? tr('Select none') : tr('Select all')}</button>
 				</div>
 				<ul class="flex flex-col">
 					{#each shown as t (t.key)}
@@ -172,8 +173,8 @@
 								<span class="min-w-0 flex-1">
 									<span class="flex items-center gap-1.5 text-base font-medium">
 										{t.token.symbol}
-										{#if t.denom}<span class="rounded-pill border border-border px-1.5 text-[0.6875rem] font-normal text-text-faint">public</span>{/if}
-										{#if t.dust}<span class="rounded-pill border border-border px-1.5 text-[0.6875rem] font-normal text-text-faint">dust</span>{/if}
+										{#if t.denom}<span class="rounded-pill border border-border px-1.5 text-[0.6875rem] font-normal text-text-faint">{tr('public')}</span>{/if}
+										{#if t.dust}<span class="rounded-pill border border-border px-1.5 text-[0.6875rem] font-normal text-text-faint">{tr('dust')}</span>{/if}
 									</span>
 									<span class="block truncate text-label tabular-nums text-text-faint">{tokenAmount(t)}</span>
 								</span>
@@ -185,21 +186,21 @@
 						</li>
 					{/each}
 				</ul>
-				{#if dustLeftOut}<p class="px-1 pt-1 text-label text-text-faint">{dustLeftOut} small {dustLeftOut === 1 ? 'amount' : 'amounts'} left out as dust.</p>{/if}
+				{#if dustLeftOut}<p class="px-1 pt-1 text-label text-text-faint">{tn('{n} small amounts left out as dust.', dustLeftOut)}</p>{/if}
 			</div>
 		{/if}
 		{#if noPrice.length}
-			<p class="px-1 text-label text-text-faint">No ShadeSwap price right now for {noPrice.map((t) => t.token.symbol).join(', ')}.</p>
+			<p class="px-1 text-label text-text-faint">{tr('No ShadeSwap price right now for {0}.', { 0: noPrice.map((t) => t.token.symbol).join(', ') })}</p>
 		{/if}
 
 		<div class="mt-auto flex flex-col gap-2 pt-4">
-			{#if chosen.length}<p class="text-center text-base text-text-muted">You get ≈ <span class="tabular-nums text-text">{formatAmount(total, 2)} sSCRT</span>{#if usd(total)}<span class="text-text-faint"> · {usd(total)}</span>{/if}</p>{/if}
+			{#if chosen.length}<p class="text-center text-base text-text-muted">{tr('You get ≈')} <span class="tabular-nums text-text">{formatAmount(total, 2)} sSCRT</span>{#if usd(total)}<span class="text-text-faint"> · {usd(total)}</span>{/if}</p>{/if}
 			<Button block size="xl" disabled={!chosen.length || others.loading} onclick={() => (phase = 'review')}>
-				{chosen.length ? `Review swap of ${chosen.length} ${chosen.length === 1 ? 'token' : 'tokens'}` : 'Nothing selected'}
+				{chosen.length ? tr('Review swap of {0} {1}', { 0: chosen.length, 1: chosen.length === 1 ? tr('token') : tr('tokens') }) : tr('Nothing selected')}
 			</Button>
 			<Button variant="ghost" block onclick={() => loadOthers(true)} disabled={others.loading}>
 				{#snippet icon()}{#if others.loading}<Loader2 size={15} class="animate-spin" />{:else}<RefreshCw size={15} />{/if}{/snippet}
-				Check again
+				{tr('Check again')}
 			</Button>
 		</div>
 	{/if}

@@ -1,4 +1,15 @@
+<script lang="ts" module>
+	let locks = 0;
+	function lockScroll() {
+		if (locks++ === 0) document.documentElement.classList.add('scroll-locked');
+		return () => {
+			if (--locks === 0) document.documentElement.classList.remove('scroll-locked');
+		};
+	}
+</script>
+
 <script lang="ts">
+	import { t } from '../../lib/i18n/index.svelte';
 	// Port of Secret_Dashboard src/components/ui/Modal.tsx: a glass sheet,
 	// bottom-aligned on a phone, centred on wider screens.
 	import { ChevronLeft, X } from '@lucide/svelte';
@@ -14,6 +25,10 @@
 		full = false,
 		children,
 	}: { title: string; description?: string; onclose?: () => void; onback?: () => void; full?: boolean; children: Snippet } = $props();
+
+	// the page under a dialog must not scroll: on a phone a swipe on a dialog
+	// that doesn't scroll itself would otherwise move the list behind it
+	$effect(() => lockScroll());
 
 	function key(e: KeyboardEvent) {
 		if (e.key === 'Escape') onclose?.();
@@ -33,13 +48,13 @@
 	>
 		<header class="relative mx-auto flex h-14 w-full max-w-[460px] shrink-0 items-center justify-center px-4">
 			{#if onback ?? onclose}
-				<button type="button" onclick={onback ?? onclose} aria-label="Back" class="state-layer absolute left-2 rounded-pill p-2.5 text-text">
+				<button type="button" onclick={onback ?? onclose} aria-label={t('Back')} class="state-layer absolute left-2 rounded-pill p-2.5 text-text">
 					<ChevronLeft size={22} aria-hidden="true" />
 				</button>
 			{/if}
 			<h2 class="text-headline">{title}</h2>
 		</header>
-		<div class="mx-auto flex w-full max-w-[460px] flex-1 flex-col gap-5 overflow-y-auto px-5 pb-4 pt-2 [&>*]:shrink-0">
+		<div class="mx-auto flex w-full max-w-[460px] flex-1 flex-col gap-5 overflow-y-auto overscroll-contain px-5 pb-4 pt-2 [&>*]:shrink-0">
 			{@render children()}
 		</div>
 	</div>
@@ -47,7 +62,7 @@
 <div class="fixed inset-0 z-50 flex items-end justify-center p-3 pb-safe sm:items-center">
 	<button
 		type="button"
-		aria-label="Close"
+		aria-label={t('Close')}
 		tabindex="-1"
 		onclick={onclose}
 		disabled={!onclose}
@@ -60,12 +75,12 @@
 		aria-modal="true"
 		aria-label={title}
 		out:fly|global={{ y: 16, duration: 160, easing: cubicIn, opacity: 0 }}
-		class="glass-panel relative flex max-h-[calc(100dvh-2rem)] w-full max-w-[420px] flex-col gap-5 overflow-y-auto rounded-card p-5 [&>*]:shrink-0 outline-none motion-safe:animate-[modal-in_320ms_var(--ease-out-expo)]"
+		class="glass-panel relative flex max-h-[calc(100dvh-2rem)] w-full max-w-[420px] flex-col gap-5 overflow-y-auto overscroll-contain rounded-card p-5 [&>*]:shrink-0 outline-none motion-safe:animate-[modal-in_320ms_var(--ease-out-expo)]"
 	>
 		<div class="flex shrink-0 items-start justify-between gap-4">
 			<div class="flex min-w-0 items-center gap-3">
 				{#if onback}
-					<button type="button" onclick={onback} aria-label="Back" class="state-layer -m-1.5 shrink-0 rounded-pill p-1.5 text-text-muted">
+					<button type="button" onclick={onback} aria-label={t('Back')} class="state-layer -m-1.5 shrink-0 rounded-pill p-1.5 text-text-muted">
 						<ChevronLeft size={18} aria-hidden="true" />
 					</button>
 				{/if}
@@ -75,7 +90,7 @@
 				</div>
 			</div>
 			{#if onclose}
-				<button type="button" onclick={onclose} aria-label="Close" class="state-layer -m-1.5 shrink-0 rounded-pill p-1.5 text-text-muted">
+				<button type="button" onclick={onclose} aria-label={t('Close')} class="state-layer -m-1.5 shrink-0 rounded-pill p-1.5 text-text-muted">
 					<X size={18} aria-hidden="true" />
 				</button>
 			{/if}

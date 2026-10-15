@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t as tr } from './lib/i18n/index.svelte';
 	// The payment sheet (android PayActivity): a web page or another app asked for
 	// a payment, and this slides up over it, like Google Pay. The figure that
 	// matters most is first and largest: the sSCRT this payment spends. Confirm
@@ -20,10 +21,10 @@
 	import { blockReason, failureText, invoiceFacts, payInvoice, sscrtCost, type InvoiceFacts, type InvoiceTarget } from './lib/pay/invoicePay';
 	import { quoteFor, type QuoteState } from './lib/pay/plan';
 	import { fitsSheet, leaveSheet, openInApp, type SheetRequest } from './lib/pay/sheet';
-	import { startPrice, usdValue } from './lib/price.svelte';
+	import { startPrice, fiatValue } from './lib/price.svelte';
 	import { sheetWord } from './lib/sheetWord';
 	import { initTor, tor, torReady } from './lib/tor.svelte';
-	import { init, loadForPayment, lock, LockedOutError, spendable, unlock, wallet } from './lib/wallet.svelte';
+	import { init, loadForPayment, lock, LockedOutError, prewarmPayment, spendable, unlock, wallet } from './lib/wallet.svelte';
 
 	let { request }: { request: SheetRequest } = $props();
 	const req = untrack(() => request);
@@ -54,7 +55,7 @@
 	const why = $derived(target && facts ? blockReason(target, facts, quote, null) : '');
 	const canConfirm = $derived(phase === 'review' && cost !== null && !why && !settling);
 	/** not enough money: trying again won't help */
-	const short = $derived(failure.startsWith('Not enough'));
+	const short = $derived(failure.startsWith(tr('Not enough sSCRT')));
 	const payee = $derived(target ? (target.request.label ?? shortAddress(target.request.address, 10, 6)) : '');
 	/** where the money goes, always: the label is only what the payee wrote */
 	const payeeAddress = $derived(target ? shortAddress(target.request.address, 10, 6) : '');
@@ -85,6 +86,8 @@
 			if (!fitsSheet(t)) return openInApp(req.url);
 			target = t;
 			facts = invoiceFacts(t);
+			// the network part that needs no key starts now, not after the PIN
+			void prewarmPayment(wallet.address);
 			bio = wallet.kind === 'pin' && (await biometricEnabled().catch(() => false));
 			phase = 'review';
 			requestAnimationFrame(() => (shown = true));
@@ -110,13 +113,13 @@
 			return;
 		}
 		try {
-			const pin = await confirmPin('Confirm payment', `${formatAmount(cost)} sSCRT to ${payeeAddress}`);
+			const pin = await confirmPin(tr('Confirm payment'), tr('{0} sSCRT to {1}', { 0: formatAmount(cost), 1: payeeAddress }));
 			await payWith(pin);
 		} catch (e) {
 			if (biometricInvalidated(e)) {
 				await disableBiometric();
 				bio = false;
-				pinError = 'Fingerprints changed on this phone. Enter your PIN.';
+				pinError = tr('Fingerprints changed on this phone. Enter your PIN.');
 			}
 			// cancelled or "Use PIN"
 			if (phase === 'review') phase = 'pin';
@@ -129,21 +132,21 @@
 		const f = facts;
 		const from = phase;
 		phase = 'paying';
-		step = 'Opening your wallet…';
+		step = tr('Opening your wallet…');
 		try {
 			await unlock(secret, { brief: true });
 		} catch (e) {
 			phase = from === 'review' ? 'pin' : from;
-			pinError = e instanceof LockedOutError ? e.message : e instanceof WrongPasswordError ? (wallet.kind === 'pin' ? 'Wrong PIN.' : 'Wrong password.') : failureText(e);
+			pinError = e instanceof LockedOutError ? e.message : e instanceof WrongPasswordError ? (wallet.kind === 'pin' ? tr('Wrong PIN.') : tr('Wrong password.')) : failureText(e);
 			pinReset++;
 			return;
 		}
 		try {
-			step = 'Checking your balance…';
+			step = tr('Checking your balance…');
 			await loadForPayment();
 			const no = blockReason(t, f, quote, spendable());
-			if (no) throw new Error(no === 'Not enough sSCRT.' ? `Not enough sSCRT: this needs ${formatAmount(cost)} and the account can spend ${formatAmount(spendable())}.` : no);
-			step = 'Paying…';
+			if (no) throw new Error(no === tr('Not enough sSCRT.') ? tr('Not enough sSCRT: this needs {0} and the account can spend {1}.', { 0: formatAmount(cost), 1: formatAmount(spendable()) }) : no);
+			step = tr('Paying…');
 			const out = await payInvoice(t, f, quote, (p) => (outcome = p));
 			paidHash = out.hash;
 			outcome = out;
@@ -187,7 +190,7 @@
 <div class="fixed inset-0 flex flex-col justify-end">
 	<button
 		type="button"
-		aria-label="Cancel payment"
+		aria-label={tr('Cancel payment')}
 		tabindex="-1"
 		onclick={cancel}
 		class="absolute inset-0 bg-scrim transition-opacity duration-300 {shown ? 'opacity-100' : 'opacity-0'}"
@@ -195,13 +198,13 @@
 
 	{#if phase === 'loading'}
 		<div class="enter relative mx-auto mb-10 flex items-center gap-2 rounded-pill bg-bg px-4 py-2 text-base text-text-muted">
-			<Loader2 size={16} class="animate-spin" /> Opening DarkShell…
+			<Loader2 size={16} class="animate-spin" /> {tr('Opening DarkShell…')}
 		</div>
 	{:else}
 		<div
 			role="dialog"
 			aria-modal="true"
-			aria-label="Confirm payment"
+			aria-label={tr('Confirm payment')}
 			class="relative mx-auto flex max-h-[92dvh] w-full max-w-[560px] flex-col overflow-y-auto rounded-t-[1.75rem] border-t border-border bg-bg px-5 pb-safe shadow-[0_-12px_40px_rgb(0_0_0/0.45)] transition-transform duration-[420ms] ease-[cubic-bezier(0.32,0.72,0,1)] {shown
 				? 'translate-y-0'
 				: 'translate-y-full'}"
@@ -212,23 +215,23 @@
 				<img src="/avatar.webp" alt="" class="size-7 rounded-pill object-cover" />
 				<span class="flex-1 text-base font-medium">DarkShell</span>
 				{#if word}
-					<span class="max-w-[45%] truncate rounded-pill border border-border bg-surface px-2.5 py-0.5 text-label font-medium" title="Your sheet word">{word}</span>
+					<span class="max-w-[45%] truncate rounded-pill border border-border bg-surface px-2.5 py-0.5 text-label font-medium" title={tr('Your sheet word')}>{word}</span>
 				{/if}
-				{#if tor.enabled && !torReady()}<span class="text-label text-text-faint">Connecting through Tor…</span>{/if}
+				{#if tor.enabled && !torReady()}<span class="text-label text-text-faint">{tr('Connecting through Tor…')}</span>{/if}
 				{#if phase !== 'paying' && phase !== 'done'}
-					<button type="button" onclick={cancel} aria-label="Cancel" class="state-layer -mr-1.5 rounded-pill p-1.5 text-text-muted"><X size={20} /></button>
+					<button type="button" onclick={cancel} aria-label={tr('Cancel')} class="state-layer -mr-1.5 rounded-pill p-1.5 text-text-muted"><X size={20} /></button>
 				{/if}
 			</header>
 
 			{#if phase === 'pin'}
 				<div class="flex min-h-[540px] flex-col">
 					{#if wallet.kind === 'pin'}
-						<PinPad title="Enter your PIN" subtitle="to pay {formatAmount(cost)} sSCRT" error={pinError} bind:reset={pinReset} oncomplete={payWith}>
+						<PinPad title={tr('Enter your PIN')} subtitle={tr('to pay {0} sSCRT', { 0: formatAmount(cost) })} error={pinError} bind:reset={pinReset} oncomplete={payWith}>
 							{#snippet aux()}
 								{#if bio}
 									<button
 										type="button"
-										aria-label="Use fingerprint"
+										aria-label={tr('Use fingerprint')}
 										onclick={() => {
 											phase = 'review';
 											void confirm();
@@ -242,12 +245,12 @@
 						</PinPad>
 					{:else}
 						<form class="mt-8 flex flex-col gap-3" onsubmit={submitPassword}>
-							<h1 class="text-center text-headline">Enter your password</h1>
-							<p class="text-center text-base text-text-muted">to pay {formatAmount(cost)} sSCRT</p>
+							<h1 class="text-center text-headline">{tr('Enter your password')}</h1>
+							<p class="text-center text-base text-text-muted">{tr('to pay {0} sSCRT', { 0: formatAmount(cost) })}</p>
 							<!-- svelte-ignore a11y_autofocus -->
-							<input type="password" autocomplete="current-password" autofocus bind:value={password} class="field-input" aria-label="Password" />
+							<input type="password" autocomplete="current-password" autofocus bind:value={password} class="field-input" aria-label={tr('Password')} />
 							{#if pinError}<p class="text-base text-negative" role="alert">{pinError}</p>{/if}
-							<Button type="submit" block size="lg">Pay</Button>
+							<Button type="submit" block size="lg">{tr('Pay')}</Button>
 						</form>
 					{/if}
 				</div>
@@ -256,21 +259,21 @@
 					<TxStage
 						compact
 						outcome={phase === 'done' || outcome?.status === 'pending' ? outcome : null}
-						verbs={['Paying', 'Paid']}
+						verbs={[tr('Paying'), tr('Paid')]}
 						amount={formatAmount(cost, 6)}
 						unit="sSCRT"
-						line="to {payee}"
+						line={tr('to {0}', { 0: payee })}
 						busyText={step}
 					/>
 					{#if phase === 'done'}
-						<p class="rise mt-4 text-center text-base text-text-muted" style="animation-delay: 900ms">{facts.returnHost && !req.forResult ? `Taking you back to ${facts.returnHost}…` : 'Done.'}</p>
+						<p class="rise mt-4 text-center text-base text-text-muted" style="animation-delay: 900ms">{facts.returnHost && !req.forResult ? tr('Taking you back to {0}…', { 0: facts.returnHost }) : tr('Done.')}</p>
 					{/if}
 				</div>
 			{:else if target && facts}
 				<!-- what it costs: the figure that matters -->
 				<div class="flex flex-col items-center pb-2 pt-7 text-center">
 					{#if cost === null}
-						<span class="flex h-[3.75rem] items-center gap-2 text-base text-text-muted"><Loader2 size={18} class="animate-spin" /> Getting the price…</span>
+						<span class="flex h-[3.75rem] items-center gap-2 text-base text-text-muted"><Loader2 size={18} class="animate-spin" /> {tr('Getting the price…')}</span>
 					{:else}
 						<p class="flex items-baseline justify-center tabular-nums" aria-label="{formatAmount(cost)} sSCRT">
 							<span class="{parts.int.length > 6 ? 'text-[2.75rem]' : 'text-[3.5rem]'} font-semibold leading-none tracking-[-0.035em]">{parts.int}</span>
@@ -279,16 +282,16 @@
 						</p>
 					{/if}
 					<p class="mt-2 min-h-6 text-base tabular-nums text-text-faint">
-						{#if usdValue(cost)}≈ {usdValue(cost)}{/if}
+						{#if fiatValue(cost)}≈ {fiatValue(cost)}{/if}
 					</p>
-					<p class="text-base text-text-muted">to <span class="font-medium text-text">{payee}</span></p>
+					<p class="text-base text-text-muted">{tr('to')} <span class="font-medium text-text">{payee}</span></p>
 					{#if target.request.label}<p class="font-mono text-label text-text-faint">{payeeAddress}</p>{/if}
-					<p class="mt-2 text-label text-text-faint">{req.caller ? `Requested by ${req.caller.name}` : 'Opened from a payment link'}</p>
+					<p class="mt-2 text-label text-text-faint">{req.caller ? tr('Requested by {0}', { 0: req.caller.name }) : tr('Opened from a payment link')}</p>
 				</div>
 
 				{#if word === ''}
 					<p class="text-center text-label text-text-faint">
-						Tip: set a sheet word in DarkShell's Settings. This sheet will show it, and a fake one can't, so you'll know where you type your PIN.
+						{tr('Tip: set a sheet word in DarkShell\'s Settings. This sheet will show it, and a fake one can\'t, so you\'ll know where you type your PIN.')}
 					</p>
 				{/if}
 
@@ -298,10 +301,10 @@
 
 				<div class="flex flex-col gap-2 pb-4 pt-6">
 					{#if short}
-						<Button block size="xl" variant="secondary" onclick={cancel}>Close</Button>
+						<Button block size="xl" variant="secondary" onclick={cancel}>{tr('Close')}</Button>
 					{:else}
 						<Button block size="xl" disabled={!canConfirm} onclick={confirm} icon={bio ? fingerprint : undefined}>
-							{settling ? 'Price updated' : failure ? 'Try again' : 'Confirm'}
+							{settling ? tr('Price updated') : failure ? tr('Try again') : tr('Confirm')}
 						</Button>
 					{/if}
 					{#if phase !== 'done'}
@@ -311,7 +314,7 @@
 							aria-expanded={details}
 							class="mx-auto flex items-center gap-1 rounded-pill px-3 py-2 text-label text-text-muted outline-none [-webkit-tap-highlight-color:transparent]"
 						>
-							Details <ChevronDown size={14} class="transition-transform duration-200 {details ? 'rotate-180' : ''}" />
+							{tr('Details')} <ChevronDown size={14} class="transition-transform duration-200 {details ? 'rotate-180' : ''}" />
 						</button>
 					{/if}
 				</div>
@@ -320,47 +323,47 @@
 					<dl class="mb-4 flex flex-col divide-y divide-border rounded-card border border-border bg-surface text-base">
 						<div class="flex flex-col gap-1 px-4 py-3">
 							<div class="flex justify-between gap-4">
-								<dt class="text-text-muted">To</dt>
+								<dt class="text-text-muted">{tr('To')}</dt>
 								{#if target.request.label}<dd class="min-w-0 truncate font-medium">{target.request.label}</dd>{/if}
 							</div>
 							<dd class="break-address font-mono text-xs leading-5 text-text-faint">{target.request.address}</dd>
-							{#if target.request.label}<dd class="text-label text-text-faint">The name is what the payee wrote; the address is where the money goes.</dd>{/if}
+							{#if target.request.label}<dd class="text-label text-text-faint">{tr('The name is what the payee wrote; the address is where the money goes.')}</dd>{/if}
 						</div>
 						{#if facts.swapping}
 							<div class="flex justify-between gap-4 px-4 py-3">
-								<dt class="text-text-muted">They receive</dt>
+								<dt class="text-text-muted">{tr('They receive')}</dt>
 								<dd class="min-w-0 text-right">
 									{target.request.amount} {target.asset.symbol}
-									<span class="block text-label text-text-faint">swapped on ShadeSwap{quote.kind === 'ready' ? `, up to ${Number(quote.quote.slippageBps) / 100}% slippage` : ''}</span>
+									<span class="block text-label text-text-faint">{tr('swapped on ShadeSwap')}{quote.kind === 'ready' ? tr(', up to {0}% slippage', { 0: Number(quote.quote.slippageBps) / 100 }) : ''}</span>
 								</dd>
 							</div>
 						{/if}
 						{#if target.request.message}
 							<div class="flex justify-between gap-4 px-4 py-3">
-								<dt class="text-text-muted">Note</dt>
+								<dt class="text-text-muted">{tr('Note')}</dt>
 								<dd class="min-w-0 text-right">{target.request.message}</dd>
 							</div>
 						{/if}
 						{#if facts.memo}
 							<div class="flex justify-between gap-4 px-4 py-3">
-								<dt class="text-text-muted">Reference</dt>
+								<dt class="text-text-muted">{tr('Reference')}</dt>
 								<dd class="min-w-0 break-all text-right font-mono text-xs leading-6">{facts.memo}</dd>
 							</div>
 						{/if}
 						<div class="flex justify-between gap-4 px-4 py-3">
-							<dt class="text-text-muted">Transfer</dt>
+							<dt class="text-text-muted">{tr('Transfer')}</dt>
 							<dd class="flex items-center gap-1.5 text-right">
-								{#if target.asset.private}<ShieldCheck size={14} class="text-accent" /> Private{:else}<Eye size={14} /> Public{/if}
+								{#if target.asset.private}<ShieldCheck size={14} class="text-accent" /> {tr('Private')}{:else}<Eye size={14} /> {tr('Public')}{/if}
 							</dd>
 						</div>
 						<div class="flex justify-between gap-4 px-4 py-3">
-							<dt class="text-text-muted">Network fee</dt>
-							<dd class="text-right">From gas credits</dd>
+							<dt class="text-text-muted">{tr('Network fee')}</dt>
+							<dd class="text-right">{tr('From gas credits')}</dd>
 						</div>
 						{#if facts.returnHost && !req.forResult}
 							<div class="flex justify-between gap-4 px-4 py-3">
-								<dt class="text-text-muted">Afterwards</dt>
-								<dd class="min-w-0 text-right">back to {facts.returnHost}</dd>
+								<dt class="text-text-muted">{tr('Afterwards')}</dt>
+								<dd class="min-w-0 text-right">{tr('back to {0}', { 0: facts.returnHost })}</dd>
 							</div>
 						{/if}
 					</dl>

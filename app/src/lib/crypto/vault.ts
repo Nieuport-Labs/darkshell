@@ -39,8 +39,12 @@ export interface WalletSecrets {
 	active?: number;
 	/** user's own FixedFloat API credentials (override the built-in ones) */
 	ff?: { key: string; secret: string };
-	/** emergency PIN: its record's AES key, so account changes can be copied into it */
-	duress?: { key: string; to?: string; decoy?: string; action?: 'wipe' | 'sweep' };
+	/**
+	 * emergency PIN: its record's AES key, so account changes can be copied
+	 * into it; the PIN itself, so turning the fingerprint on later can prepare
+	 * its slot too (crypto/biometric.ts)
+	 */
+	duress?: { key: string; to?: string; decoy?: string; pin?: string; action?: 'wipe' | 'sweep' };
 }
 
 export type SecretKind = 'pin' | 'password';

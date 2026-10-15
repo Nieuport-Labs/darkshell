@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '../../lib/i18n/index.svelte';
 	// 6-digit PIN entry: dots + numeric keypad. Keys fire on pointerdown (the
 	// moment a finger lands, not when it lifts), so fast typing never drops a
 	// digit; the pressed look is a short flash we control instead of :active /
@@ -57,12 +58,25 @@
 		pin += k;
 		if (pin.length === LENGTH) {
 			const done = pin;
+			swallowNextClick();
 			// let the last dot fill before the (slow) PIN check starts
 			requestAnimationFrame(() => requestAnimationFrame(() => oncomplete(done)));
 		}
 	}
 
 	let lastPointer = 0;
+
+	// The 6th digit lands on pointerdown and the next screen appears under the
+	// finger; the click that follows when it lifts must not press whatever is
+	// there now (a choice, a "Not now").
+	function swallowNextClick() {
+		const stop = (e: Event) => {
+			e.stopPropagation();
+			e.preventDefault();
+		};
+		addEventListener('click', stop, { capture: true, once: true });
+		setTimeout(() => removeEventListener('click', stop, { capture: true }), 700);
+	}
 
 	function down(e: PointerEvent, k: string) {
 		if (e.button !== 0) return;
@@ -94,17 +108,17 @@
 		{#if subtitle}<p class="max-w-[30ch] text-base text-text-muted">{subtitle}</p>{/if}
 	</div>
 
-	<div class="mt-8 flex gap-4 {shake ? 'animate-[shake_400ms_var(--ease-standard)]' : ''} {busy ? 'animate-pulse' : ''}" aria-label="{pin.length} of {LENGTH} digits entered" role="status">
+	<div class="mt-8 flex gap-4 {shake ? 'animate-[shake_400ms_var(--ease-standard)]' : ''} {busy ? 'animate-pulse' : ''}" aria-label={t('{0} of {1} digits entered', { 0: pin.length, 1: LENGTH })} role="status">
 		{#each Array(LENGTH) as _, i (i)}
 			<span class="size-4 rounded-pill border-2 transition-colors duration-75 {i < pin.length ? 'dot-fill border-accent bg-accent shadow-[0_0_12px_rgb(255_57_18/0.55)]' : 'border-border-strong bg-transparent'}"></span>
 		{/each}
 	</div>
 	<p class="mt-4 min-h-5 text-base {error ? 'text-negative' : 'text-text-muted'}" role="alert">
-		{#if busy}Checking…{:else}{error}{/if}
+		{#if busy}{t('Checking…')}{:else}{error}{/if}
 	</p>
 
 	{#if !isNative}
-		<p class="mt-6 flex items-center gap-2 text-label text-text-faint"><Keyboard size={14} /> Type your PIN</p>
+		<p class="mt-6 flex items-center gap-2 text-label text-text-faint"><Keyboard size={14} /> {t('Type your PIN')}</p>
 		{#if aux}<div class="mt-4">{@render aux()}</div>{/if}
 	{:else}
 	<div class="mt-auto grid w-full max-w-[340px] grid-cols-3 gap-x-4 gap-y-2 pb-3">
@@ -114,7 +128,7 @@
 			{:else}
 				<button
 					type="button"
-					aria-label={k === 'del' ? 'Delete' : k}
+					aria-label={k === 'del' ? t('Delete') : k}
 					onpointerdown={(e) => down(e, k)}
 					onclick={(e) => click(e, k)}
 					oncontextmenu={(e) => e.preventDefault()}

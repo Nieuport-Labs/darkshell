@@ -1,7 +1,8 @@
 <script lang="ts">
+	import { t } from '../../lib/i18n/index.svelte';
 	import qrcode from 'qrcode-generator';
 
-	let { value, label = 'QR code', fill = false }: { value: string; label?: string; fill?: boolean } = $props();
+	let { value, label = t('QR code'), fill = false }: { value: string; label?: string; fill?: boolean } = $props();
 
 	// level M, black on white — the same as Secret_Dashboard's invoice QR
 	const svg = $derived.by(() => {

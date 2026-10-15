@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '../lib/i18n/index.svelte';
 	// The extension's approval window. The background sends the requests a site
 	// made that need the user; this window unlocks the wallet for them (the PIN,
 	// unless the wallet was used within the idle time), shows each one in full
@@ -79,7 +80,7 @@
 			await syncSession();
 			void work();
 		} catch (e) {
-			pinError = e instanceof LockedOutError ? e.message : e instanceof WrongPasswordError ? (wallet.kind === 'pin' ? 'Wrong PIN.' : 'Wrong password.') : e instanceof Error ? e.message : String(e);
+			pinError = e instanceof LockedOutError ? e.message : e instanceof WrongPasswordError ? (wallet.kind === 'pin' ? t('Wrong PIN.') : t('Wrong password.')) : e instanceof Error ? e.message : String(e);
 			pinReset++;
 		} finally {
 			busy = false;
@@ -101,9 +102,9 @@
 		<div class="flex flex-1 items-center justify-center text-text-faint"><Loader2 class="animate-spin" size={28} /></div>
 	{:else if wallet.phase === 'onboarding'}
 		<div class="flex flex-1 flex-col items-center justify-center gap-4 text-center">
-			<p class="text-title">DarkShell isn’t set up yet</p>
-			<p class="text-base text-text-muted">Create or restore your wallet first, then connect {siteName(origin)} again.</p>
-			<Button size="lg" onclick={setUp}>Set up DarkShell</Button>
+			<p class="text-title">{t('DarkShell isn’t set up yet')}</p>
+			<p class="text-base text-text-muted">{t('Create or restore your wallet first, then connect {0} again.', { 0: siteName(origin) })}</p>
+			<Button size="lg" onclick={setUp}>{t('Set up DarkShell')}</Button>
 		</div>
 	{:else if wallet.phase === 'locked'}
 		<div class="flex items-center justify-center gap-2 pt-2 text-base text-text-muted">
@@ -111,16 +112,16 @@
 			<span class="break-all">{siteName(origin)}</span>
 		</div>
 		{#if wallet.kind === 'pin'}
-			<PinPad title="Enter your PIN" subtitle={word ? `Check the word above: ${word}` : 'to answer this site'} error={pinError} {busy} bind:reset={pinReset} oncomplete={open} />
+			<PinPad title={t('Enter your PIN')} subtitle={word ? t('Check the word above: {0}', { 0: word }) : t('to answer this site')} error={pinError} {busy} bind:reset={pinReset} oncomplete={open} />
 		{:else}
 			<form class="flex flex-1 flex-col justify-center gap-3" onsubmit={(e) => (e.preventDefault(), open(password))}>
-				<input type="password" bind:value={password} autocomplete="current-password" placeholder="Password" class="rounded-control border border-border bg-surface-1 px-4 py-3 text-base" />
+				<input type="password" bind:value={password} autocomplete="current-password" placeholder={t('Password')} class="rounded-control border border-border bg-surface-1 px-4 py-3 text-base" />
 				{#if pinError}<p class="text-base text-negative">{pinError}</p>{/if}
-				<Button type="submit" size="lg" loading={busy}>Unlock</Button>
+				<Button type="submit" size="lg" loading={busy}>{t('Unlock')}</Button>
 			</form>
 		{/if}
 		<div class="pt-2">
-			<Button variant="secondary" block onclick={() => window.close()}>Reject</Button>
+			<Button variant="secondary" block onclick={() => window.close()}>{t('Reject')}</Button>
 		</div>
 	{:else if dappUi.pending}
 		{#key dappUi.pending.id}<DappRequestSheet item={dappUi.pending} />{/key}

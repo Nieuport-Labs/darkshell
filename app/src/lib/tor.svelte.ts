@@ -8,6 +8,7 @@
 
 import { registerPlugin, type PluginListenerHandle } from '@capacitor/core';
 import { can } from './platform';
+import { t } from './i18n/index.svelte';
 
 type Status = 'OFF' | 'STARTING' | 'ON' | 'STOPPING';
 
@@ -114,9 +115,9 @@ export async function setTor(on: boolean): Promise<void> {
 }
 
 export function torLabel(): string {
-	if (!tor.enabled) return 'Off';
-	if (tor.status === 'ON') return 'Connected';
-	if (tor.stuck || tor.status === 'STOPPING' || tor.status === 'OFF') return "Can't connect";
+	if (!tor.enabled) return t('Off');
+	if (tor.status === 'ON') return t('Connected');
+	if (tor.stuck || tor.status === 'STOPPING' || tor.status === 'OFF') return t("Can't connect");
 	return 'Connecting…';
 }
 

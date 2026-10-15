@@ -9,6 +9,7 @@ import type { LoggedTx } from './wallet.svelte';
 import type { Overall } from './txSteps';
 import type { ChainActivity } from './chain/activity';
 import { formatAmount } from './format';
+import { t } from './i18n/index.svelte';
 
 export type Icon = 'in' | 'out' | 'swap' | 'gas' | 'shield' | 'bolt' | 'stake' | 'vote';
 
@@ -64,23 +65,23 @@ export function linkOf(h: HistoryItem, logged: LoggedTx[], used?: Set<LoggedTx>)
 
 export function describe(h: HistoryItem, link?: LoggedTx): Described {
 	const out = (title: string, detail: string, icon: Icon = 'out'): Described => ({ title, detail, sign: '−', icon, link });
-	if (h.kind === 'in' && (link?.kind === 'sweep' || h.counterparty === SHADESWAP_ROUTER)) return { title: 'Swapped to sSCRT', detail: link?.memo ? `from ${link.memo}` : 'on ShadeSwap', sign: '+', icon: 'swap', link };
-	if (h.kind === 'in') return { title: 'Received', detail: h.counterparty ? `from ${shortAddress(h.counterparty, 6, 4)}` : '', sign: '+', icon: 'in' };
+	if (h.kind === 'in' && (link?.kind === 'sweep' || h.counterparty === SHADESWAP_ROUTER)) return { title: t('Swapped to sSCRT'), detail: link?.memo ? t('from {0}', { 0: link.memo }) : t('on ShadeSwap'), sign: '+', icon: 'swap', link };
+	if (h.kind === 'in') return { title: t('Received'), detail: h.counterparty ? t('from {0}', { 0: shortAddress(h.counterparty, 6, 4) }) : '', sign: '+', icon: 'in' };
 	if (h.kind === 'wrap' && link?.wrapped === h.amount.toString()) {
-		if (link.kind === 'stake' || link.kind === 'unstake' || link.kind === 'claim') return { title: 'Staking rewards', detail: 'claimed privately', sign: '+', icon: 'stake', link };
-		return { title: 'Made private', detail: 'rewards and public SCRT, for a payment', sign: '+', icon: 'shield', link };
+		if (link.kind === 'stake' || link.kind === 'unstake' || link.kind === 'claim') return { title: t('Staking rewards'), detail: t('claimed privately'), sign: '+', icon: 'stake', link };
+		return { title: t('Made private'), detail: t('rewards and public SCRT, for a payment'), sign: '+', icon: 'shield', link };
 	}
-	if (h.kind === 'wrap') return { title: 'Made private', detail: 'from public SCRT', sign: '+', icon: 'shield', link };
-	if (link?.kind === 'stake') return out('Staked', 'SCRT with a validator', 'stake');
-	if (link?.kind === 'lightning') return out('Lightning payment', 'via FixedFloat', 'bolt');
-	if (link?.kind === 'external') return out(`Sent ${link.symbol ?? ''}`.trim(), link.to ? `to ${shortAddress(link.to, 6, 4)}` : 'to another chain');
-	if (link?.kind === 'refill' || (h.kind === 'unwrap' && link?.refilled === h.amount.toString())) return out('Gas credits', 'refill', 'gas');
-	if (link?.kind === 'invoice') return out('Paid invoice', link.to ? `to ${shortAddress(link.to, 6, 4)}` : '', h.counterparty === SHADESWAP_ROUTER ? 'swap' : 'out');
-	if (link?.kind === 'ibc') return out('Sent', 'to another chain');
-	if (h.kind === 'out' && h.counterparty === SHADESWAP_ROUTER) return out('Swapped', 'on ShadeSwap', 'swap');
-	if (h.kind === 'out') return out('Sent', h.counterparty ? `to ${shortAddress(h.counterparty, 6, 4)}` : '');
-	if (h.kind === 'unwrap') return link ? out('Sent', 'as public SCRT') : out('Unwrapped', 'to public SCRT');
-	return { title: 'Other', detail: '', sign: '', icon: 'out' };
+	if (h.kind === 'wrap') return { title: t('Made private'), detail: t('from public SCRT'), sign: '+', icon: 'shield', link };
+	if (link?.kind === 'stake') return out(t('Staked'), t('SCRT with a validator'), 'stake');
+	if (link?.kind === 'lightning') return out(t('Lightning payment'), t('via FixedFloat'), 'bolt');
+	if (link?.kind === 'external') return out(t('Sent {0}', { 0: link.symbol ?? '' }).trim(), link.to ? t('to {0}', { 0: shortAddress(link.to, 6, 4) }) : t('to another chain'));
+	if (link?.kind === 'refill' || (h.kind === 'unwrap' && link?.refilled === h.amount.toString())) return out(t('Gas credits'), 'refill', 'gas');
+	if (link?.kind === 'invoice') return out(t('Paid invoice'), link.to ? t('to {0}', { 0: shortAddress(link.to, 6, 4) }) : '', h.counterparty === SHADESWAP_ROUTER ? 'swap' : 'out');
+	if (link?.kind === 'ibc') return out(t('Sent'), t('to another chain'));
+	if (h.kind === 'out' && h.counterparty === SHADESWAP_ROUTER) return out(t('Swapped'), t('on ShadeSwap'), 'swap');
+	if (h.kind === 'out') return out(t('Sent'), h.counterparty ? t('to {0}', { 0: shortAddress(h.counterparty, 6, 4) }) : '');
+	if (h.kind === 'unwrap') return link ? out(t('Sent'), t('as public SCRT')) : out(t('Unwrapped'), t('to public SCRT'));
+	return { title: t('Other'), detail: '', sign: '', icon: 'out' };
 }
 
 /** A logged send the chain history does not show yet (still in flight, or failed). */
@@ -95,7 +96,7 @@ export function unsettled(logged: LoggedTx[], history: HistoryItem[], chain: Cha
 }
 
 export function describeLogged(l: LoggedTx, settled = false): Described {
-	const to = l.to ? `to ${shortAddress(l.to, 6, 4)}` : '';
+	const to = l.to ? t('to {0}', { 0: shortAddress(l.to, 6, 4) }) : '';
 	const map: Record<LoggedTx['kind'], [string, Icon]> = {
 		send: ['Sending', 'out'],
 		invoice: ['Paying invoice', 'out'],
@@ -103,7 +104,7 @@ export function describeLogged(l: LoggedTx, settled = false): Described {
 		wrap: ['Making private', 'shield'],
 		refill: ['Refilling gas credits', 'gas'],
 		lightning: ['Lightning payment', 'bolt'],
-		external: [`Sending ${l.symbol ?? ''}`.trim(), 'out'],
+		external: [t('Sending {0}', { 0: l.symbol ?? '' }).trim(), 'out'],
 		stake: ['Staking', 'stake'],
 		unstake: ['Unstaking', 'stake'],
 		claim: ['Claiming rewards', 'stake'],
@@ -111,24 +112,25 @@ export function describeLogged(l: LoggedTx, settled = false): Described {
 		sweep: ['Swapping to sSCRT', 'swap'],
 	};
 	const done: Record<LoggedTx['kind'], string> = {
-		send: 'Sent',
-		invoice: 'Paid invoice',
-		ibc: 'Sent to another chain',
-		wrap: 'Made private',
-		refill: 'Gas credits',
-		lightning: 'Lightning payment',
-		external: `Sent ${l.symbol ?? ''}`.trim(),
-		stake: 'Staked',
-		unstake: 'Unstaked',
-		claim: 'Staking rewards',
-		vote: l.memo?.replace(/ on proposal #\d+$/, '') || 'Voted',
-		sweep: 'Swapped to sSCRT',
+		send: t('Sent'),
+		invoice: t('Paid invoice'),
+		ibc: t('Sent to another chain'),
+		wrap: t('Made private'),
+		refill: t('Gas credits'),
+		lightning: t('Lightning payment'),
+		external: t('Sent {0}', { 0: l.symbol ?? '' }).trim(),
+		stake: t('Staked'),
+		unstake: t('Unstaked'),
+		claim: t('Staking rewards'),
+		vote: l.memo?.replace(/ on proposal #\d+$/, '').replace(/^Voted (.+)$/, (_, v: string) => t('Voted {0}', { 0: t(v) })) || t('Voted'),
+		sweep: t('Swapped to sSCRT'),
 	};
-	const [title0, icon] = map[l.kind];
+	const [title1, icon] = map[l.kind];
+	const title0 = l.kind === 'external' ? title1 : t(title1);
 	const title = settled ? done[l.kind] : title0;
 	const sign = l.kind === 'wrap' || l.kind === 'claim' ? '+' : l.kind === 'vote' || l.kind === 'unstake' ? '' : '−';
 	const detail = l.kind === 'stake' || l.kind === 'unstake' || l.kind === 'vote' ? '' : to;
-	return { title: l.status === 'failed' ? `${title0} failed` : title, detail: settled && l.kind === 'vote' ? (l.memo?.match(/#\d+/)?.[0] ?? '') : detail, sign, icon, link: l };
+	return { title: l.status === 'failed' ? t('{0} failed', { 0: title0 }) : title, detail: settled && l.kind === 'vote' ? (l.memo?.match(/#\d+/)?.[0] ?? '') : detail, sign, icon, link: l };
 }
 
 /**
@@ -149,21 +151,21 @@ export function describeChain(c: ChainActivity, validator: (a: string) => string
 	const r = (title: string, detail: string, sign: Described['sign'], icon: Icon): Described => ({ title: c.failed ? `${title} failed` : title, detail, sign, icon });
 	switch (c.kind) {
 		case 'stake':
-			return r('Staked', [val ? `with ${val}` : '', wrapped === 'out' ? 'from your balance' : ''].filter(Boolean).join(' · '), '', 'stake');
+			return r(t('Staked'), [val ? t('with {0}', { 0: val }) : '', wrapped === 'out' ? t('from your balance') : ''].filter(Boolean).join(' · '), '', 'stake');
 		case 'unstake':
-			return r('Unstaked', val ? `from ${val} · back in 21 days` : 'back in 21 days', '', 'stake');
+			return r(t('Unstaked'), val ? t('from {0} · back in 21 days', { 0: val }) : t('back in 21 days'), '', 'stake');
 		case 'restake':
-			return r('Moved stake', val ? `to ${val}` : '', '', 'stake');
+			return r(t('Moved stake'), val ? t('to {0}', { 0: val }) : '', '', 'stake');
 		case 'claim':
-			return r('Staking rewards', wrapped === 'in' ? 'collected into your private balance' : 'collected as public SCRT', '+', 'stake');
+			return r(t('Staking rewards'), wrapped === 'in' ? t('collected into your private balance') : t('collected as public SCRT'), '+', 'stake');
 		case 'vote':
-			return r(`Voted ${c.vote ?? ''}`.trim(), c.proposal ? `on proposal #${c.proposal}` : '', '', 'vote');
+			return r(t('Voted {0}', { 0: c.vote ? t(c.vote) : '' }).trim(), c.proposal ? t('on proposal #{0}', { 0: c.proposal }) : '', '', 'vote');
 		case 'in':
-			return r('Received public SCRT', c.counterparty ? `from ${shortAddress(c.counterparty, 6, 4)}` : '', '+', 'in');
+			return r(t('Received public SCRT'), c.counterparty ? t('from {0}', { 0: shortAddress(c.counterparty, 6, 4) }) : '', '+', 'in');
 		case 'out':
-			return r('Sent public SCRT', c.counterparty ? `to ${shortAddress(c.counterparty, 6, 4)}` : '', '−', 'out');
+			return r(t('Sent public SCRT'), c.counterparty ? t('to {0}', { 0: shortAddress(c.counterparty, 6, 4) }) : '', '−', 'out');
 		case 'ibc':
-			return r('Sent to another chain', c.counterparty ? `to ${shortAddress(c.counterparty, 8, 4)}` : '', '−', 'out');
+			return r(t('Sent to another chain'), c.counterparty ? t('to {0}', { 0: shortAddress(c.counterparty, 8, 4) }) : '', '−', 'out');
 	}
 }
 

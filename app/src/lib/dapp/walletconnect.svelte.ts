@@ -25,6 +25,7 @@ import { askConnect, walletHost } from './host.svelte';
 import { revoke, siteName } from './permissions';
 import { DAPP_CHAIN_ID, decode, encode, validOrigin, type DappMethod } from './protocol';
 import { handleDappRequest, RejectedError } from './provider';
+import { t } from '../i18n/index.svelte';
 
 type Client = InstanceType<typeof SignClientType>;
 
@@ -151,7 +152,7 @@ export async function suspendWalletConnect(): Promise<void> {
 
 /** A `wc:` link, scanned or opened. */
 export async function pairWalletConnect(uri: string): Promise<void> {
-	if (!wcAvailable) throw new Error('WalletConnect is not set up in this build.');
+	if (!wcAvailable) throw new Error(t('WalletConnect is not set up in this build.'));
 	wc.error = '';
 	wc.pairing = true;
 	try {

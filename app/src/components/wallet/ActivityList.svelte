@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '../../lib/i18n/index.svelte';
 	import { AlertCircle, ChevronRight, Eye, Loader2, ShieldCheck, ShieldHalf } from '@lucide/svelte';
 	import ActivityIcon from './ActivityIcon.svelte';
 	import { OVERALL_LABEL } from '../../lib/txSteps';
@@ -10,10 +11,10 @@
 	import { loadXOrders, xOrders } from '../../lib/pay/xorders.svelte';
 	import { formatAmount } from '../../lib/format';
 	import { open, ui } from '../../lib/ui.svelte';
-	import { usdValue } from '../../lib/price.svelte';
+	import { fiatValue } from '../../lib/price.svelte';
 	import { txLog, wallet, type LoggedTx } from '../../lib/wallet.svelte';
 
-	let { limit, title = 'Recent activity', onseeall }: { limit?: number; title?: string; onseeall?: () => void } = $props();
+	let { limit, title = t('Recent activity'), onseeall }: { limit?: number; title?: string; onseeall?: () => void } = $props();
 
 	let logged = $state<LoggedTx[]>([]);
 	$effect(() => {
@@ -85,7 +86,7 @@
 		<h2 class="text-title">{title}</h2>
 		{#if onseeall && (all.length || inFlight.length)}
 			<button type="button" onclick={onseeall} class="state-layer -mr-2 flex items-center gap-0.5 rounded-pill px-2 py-1 text-base text-text-muted">
-				See all <ChevronRight size={16} />
+				{t('See all')} <ChevronRight size={16} />
 			</button>
 		{/if}
 	</div>
@@ -109,7 +110,7 @@
 							<span class="block truncate text-base font-medium">{l.memo && l.kind === 'send' ? l.memo : d.title}</span>
 							<span class="flex items-center gap-1 text-label {l.status === 'failed' ? 'text-negative' : 'text-text-faint'}">
 								{#if l.status === 'failed'}<AlertCircle size={12} class="shrink-0" />{:else}<Loader2 size={12} class="shrink-0 animate-spin" />{/if}
-								<span class="truncate">{l.status === 'failed' ? 'Failed' : 'Processing'}{d.detail ? ` · ${d.detail}` : ''}</span>
+								<span class="truncate">{l.status === 'failed' ? t('Failed') : t('Processing')}{d.detail ? ` · ${d.detail}` : ''}</span>
 							</span>
 						</span>
 						<span class="flex shrink-0 flex-col items-end">
@@ -138,7 +139,7 @@
 								{v.amount && ui.hideBalance ? '••••' : v.amount}
 							</span>
 							<span class="whitespace-nowrap text-label tabular-nums text-text-faint"
-								>{#if !ui.hideBalance && v.amount && usdValue(v.fiat)}{usdValue(v.fiat)}&nbsp;·&nbsp;{/if}{date(timeOf(e))}</span
+								>{#if !ui.hideBalance && v.amount && fiatValue(v.fiat)}{fiatValue(v.fiat)}&nbsp;·&nbsp;{/if}{date(timeOf(e))}</span
 							>
 						</span>
 					</button>
@@ -146,6 +147,6 @@
 			{/each}
 		</ul>
 	{:else}
-		<p class="py-3 text-base text-text-muted">Nothing yet. Payments you send and receive appear here.</p>
+		<p class="py-3 text-base text-text-muted">{t('Nothing yet. Payments you send and receive appear here.')}</p>
 	{/if}
 </section>

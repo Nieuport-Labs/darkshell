@@ -6,6 +6,7 @@ import { MsgVote, VoteOption as Options, type SecretNetworkClient } from 'secret
 import { GAS } from '../config';
 import { parseTimestamp } from '../gas/feegrant-sdk';
 import type { PaymentPlan } from '../pay/payments';
+import { t } from '../i18n/index.svelte';
 
 export const MSG_VOTE = '/cosmos.gov.v1.MsgVote';
 
@@ -68,7 +69,7 @@ type RawProposal = {
 function toProposal(raw: RawProposal): Proposal {
 	return {
 		id: raw.id ?? '',
-		title: raw.title?.trim() || `Proposal ${raw.id ?? '?'}`,
+		title: raw.title?.trim() || t('Proposal {0}', { 0: raw.id ?? '?' }),
 		summary: raw.summary?.trim() ?? '',
 		status: (raw.status as ProposalStatus) ?? 'PROPOSAL_STATUS_UNSPECIFIED',
 		messageTypes: (raw.messages ?? []).map((m) => String(m['@type'] ?? '')).filter(Boolean),
@@ -165,10 +166,10 @@ export function timeLeft(p: Proposal): string | undefined {
 	const end = p.status === 'PROPOSAL_STATUS_VOTING_PERIOD' ? p.votingEndTime : p.status === 'PROPOSAL_STATUS_DEPOSIT_PERIOD' ? p.depositEndTime : undefined;
 	if (!end) return undefined;
 	const min = Math.floor((end.getTime() - Date.now()) / 60_000);
-	if (min <= 0) return 'Closing';
-	if (min < 60) return `Ends in ${min}m`;
+	if (min <= 0) return t('Closing');
+	if (min < 60) return t('Ends in {0}m', { 0: min });
 	const h = Math.floor(min / 60);
-	return h < 48 ? `Ends in ${h}h` : `Ends in ${Math.floor(h / 24)}d ${h % 24}h`;
+	return h < 48 ? t('Ends in {0}h', { 0: h }) : t('Ends in {0}d {1}h', { 0: Math.floor(h / 24), 1: h % 24 });
 }
 
 /** `/cosmos.upgrade.v1beta1.MsgSoftwareUpgrade` → `Software upgrade`. */
@@ -178,7 +179,7 @@ export function messageTypeLabel(typeUrl: string): string {
 		.replace(/Proposal$/, '')
 		.replace(/([a-z0-9])([A-Z])/g, '$1 $2')
 		.trim();
-	return words ? words.charAt(0).toUpperCase() + words.slice(1).toLowerCase() : 'Text';
+	return words ? words.charAt(0).toUpperCase() + words.slice(1).toLowerCase() : t('Text');
 }
 
 /** A vote. The message takes the numeric protobuf enum, not the query's string. */

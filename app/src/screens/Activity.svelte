@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '../lib/i18n/index.svelte';
 	import { ChevronRight, Zap } from '@lucide/svelte';
 	import PageHeader from '../components/ui/PageHeader.svelte';
 	import ActivityList from '../components/wallet/ActivityList.svelte';
@@ -13,19 +14,19 @@
 </script>
 
 <div class="flex flex-col gap-2">
-	<PageHeader title="Activity" onback={() => goTab('home')} />
+	<PageHeader title={t('Activity')} onback={() => goTab('home')} />
 
 	{#if lnOrders.list.length}
 		<section class="flex flex-col pb-4">
-			<h2 class="pb-2 text-title">Lightning payments</h2>
+			<h2 class="pb-2 text-title">{t('Lightning payments')}</h2>
 			<ul class="flex flex-col">
 				{#each lnOrders.list as o (o.id)}
 					<li>
 						<button type="button" onclick={() => open({ name: 'lightning', orderId: o.id })} class="state-layer -mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-card px-2 py-3 text-left">
 							<span class="flex size-10 shrink-0 items-center justify-center rounded-pill bg-surface text-accent"><Zap size={17} /></span>
 							<span class="min-w-0 flex-1">
-								<span class="block truncate text-base font-medium">{o.description || 'Lightning invoice'}</span>
-								<span class="block truncate text-label {o.status === 'DONE' ? 'text-positive' : isFinal(o.status) ? 'text-negative' : 'text-text-faint'}">{STATUS_TEXT[o.status]}</span>
+								<span class="block truncate text-base font-medium">{o.description || t('Lightning invoice')}</span>
+								<span class="block truncate text-label {o.status === 'DONE' ? 'text-positive' : isFinal(o.status) ? 'text-negative' : 'text-text-faint'}">{t(STATUS_TEXT[o.status])}</span>
 							</span>
 							<span class="flex shrink-0 flex-col items-end">
 								<span class="text-base font-medium tabular-nums">−{Number(o.sats).toLocaleString()} sats</span>
@@ -39,5 +40,5 @@
 		</section>
 	{/if}
 
-	<ActivityList title="All payments" />
+	<ActivityList title={t('All payments')} />
 </div>

@@ -1,5 +1,6 @@
 import { fromBaseUnits, normalizeAmount, toBaseUnits } from 'secret-pay';
 import { DECIMALS } from './config';
+import { t } from './i18n/index.svelte';
 
 /** 12345678 → "12.345678"; grouped integer part, trimmed decimals. */
 export function formatAmount(base: bigint | null | undefined, maxDecimals = 6): string {
@@ -37,8 +38,8 @@ export function shortAddress(a: string, head = 10, tail = 6): string {
 export function relativeTime(unix?: number): string {
 	if (!unix) return '';
 	const diff = Date.now() / 1000 - unix;
-	if (diff < 60) return 'just now';
-	if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
-	if (diff < 86400) return `${Math.floor(diff / 3600)} h ago`;
+	if (diff < 60) return t('just now');
+	if (diff < 3600) return t('{0} min ago', { 0: Math.floor(diff / 60) });
+	if (diff < 86400) return t('{0} h ago', { 0: Math.floor(diff / 3600) });
 	return new Date(unix * 1000).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 }

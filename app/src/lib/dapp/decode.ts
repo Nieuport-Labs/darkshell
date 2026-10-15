@@ -19,6 +19,7 @@ import { formatAmount, shortAddress } from '../format';
 import { stepsOf, fromChain, type Step } from '../txSteps';
 import { BECH32_PREFIX } from '../config';
 import type { Enigma, SignRequest, StdSignDoc } from './provider';
+import { t as tr } from '../i18n/index.svelte';
 
 export interface Review {
 	/** what the screen is titled */
@@ -63,11 +64,11 @@ const DECODERS: Record<string, Decoder> = {
 
 /** Message types that hand control of the account (or where its rewards go) to someone else. */
 const DANGER: Record<string, string> = {
-	'/cosmos.authz.v1beta1.MsgGrant': 'Gives another address the right to act for this account.',
-	'/cosmos.authz.v1beta1.MsgExec': 'Acts for another account through a grant it gave.',
-	'/cosmos.distribution.v1beta1.MsgSetWithdrawAddress': 'Sends all future staking rewards to another address.',
-	'/cosmos.feegrant.v1beta1.MsgGrantAllowance': 'Lets another address spend this account’s SCRT on its fees.',
-	'/cosmos.bank.v1beta1.MsgMultiSend': 'Sends public coins to several addresses.',
+	'/cosmos.authz.v1beta1.MsgGrant': tr('Gives another address the right to act for this account.'),
+	'/cosmos.authz.v1beta1.MsgExec': tr('Acts for another account through a grant it gave.'),
+	'/cosmos.distribution.v1beta1.MsgSetWithdrawAddress': tr('Sends all future staking rewards to another address.'),
+	'/cosmos.feegrant.v1beta1.MsgGrantAllowance': tr('Lets another address spend this account’s SCRT on its fees.'),
+	'/cosmos.bank.v1beta1.MsgMultiSend': tr('Sends public coins to several addresses.'),
 };
 
 const coin = (c?: { denom?: string; amount?: string }) =>
@@ -118,21 +119,21 @@ function stepFor(m: Record<string, unknown>): Step | null {
 	const t = String(m['@type']);
 	switch (t) {
 		case '/cosmos.staking.v1beta1.MsgBeginRedelegate':
-			return { title: 'Move stake to another validator', detail: coin(m.amount as never), privacy: 'public' };
+			return { title: tr('Move stake to another validator'), detail: coin(m.amount as never), privacy: 'public' };
 		case '/cosmos.distribution.v1beta1.MsgSetWithdrawAddress':
-			return { title: 'Send staking rewards elsewhere', detail: `to ${shortAddress(String(m.withdraw_address), 10, 4)}`, privacy: 'public' };
+			return { title: tr('Send staking rewards elsewhere'), detail: tr('to {0}', { 0: shortAddress(String(m.withdraw_address), 10, 4) }), privacy: 'public' };
 		case '/cosmos.feegrant.v1beta1.MsgGrantAllowance':
-			return { title: 'Pay fees for another address', detail: `for ${shortAddress(String(m.grantee), 10, 4)}`, privacy: 'public' };
+			return { title: tr('Pay fees for another address'), detail: tr('for {0}', { 0: shortAddress(String(m.grantee), 10, 4) }), privacy: 'public' };
 		case '/cosmos.feegrant.v1beta1.MsgRevokeAllowance':
-			return { title: 'Stop paying fees for an address', detail: shortAddress(String(m.grantee), 10, 4), privacy: 'public' };
+			return { title: tr('Stop paying fees for an address'), detail: shortAddress(String(m.grantee), 10, 4), privacy: 'public' };
 		case '/cosmos.authz.v1beta1.MsgGrant':
-			return { title: 'Grant permission', detail: `to ${shortAddress(String(m.grantee), 10, 4)}`, privacy: 'public' };
+			return { title: tr('Grant permission'), detail: tr('to {0}', { 0: shortAddress(String(m.grantee), 10, 4) }), privacy: 'public' };
 		case '/cosmos.authz.v1beta1.MsgRevoke':
-			return { title: 'Revoke permission', detail: shortAddress(String(m.grantee), 10, 4), privacy: 'public' };
+			return { title: tr('Revoke permission'), detail: shortAddress(String(m.grantee), 10, 4), privacy: 'public' };
 		case '/cosmos.authz.v1beta1.MsgExec':
-			return { title: 'Act for another account', detail: `${(m.msgs as unknown[]).length} message(s)`, privacy: 'public' };
+			return { title: tr('Act for another account'), detail: tr('{0} message(s)', { 0: (m.msgs as unknown[]).length }), privacy: 'public' };
 		case '/cosmos.bank.v1beta1.MsgMultiSend':
-			return { title: 'Public transfer to several addresses', privacy: 'public' };
+			return { title: tr('Public transfer to several addresses'), privacy: 'public' };
 		default:
 			return null;
 	}
@@ -144,7 +145,7 @@ function stepsFor(flat: Record<string, unknown>[]): Step[] {
 
 function warningsFor(flat: Record<string, unknown>[], unknown: string[]): string[] {
 	const w = [...new Set(flat.map((m) => DANGER[String(m['@type'])]).filter((x): x is string => !!x))];
-	if (unknown.length) w.push(`DarkShell can't read ${unknown.length === 1 ? 'one message' : `${unknown.length} messages`} (${unknown.join(', ')}). Sign only if you trust this site.`);
+	if (unknown.length) w.push(tr("DarkShell can't read {0} ({1}). Sign only if you trust this site.", { 0: unknown.length === 1 ? tr('one message') : tr('{0} messages', { 0: unknown.length }), 1: unknown.join(', ') }));
 	return w;
 }
 
@@ -154,9 +155,9 @@ async function reviewDirect(doc: { bodyBytes: Uint8Array; authInfoBytes: Uint8Ar
 	const flat = await Promise.all(body.messages.map((m) => flatOf(m.type_url, m.value, enigma)));
 	const unknown = body.messages.filter((m) => !DECODERS[m.type_url]).map((m) => m.type_url.split('.').pop() ?? m.type_url);
 	return {
-		title: 'Approve transaction',
+		title: tr('Approve transaction'),
 		steps: stepsFor(flat),
-		fee: auth.fee?.amount?.length ? auth.fee.amount.map(coin).join(' + ') : 'No fee',
+		fee: auth.fee?.amount?.length ? auth.fee.amount.map(coin).join(' + ') : tr('No fee'),
 		feePayer: auth.fee?.granter || auth.fee?.payer || undefined,
 		memo: body.memo || undefined,
 		warnings: warningsFor(flat, unknown),
@@ -188,7 +189,7 @@ function reviewPermit(doc: StdSignDoc): Review | null {
 	if (doc.msgs.length !== 1 || m?.type !== 'query_permit') return null;
 	const v = m.value as { permit_name?: string; allowed_tokens?: string[]; permissions?: string[] };
 	return {
-		title: 'Allow reading',
+		title: tr('Allow reading'),
 		steps: [],
 		permit: { name: String(v.permit_name ?? ''), tokens: v.allowed_tokens ?? [], permissions: v.permissions ?? [] },
 		warnings: [],
@@ -207,11 +208,11 @@ function reviewAmino(doc: StdSignDoc): Review {
 	});
 	const unknown = doc.msgs.filter((m) => !AMINO[m.type]).map((m) => m.type);
 	const warnings = warningsFor(flat, unknown);
-	if (doc.chain_id === '') warnings.push('This is signed without a chain: make sure you know what it is for.');
+	if (doc.chain_id === '') warnings.push(tr('This is signed without a chain: make sure you know what it is for.'));
 	return {
-		title: 'Approve transaction',
+		title: tr('Approve transaction'),
 		steps: stepsFor(flat),
-		fee: doc.fee.amount.length ? doc.fee.amount.map(coin).join(' + ') : 'No fee',
+		fee: doc.fee.amount.length ? doc.fee.amount.map(coin).join(' + ') : tr('No fee'),
 		feePayer: doc.fee.granter || doc.fee.payer || undefined,
 		memo: doc.memo || undefined,
 		warnings,
@@ -227,7 +228,7 @@ function reviewArbitrary(data: string | Uint8Array): Review {
 	} catch {
 		/* plain text */
 	}
-	return { title: 'Sign a message', steps: [], text, warnings: [], raw: [] };
+	return { title: tr('Sign a message'), steps: [], text, warnings: [], raw: [] };
 }
 
 export async function reviewOf(req: SignRequest, enigma: Enigma | null): Promise<Review> {

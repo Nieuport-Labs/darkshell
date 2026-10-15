@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '../../lib/i18n/index.svelte';
 	import { ChevronLeft } from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
 
@@ -9,7 +10,7 @@
 <header class="flex min-h-14 items-center justify-between gap-3 pb-4 pt-3">
 	<div class="flex min-w-0 items-center gap-1">
 		{#if onback}
-			<button type="button" onclick={onback} aria-label="Back" class="state-layer -ml-2 rounded-pill p-1.5 text-text"><ChevronLeft size={26} /></button>
+			<button type="button" onclick={onback} aria-label={t('Back')} class="state-layer -ml-2 rounded-pill p-1.5 text-text"><ChevronLeft size={26} /></button>
 		{/if}
 		<h1 class="truncate text-display">{title}</h1>
 	</div>

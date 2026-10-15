@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t as tr } from '../../lib/i18n/index.svelte';
 	// Sends ETH, BTC or XMR to an address on another chain, from sSCRT, in one
 	// Secret transaction, through FixedFloat (lib/pay/crosschain.ts). Network (for 0x addresses
 	// without one) → amount (unless the request has it) → price → recap and
@@ -13,7 +14,7 @@
 	import { ffPlan, networkName, quoteCross, type CrossQuote, type Destination } from '../../lib/pay/crosschain';
 	import { COIN_NAME, DECIMALS, EVM_NETWORKS, toBase, type EvmNetwork, type ExternalTarget } from '../../lib/pay/external';
 	import { isFinalX, loadXOrders, saveXOrder, statusText, syncXOrder, X_STEPS, xOrders, type XOrder } from '../../lib/pay/xorders.svelte';
-	import { usdValue } from '../../lib/price.svelte';
+	import { fiatValue } from '../../lib/price.svelte';
 	import { close, open } from '../../lib/ui.svelte';
 	import { client, cosmosAddress, pay, prefetchForPayment, spendable, wallet } from '../../lib/wallet.svelte';
 	import Button from '../ui/Button.svelte';
@@ -74,7 +75,7 @@
 			const ff = { token: o.token, deposit: o.from.address, memo: o.from.tag ?? undefined, atom: atom.toString(), expires: o.time.expiration * 1000 };
 			order = { ...base, id: o.id, provider: 'ff', status: 'SENDING', ff };
 			await saveXOrder(order);
-			if (spendable() !== null && q.amountIn > spendable()!) throw new Error(`Not enough sSCRT: this needs ${formatAmount(q.amountIn)}.`);
+			if (spendable() !== null && q.amountIn > spendable()!) throw new Error(tr('Not enough sSCRT: this needs {0}.', { 0: formatAmount(q.amountIn) }));
 			const out = await pay(plan, 'external', (p) => {
 				order = { ...order!, sscrt: q.amountIn.toString(), hash: p.hash, status: 'NEW' };
 				step = 'progress';
@@ -86,7 +87,7 @@
 		} catch (e) {
 			const msg =
 				e instanceof NoGasError
-					? 'Nothing can pay the network fee: gas credits are empty. See Settings → Gas credits.'
+					? tr('Nothing can pay the network fee: gas credits are empty. See Settings → Gas credits.')
 					: e instanceof FfError
 						? e.code
 							? `${e.message} (FixedFloat error ${e.code})`
@@ -120,15 +121,15 @@
 		void loadXOrders().then(() => {
 			order = xOrders.list.find((o) => o.id === existing) ?? null;
 			if (order) startPolling();
-			else fail('This payment is no longer on this device.');
+			else fail(tr('This payment is no longer on this device.'));
 		});
-	} else if (!target) fail('Nothing to pay.');
+	} else if (!target) fail(tr('Nothing to pay.'));
 
 	async function refund() {
 		if (!order?.ff) return;
 		try {
 			await refundOrder(order.id, order.ff.token, cosmosAddress());
-			error = `Refund requested to ${cosmosAddress()} on the Cosmos Hub (same key as this account).`;
+			error = tr('Refund requested to {0} on the Cosmos Hub (same key as this account).', { 0: cosmosAddress() });
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
 		}
@@ -145,8 +146,8 @@
 
 	function legs(o: XOrder): [string, string, string?][] {
 		return [
-			...(o.sscrt ? [['You paid', `${formatAmount(BigInt(o.sscrt))} sSCRT`] as [string, string]] : []),
-			['Via', `FixedFloat · ${formatAmount(BigInt(o.ff?.atom ?? '0'))} ATOM`],
+			...(o.sscrt ? [['You paid', tr('{0} sSCRT', { 0: formatAmount(BigInt(o.sscrt)) })] as [string, string]] : []),
+			['Via', tr('FixedFloat · {0} ATOM', { 0: formatAmount(BigInt(o.ff?.atom ?? '0')) })],
 			...(o.ff ? [['Deposit address', short(o.ff.deposit), o.ff.deposit] as [string, string, string]] : []),
 			...(o.ff?.memo ? [['IBC memo', o.ff.memo, o.ff.memo] as [string, string, string]] : []),
 			['To', short(o.address, 10, 8), o.address],
@@ -155,7 +156,7 @@
 		];
 	}
 
-	const title = $derived(step === 'confirm' || step === 'sending' ? 'Confirm' : `Send ${coin}`);
+	const title = $derived(step === 'confirm' || step === 'sending' ? tr('Confirm') : tr('Send {0}', { 0: coin }));
 	const back = $derived(step === 'amount' && coin === 'ETH' && !target?.network ? () => (step = 'network') : step === 'confirm' && !target?.amount ? () => (step = 'amount') : step === 'confirm' && coin === 'ETH' && !target?.network ? () => (step = 'network') : undefined);
 </script>
 
@@ -170,7 +171,7 @@
 	{#if order && (step === 'progress' || (step === 'error' && order.hash))}
 		<div class="flex flex-col items-center gap-1 text-center">
 			<span class="text-[2rem] font-semibold leading-tight tabular-nums">{order.amount} <span class="text-title text-text-muted">{order.coin}</span></span>
-			<span class="text-base text-text-faint">to {short(order.address, 8, 6)} on {networkName(order)}</span>
+			<span class="text-base text-text-faint">{tr('to {0} on {1}', { 0: short(order.address, 8, 6), 1: networkName(order) })}</span>
 		</div>
 		<ol class="flex flex-col gap-2">
 			{#each X_STEPS[order.provider] as s, i (s)}
@@ -187,16 +188,16 @@
 			<div class="flex items-start gap-2 rounded-card bg-surface p-3 text-label text-text-muted">
 				<AlertTriangle size={16} class="mt-px shrink-0 text-[#f5b544]" />
 				<span>
-					FixedFloat could not complete the exchange as ordered. You can ask for a refund to this account's Cosmos Hub address.
+					{tr('FixedFloat could not complete the exchange as ordered. You can ask for a refund to this account\'s Cosmos Hub address.')}
 				</span>
 			</div>
-			<Button variant="secondary" block size="lg" onclick={refund}>Request refund</Button>
+			<Button variant="secondary" block size="lg" onclick={refund}>{tr('Request refund')}</Button>
 		{/if}
 		{#if error}<p class="text-base text-text-muted">{error}</p>{/if}
 		<dl class="flex flex-col divide-y divide-border rounded-card border border-border bg-surface-1 text-base">
 			{#each legs(order) as [k, v, full] (k)}
 				<div class="flex items-start justify-between gap-4 px-4 py-3">
-					<dt class="shrink-0 text-text-faint">{k}</dt>
+					<dt class="shrink-0 text-text-faint">{tr(k)}</dt>
 					<dd class="min-w-0 text-right">
 						{#if full}
 							<button type="button" onclick={() => copyText(full, k)} class="flex max-w-full items-center gap-1.5">
@@ -209,14 +210,14 @@
 			{/each}
 		</dl>
 		<div class="flex flex-wrap gap-3 px-1">
-			{#if order.hash}<a href={explorerTx(order.hash)} target="_blank" rel="noreferrer noopener" class="inline-flex items-center gap-1.5 text-base text-accent">Secret transaction <ExternalLink size={14} /></a>{/if}
-			{#if destExplorer(order)}<a href={destExplorer(order)} target="_blank" rel="noreferrer noopener" class="inline-flex items-center gap-1.5 text-base text-accent">On {networkName(order)} <ExternalLink size={14} /></a>{/if}
+			{#if order.hash}<a href={explorerTx(order.hash)} target="_blank" rel="noreferrer noopener" class="inline-flex items-center gap-1.5 text-base text-accent">{tr('Secret transaction')} <ExternalLink size={14} /></a>{/if}
+			{#if destExplorer(order)}<a href={destExplorer(order)} target="_blank" rel="noreferrer noopener" class="inline-flex items-center gap-1.5 text-base text-accent">{tr('On {0}', { 0: networkName(order) })} <ExternalLink size={14} /></a>{/if}
 		</div>
-		<div class="mt-auto pt-4"><Button block size="xl" onclick={close}>{order.status === 'DONE' ? 'Done' : 'Close — it continues in the background'}</Button></div>
+		<div class="mt-auto pt-4"><Button block size="xl" onclick={close}>{order.status === 'DONE' ? tr('Done') : tr('Close — it continues in the background')}</Button></div>
 		<PoweredByFF />
 	{:else if step === 'network'}
-		<p class="px-1 text-base text-text-muted">An 0x address works on several networks. Which one should receive the ETH?</p>
-		<ul class="flex flex-col gap-2" role="radiogroup" aria-label="Network">
+		<p class="px-1 text-base text-text-muted">{tr('An 0x address works on several networks. Which one should receive the ETH?')}</p>
+		<ul class="flex flex-col gap-2" role="radiogroup" aria-label={tr('Network')}>
 			{#each EVM_NETWORKS as n (n.id)}
 				<li>
 					<button
@@ -232,9 +233,9 @@
 				</li>
 			{/each}
 		</ul>
-		<p class="px-1 text-label text-text-faint">Pick the network the recipient asked for. ETH sent on the wrong one may be hard or impossible for them to get.</p>
+		<p class="px-1 text-label text-text-faint">{tr('Pick the network the recipient asked for. ETH sent on the wrong one may be hard or impossible for them to get.')}</p>
 		<div class="mt-auto pt-4">
-			<Button block size="xl" onclick={() => ((network ??= 'ethereum'), target?.amount ? void getQuote() : (step = 'amount'))}>Continue</Button>
+			<Button block size="xl" onclick={() => ((network ??= 'ethereum'), target?.amount ? void getQuote() : (step = 'amount'))}>{tr('Continue')}</Button>
 		</div>
 	{:else if step === 'amount'}
 		<div class="flex items-center justify-between gap-3 rounded-card bg-surface px-4 py-3 text-base">
@@ -248,51 +249,51 @@
 					bind:value={amountText}
 					inputmode="decimal"
 					placeholder="0"
-					aria-label="Amount in {coin}"
+					aria-label={tr('Amount in {0}', { 0: coin })}
 					style="width: {Math.max(1, amountText.length) + 0.5}ch"
 					class="min-w-0 max-w-[14ch] bg-transparent text-center text-[2.75rem] font-semibold tabular-nums outline-none placeholder:text-text-faint"
 				/>
 				<span class="text-title text-text-muted">{coin}</span>
 			</label>
-			<p class="text-label text-text-faint">{COIN_NAME[coin]} the recipient gets, paid from your sSCRT</p>
-			{#if amountText && !amount}<p class="text-label text-negative" role="alert">Enter a valid amount (up to {DECIMALS[coin]} decimals).</p>{/if}
+			<p class="text-label text-text-faint">{tr('{0} the recipient gets, paid from your sSCRT', { 0: COIN_NAME[coin] })}</p>
+			{#if amountText && !amount}<p class="text-label text-negative" role="alert">{tr('Enter a valid amount (up to {0} decimals).', { 0: DECIMALS[coin] })}</p>{/if}
 		</div>
-		<Button block size="xl" disabled={!amount} onclick={getQuote}>{amount ? 'Get a price' : 'Enter an amount'}</Button>
+		<Button block size="xl" disabled={!amount} onclick={getQuote}>{amount ? tr('Get a price') : tr('Enter an amount')}</Button>
 	{:else if step === 'quote'}
-		<div class="flex items-center justify-center gap-2 py-8 text-base text-text-muted"><Loader2 size={18} class="animate-spin" /> Getting a price…</div>
+		<div class="flex items-center justify-center gap-2 py-8 text-base text-text-muted"><Loader2 size={18} class="animate-spin" /> {tr('Getting a price…')}</div>
 	{:else if step === 'error'}
 		<div class="flex items-start gap-3">
 			<AlertTriangle size={18} class="mt-0.5 shrink-0 text-[#f5b544]" />
 			<p class="text-base">{error}</p>
 		</div>
 		<div class="mt-auto flex flex-col gap-2 pt-4">
-			{#if target && !error.includes('Settings')}<Button variant="secondary" block size="xl" onclick={() => (step = 'amount')}>Change amount</Button>{/if}
-			<Button variant="ghost" block onclick={() => (error.includes('Settings') ? open({ name: 'settings', page: 'advanced' }) : close())}>{error.includes('Settings') ? 'Open Settings' : 'Close'}</Button>
+			{#if target && !error.includes(tr('Settings'))}<Button variant="secondary" block size="xl" onclick={() => (step = 'amount')}>{tr('Change amount')}</Button>{/if}
+			<Button variant="ghost" block onclick={() => (error.includes(tr('Settings')) ? open({ name: 'settings', page: 'advanced' }) : close())}>{error.includes(tr('Settings')) ? tr('Open Settings') : tr('Close')}</Button>
 		</div>
 	{:else if (step === 'confirm' || step === 'sending') && quote && target && dest}
 		<div class="flex flex-col items-center gap-1 pt-6 text-center">
-			<span class="text-label text-text-faint">They get</span>
+			<span class="text-label text-text-faint">{tr('They get')}</span>
 			<div class="flex items-baseline gap-2">
 				<span class="text-[2.75rem] font-semibold leading-tight tracking-[-0.03em] tabular-nums">{amountText}</span>
 				<span class="text-title text-text-muted">{coin}</span>
 			</div>
-			{#if usdValue(quote.sscrt)}<span class="text-base tabular-nums text-text-faint">≈ {usdValue(quote.sscrt)}</span>{/if}
+			{#if fiatValue(quote.sscrt)}<span class="text-base tabular-nums text-text-faint">≈ {fiatValue(quote.sscrt)}</span>{/if}
 			{#if target.note}<p class="text-base text-text-muted">“{target.note}”</p>{/if}
 		</div>
 		<dl class="flex flex-col divide-y divide-border rounded-card border border-border bg-surface-1 text-base">
-			{@render row('To', short(target.address, 10, 8), where)}
-			{@render row('You pay', `≈ ${formatAmount(quote.sscrt)} sSCRT`, `balance ${formatAmount(spendable())}`)}
-			{@render row('Via', quote.via, 'an exchange makes the payment')}
-			{@render row('Arrives', `in about ${quote.minutes} min`)}
-			{@render row('Network fee', 'Paid from gas credits')}
+			{@render row(tr('To'), short(target.address, 10, 8), where)}
+			{@render row(tr('You pay'), tr('≈ {0} sSCRT', { 0: formatAmount(quote.sscrt) }), tr('balance {0}', { 0: formatAmount(spendable()) }))}
+			{@render row(tr('Via'), quote.via, tr('an exchange makes the payment'))}
+			{@render row(tr('Arrives'), tr('in about {0} min', { 0: quote.minutes }))}
+			{@render row(tr('Network fee'), tr('Paid from gas credits'))}
 		</dl>
 		<p class="flex items-start gap-2 px-1 text-label text-text-faint">
 			<Eye size={13} class="mt-px shrink-0" />
-			Public: the transfer to FixedFloat and the payment on {where} are visible on chain, and FixedFloat sees both sides.{coin === 'XMR' ? ' Once it is Monero, the recipient’s side is private.' : ''}
+			{tr('Public: the transfer to FixedFloat and the payment on {0} are visible on chain, and FixedFloat sees both sides.', { 0: where })}{coin === 'XMR' ? tr(' Once it is Monero, the recipient’s side is private.') : ''}
 		</p>
-		{#if tooMuch}<p class="text-base text-negative">Not enough sSCRT.</p>{/if}
+		{#if tooMuch}<p class="text-base text-negative">{tr('Not enough sSCRT.')}</p>{/if}
 		<div class="mt-auto pt-4">
-			<SwipeConfirm label="Swipe to send {amountText} {coin}" loading={step === 'sending'} disabled={tooMuch} onconfirm={confirm} />
+			<SwipeConfirm label={tr('Swipe to send {0} {1}', { 0: amountText, 1: coin })} loading={step === 'sending'} disabled={tooMuch} onconfirm={confirm} />
 		</div>
 		<PoweredByFF />
 	{/if}

@@ -29,6 +29,13 @@
     color-scheme: normal;
   }
 
+  /* a dialog is open (Modal.svelte): the page under it stays put */
+  html.scroll-locked,
+  html.scroll-locked body {
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
   /* the browser extension's pages (popup, side panel, approval window): every
      size is rem, so a smaller root makes the whole wallet denser on a desktop */
   html.ext {

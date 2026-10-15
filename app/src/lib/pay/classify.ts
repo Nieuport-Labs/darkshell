@@ -5,6 +5,7 @@ import { parsePayment, type ParseErrorCode, type PaymentRequest } from 'secret-p
 import { ibcDestinationFor, type IbcDestination } from '../chain/ibc';
 import { invoiceAsset, type InvoiceAsset } from '../tokens';
 import { ExternalError, parseExternal, type ExternalTarget } from './external';
+import { t } from '../i18n/index.svelte';
 
 export type Target =
 	| { kind: 'secret'; request: PaymentRequest; asset: InvoiceAsset }
@@ -56,7 +57,7 @@ function lightning(raw: string): Target | null {
 			network: inv.startsWith('lnbc') && !inv.startsWith('lnbcrt') ? 'mainnet' : 'testnet',
 		};
 	} catch {
-		return { kind: 'error', message: 'This Lightning invoice could not be read.' };
+		return { kind: 'error', message: t('This Lightning invoice could not be read.') };
 	}
 }
 
@@ -67,7 +68,7 @@ export function classify(input: string): Target {
 	// Ethereum / Bitcoin / Monero (a BIP-21 request with a Lightning invoice pays that)
 	try {
 		const x = parseExternal(input);
-		if (x && 'lightning' in x) return lightning(x.lightning) ?? { kind: 'error', message: 'The Lightning invoice in this request could not be read.' };
+		if (x && 'lightning' in x) return lightning(x.lightning) ?? { kind: 'error', message: t('The Lightning invoice in this request could not be read.') };
 		if (x) return x;
 	} catch (e) {
 		if (e instanceof ExternalError) return { kind: 'error', message: e.message };
@@ -77,7 +78,7 @@ export function classify(input: string): Target {
 	const r = parsePayment(input);
 	if (r.ok) {
 		const asset = invoiceAsset(r.request.asset);
-		if (!asset) return { kind: 'error', message: 'This request asks for a token DarkShell does not know.' };
+		if (!asset) return { kind: 'error', message: t('This request asks for a token DarkShell does not know.') };
 		return { kind: 'secret', request: r.request, asset };
 	}
 	if (r.error === 'wrong_chain' || r.error === 'unrecognized') {
@@ -85,5 +86,5 @@ export function classify(input: string): Target {
 		const dest = ibcDestinationFor(raw);
 		if (dest) return { kind: 'ibc', address: raw.toLowerCase(), dest };
 	}
-	return { kind: 'error', message: MESSAGES[r.error] };
+	return { kind: 'error', message: t(MESSAGES[r.error]) };
 }

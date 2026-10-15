@@ -18,6 +18,7 @@ import { parseTimestamp } from '../gas/feegrant-sdk';
 import type { PaymentPlan } from '../pay/payments';
 import { lcdUrl } from './client';
 import { snip20Msg } from './sscrt';
+import { t } from '../i18n/index.svelte';
 
 export const MSG_DELEGATE = '/cosmos.staking.v1beta1.MsgDelegate';
 export const MSG_UNDELEGATE = '/cosmos.staking.v1beta1.MsgUndelegate';
@@ -91,7 +92,7 @@ type RawValidator = {
 function toValidator(v: RawValidator): Validator {
 	return {
 		address: v.operator_address ?? '',
-		moniker: v.description?.moniker?.trim() || 'Unnamed validator',
+		moniker: v.description?.moniker?.trim() || t('Unnamed validator'),
 		commission: Number(v.commission?.commission_rates?.rate ?? '0'),
 		tokens: BigInt(v.tokens?.split('.')[0] || '0'),
 		jailed: !!v.jailed,

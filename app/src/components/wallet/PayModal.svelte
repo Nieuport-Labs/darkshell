@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t as tr } from '../../lib/i18n/index.svelte';
 	// After Secret_Dashboard PayInvoiceModal: a confirmation, not a form. The
 	// link set recipient, asset and amount; only how it is paid is decided here
 	// (sSCRT directly, unwrapped, or swapped on ShadeSwap in the same tx).
@@ -12,7 +13,7 @@
 	import { prefetchForPayment, spendable } from '../../lib/wallet.svelte';
 	import Modal from '../ui/Modal.svelte';
 	import SwipeConfirm from '../ui/SwipeConfirm.svelte';
-	import { usdValue } from '../../lib/price.svelte';
+	import { fiatValue } from '../../lib/price.svelte';
 	import TxStage from './TxStage.svelte';
 	import { haptic } from '../../lib/haptics';
 
@@ -52,16 +53,16 @@
 	prefetchForPayment();
 </script>
 
-<Modal full title="Pay invoice" onclose={close}>
+<Modal full title={tr('Pay invoice')} onclose={close}>
 	{#if outcome || sending}
 		<TxStage
 			{outcome}
-			verbs={['Paying', 'Paid']}
+			verbs={[tr('Paying'), tr('Paid')]}
 			amount={formatAmount(spends, 6)}
 			unit="sSCRT"
-			sub={usdValue(spends) ? `≈ ${usdValue(spends)}` : undefined}
-			line="to {request.label ?? shortAddress(request.address, 10, 6)}"
-			summary={swapping ? `They received ${request.amount} ${asset.symbol}.` : undefined}
+			sub={fiatValue(spends) ? `≈ ${fiatValue(spends)}` : undefined}
+			line={tr('to {0}', { 0: request.label ?? shortAddress(request.address, 10, 6) })}
+			summary={swapping ? tr('They received {0} {1}.', { 0: request.amount, 1: asset.symbol }) : undefined}
 			ondone={close}
 		>
 			{#snippet icon()}<ReceiptText size={30} />{/snippet}
@@ -69,7 +70,7 @@
 	{:else}
 		<div class="flex flex-col items-center gap-2 pt-6 text-center">
 			{#if spends === null}
-				<span class="flex h-[3.25rem] items-center gap-2 text-base text-text-muted"><Loader2 size={18} class="animate-spin" /> Getting the price…</span>
+				<span class="flex h-[3.25rem] items-center gap-2 text-base text-text-muted"><Loader2 size={18} class="animate-spin" /> {tr('Getting the price…')}</span>
 			{:else}
 				<p class="flex items-baseline justify-center tabular-nums" aria-label="{formatAmount(spends)} sSCRT">
 					<span class="{parts.int.length > 6 ? 'text-[2.5rem]' : 'text-[3.25rem]'} font-semibold leading-none tracking-[-0.035em]">{parts.int}</span>
@@ -77,13 +78,13 @@
 					<span class="ml-2 text-title text-text-muted">sSCRT</span>
 				</p>
 			{/if}
-			{#if usdValue(spends)}<span class="text-base tabular-nums text-text-faint">≈ {usdValue(spends)}</span>{/if}
-			{#if swapping}<span class="text-label text-text-muted">They receive {request.amount} {asset.symbol}</span>{/if}
+			{#if fiatValue(spends)}<span class="text-base tabular-nums text-text-faint">≈ {fiatValue(spends)}</span>{/if}
+			{#if swapping}<span class="text-label text-text-muted">{tr('They receive {0} {1}', { 0: request.amount, 1: asset.symbol })}</span>{/if}
 			<span class="inline-flex items-center gap-1.5 rounded-pill bg-surface px-2.5 py-1 text-label text-text-muted">
-				{#if asset.private}<ShieldCheck size={12} class="text-accent" /> Private transfer{:else}<Eye size={12} /> Public transfer{/if}
+				{#if asset.private}<ShieldCheck size={12} class="text-accent" /> {tr('Private transfer')}{:else}<Eye size={12} /> {tr('Public transfer')}{/if}
 			</span>
 			<p class="mt-1 text-base text-text-muted">
-				To <span class="font-medium text-text">{request.label ?? shortAddress(request.address, 10, 6)}</span>
+				{tr('To')} <span class="font-medium text-text">{request.label ?? shortAddress(request.address, 10, 6)}</span>
 			</p>
 			<p class="break-address font-mono text-xs text-text-faint">{request.address}</p>
 			{#if request.message}<p class="text-base">“{request.message}”</p>{/if}
@@ -91,11 +92,11 @@
 
 		<div class="flex items-center gap-3 rounded-card border border-border bg-surface px-4 py-3">
 			<span class="flex min-w-0 flex-1 flex-col">
-				<span class="text-label text-text-muted">Paid from</span>
-				<span class="text-base font-medium">Your balance · {formatAmount(spendable())} sSCRT</span>
+				<span class="text-label text-text-muted">{tr('Paid from')}</span>
+				<span class="text-base font-medium">{tr('Your balance · {0} sSCRT', { 0: formatAmount(spendable()) })}</span>
 				{#if swapping || !asset.private}
 					<span class="truncate text-label text-text-faint">
-						{swapping ? 'Swapped on ShadeSwap' : 'Unwrapped'}{quote.kind === 'ready' ? ` · up to ${Number(quote.quote.slippageBps) / 100}% slippage` : ''}
+						{swapping ? tr('Swapped on ShadeSwap') : tr('Unwrapped')}{quote.kind === 'ready' ? tr(' · up to {0}% slippage', { 0: Number(quote.quote.slippageBps) / 100 }) : ''}
 					</span>
 				{/if}
 			</span>
@@ -103,13 +104,13 @@
 		</div>
 
 		{#if memo}
-			<p class="-mt-2 px-1 text-label text-text-faint">Reference <span class="font-mono">{memo}</span> is attached{asset.private ? ' privately' : ' as a public memo'}.</p>
+			<p class="-mt-2 px-1 text-label text-text-faint">{tr('Reference')} <span class="font-mono">{memo}</span> {asset.private ? tr('is attached privately.') : tr('is attached as a public memo.')}</p>
 		{/if}
 		{#if payError}<p class="text-base text-negative" role="alert">{payError}</p>{/if}
 		{#if failure}<p class="break-address text-base text-negative animate-[shake_400ms_var(--ease-standard)]" role="alert">{failure}</p>{/if}
 
 		<div class="mt-auto pt-4">
-			<SwipeConfirm label="Swipe to pay" loading={sending} disabled={!ready && !sending} onconfirm={submit} />
+			<SwipeConfirm label={tr('Swipe to pay')} loading={sending} disabled={!ready && !sending} onconfirm={submit} />
 		</div>
 	{/if}
 </Modal>

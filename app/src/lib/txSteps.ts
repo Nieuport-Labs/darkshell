@@ -11,6 +11,7 @@ import { ibcDestinationFor } from './chain/ibc';
 import { GAS_VAULT_ADDRESS, SSCRT_ADDRESS } from './config';
 import { formatAmount, shortAddress } from './format';
 import { privateSymbol, tokenByAddress } from './tokens';
+import { t } from './i18n/index.svelte';
 
 export type Privacy = 'private' | 'public';
 /** a whole transaction: every step private, none, or some */
@@ -90,23 +91,23 @@ function execStep(m: Flat): Step {
 	const token = m.contract ? tokenByAddress(m.contract) : undefined;
 	const sym = token ? privateSymbol(token) : 'token';
 	const body = m.msg;
-	if (m.contract === GAS_VAULT_ADDRESS) return { title: 'Gas credits refill', detail: coin(m.funds?.[0]), privacy: 'public', upkeep: true };
+	if (m.contract === GAS_VAULT_ADDRESS) return { title: t('Gas credits refill'), detail: coin(m.funds?.[0]), privacy: 'public', upkeep: true };
 	if (typeof body !== 'object' || body === null) {
 		// someone else's message: encrypted to them
-		return { title: 'Contract call', detail: 'encrypted', privacy: 'private' };
+		return { title: t('Contract call'), detail: 'encrypted', privacy: 'private' };
 	}
 	const [action, args] = Object.entries(body as Record<string, Record<string, unknown>>)[0] ?? ['', {}];
 	const amount = typeof args?.amount === 'string' ? formatAmount(BigInt(args.amount)) : '';
 	switch (action) {
 		case 'transfer':
-			return { title: `Private ${sym} transfer`, detail: [amount && `${amount} ${sym}`, args?.recipient ? `to ${shortAddress(String(args.recipient), 8, 4)}` : ''].filter(Boolean).join(' '), privacy: 'private' };
+			return { title: t('Private {0} transfer', { 0: sym }), detail: [amount && `${amount} ${sym}`, args?.recipient ? t('to {0}', { 0: shortAddress(String(args.recipient), 8, 4) }) : ''].filter(Boolean).join(' '), privacy: 'private' };
 		case 'send':
-			if (args?.recipient === SHADESWAP_ROUTER) return { title: 'Swap on ShadeSwap', detail: amount ? `${amount} ${sym} in` : undefined, privacy: 'private' };
-			return { title: `Private ${sym} transfer`, detail: amount ? `${amount} ${sym}` : undefined, privacy: 'private' };
+			if (args?.recipient === SHADESWAP_ROUTER) return { title: t('Swap on ShadeSwap'), detail: amount ? t('{0} {1} in', { 0: amount, 1: sym }) : undefined, privacy: 'private' };
+			return { title: t('Private {0} transfer', { 0: sym }), detail: amount ? `${amount} ${sym}` : undefined, privacy: 'private' };
 		case 'redeem':
-			return { title: `Unwrap ${sym} → public ${token?.symbol ?? ''}`.trim(), detail: amount ? `${amount} ${token?.symbol ?? ''}, visible on chain` : 'visible on chain', privacy: 'public' };
+			return { title: t('Unwrap {0} → public {1}', { 0: sym, 1: token?.symbol ?? '' }).trim(), detail: amount ? t('{0} {1}, visible on chain', { 0: amount, 1: token?.symbol ?? '' }) : t('visible on chain'), privacy: 'public' };
 		case 'deposit':
-			return { title: `Wrap ${m.contract === SSCRT_ADDRESS ? 'SCRT → sSCRT' : `→ ${sym}`}`, detail: m.funds?.[0] ? `${coin(m.funds[0])}, visible on chain` : undefined, privacy: 'public' };
+			return { title: m.contract === SSCRT_ADDRESS ? t('Wrap SCRT → sSCRT') : t('Wrap → {0}', { 0: sym }), detail: m.funds?.[0] ? t('{0}, visible on chain', { 0: coin(m.funds[0]) }) : undefined, privacy: 'public' };
 		default:
 			return { title: `${sym === 'token' ? 'Contract' : sym} · ${action.replace(/_/g, ' ')}`, privacy: 'private' };
 	}
@@ -125,34 +126,34 @@ export function stepsOf(flat: Flat[], names: Names = {}): Step[] {
 				break;
 			case T.send: {
 				const amt = (m.amount as Coin[] | undefined)?.[0];
-				steps.push({ title: 'Public transfer', detail: [coin(amt), m.to_address ? `to ${shortAddress(String(m.to_address), 8, 4)}` : ''].filter(Boolean).join(' '), privacy: 'public' });
+				steps.push({ title: t('Public transfer'), detail: [coin(amt), m.to_address ? t('to {0}', { 0: shortAddress(String(m.to_address), 8, 4) }) : ''].filter(Boolean).join(' '), privacy: 'public' });
 				break;
 			}
 			case T.ibc: {
 				const to = String(m.receiver ?? '');
-				steps.push({ title: `IBC transfer to ${ibcDestinationFor(to)?.name ?? 'another chain'}`, detail: [coin(m.token as Coin), to ? `to ${shortAddress(to, 10, 4)}` : ''].filter(Boolean).join(' '), privacy: 'public' });
+				steps.push({ title: t('IBC transfer to {0}', { 0: ibcDestinationFor(to)?.name ?? 'another chain' }), detail: [coin(m.token as Coin), to ? t('to {0}', { 0: shortAddress(to, 10, 4) }) : ''].filter(Boolean).join(' '), privacy: 'public' });
 				break;
 			}
 			case T.delegate:
-				steps.push({ title: `Stake with ${val(m.validator_address)}`, detail: coin(m.amount as Coin), privacy: 'public' });
+				steps.push({ title: t('Stake with {0}', { 0: val(m.validator_address) }), detail: coin(m.amount as Coin), privacy: 'public' });
 				break;
 			case T.undelegate:
-				steps.push({ title: `Unstake from ${val(m.validator_address)}`, detail: coin(m.amount as Coin), privacy: 'public' });
+				steps.push({ title: t('Unstake from {0}', { 0: val(m.validator_address) }), detail: coin(m.amount as Coin), privacy: 'public' });
 				break;
 			case T.withdraw: {
 				const prev = steps.at(-1);
 				if (prev?.title.startsWith('Claim rewards')) {
 					const n = Number(prev.detail?.match(/^(\d+)/)?.[1] ?? '1') + 1;
-					prev.title = 'Claim rewards';
+					prev.title = t('Claim rewards');
 					prev.detail = `${n} validators`;
-				} else steps.push({ title: 'Claim rewards', detail: `from ${val(m.validator_address)}`, privacy: 'public' });
+				} else steps.push({ title: t('Claim rewards'), detail: t('from {0}', { 0: val(m.validator_address) }), privacy: 'public' });
 				break;
 			}
 			case T.vote:
-				steps.push({ title: `Vote ${VOTE[String(m.option)] ?? ''} on #${String(m.proposal_id ?? '?')}`.replace('  ', ' '), privacy: 'public' });
+				steps.push({ title: t('Vote {0} on #{1}', { 0: t(VOTE[String(m.option)] ?? ''), 1: String(m.proposal_id ?? '?') }).replace('  ', ' '), privacy: 'public' });
 				break;
 			default:
-				steps.push({ title: m.type.split('.').pop()?.replace(/^Msg/, '') || 'Message', privacy: 'public' });
+				steps.push({ title: m.type.split('.').pop()?.replace(/^Msg/, '') || t('Message'), privacy: 'public' });
 		}
 	}
 	// a refill paid in sSCRT is an unwrap followed by the vault grant: both upkeep
@@ -160,7 +161,7 @@ export function stepsOf(flat: Flat[], names: Names = {}): Step[] {
 		const prev = steps[i - 1];
 		if (st.upkeep && prev?.title.startsWith('Unwrap sSCRT')) {
 			prev.upkeep = true;
-			prev.title = 'Unwrap sSCRT for gas credits';
+			prev.title = t('Unwrap sSCRT for gas credits');
 		}
 	});
 	return steps;
@@ -175,4 +176,4 @@ export function overallOf(steps: Step[]): Overall {
 	return priv === list.length ? 'private' : priv === 0 ? 'public' : 'partial';
 }
 
-export const OVERALL_LABEL: Record<Overall, string> = { private: 'Private', public: 'Public', partial: 'Partly private' };
+export const OVERALL_LABEL: Record<Overall, string> = { private: t('Private'), public: t('Public'), partial: t('Partly private') };

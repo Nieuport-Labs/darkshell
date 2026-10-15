@@ -3,7 +3,7 @@
 // transaction on its own — every transaction is one the user confirmed.
 
 import type { EncryptionUtilsImpl, Msg, Permit, SecretNetworkClient, Wallet } from 'secretjs';
-import { encryptionSeedFor, newMnemonic, walletFromMnemonic } from './crypto/account';
+import { encryptionSeedFor, forgetSeeds, newMnemonic, walletFromMnemonic, warmSeed } from './crypto/account';
 import { recordFailure, resetFailures, waitMs } from './crypto/lockout';
 import {
 	bindVaultToDevice,
@@ -34,7 +34,7 @@ import { wrapPayment, type PaymentPlan } from './pay/payments';
 import { kv, migrateLegacy } from './storage';
 import { accountKv, closeLocalStore, encryptPlainRecords, openLocalStore } from './crypto/localStore';
 import { rePrefix } from './chain/ibc';
-import { biometricEnabled, disableBiometric, enableBiometric } from './crypto/biometric';
+import { biometricEnabled, biometricSlot, disableBiometric, dropEmergencyBiometric, emergencyBiometricReady, enableBiometric, prepareEmergencyBiometric, takeOverBiometric } from './crypto/biometric';
 import { clearDuress, hasDuress, openDuress, resealDuress, setDuress, type DuressPayload } from './crypto/duress';
 import { notificationWatch } from './chain/sscrt';
 import { backgroundEnabled, clearBackground, notifyNow, setBackground, syncBackground } from './notify/background';
@@ -54,6 +54,7 @@ import { startPrice, stopPrice } from './price.svelte';
 import { SHEET_WORD_KEY } from './sheetWord';
 import { platform } from './platform';
 import { allowScreenshots } from './screenshots';
+import { accountName, t as tr } from './i18n/index.svelte';
 
 export type Phase = 'loading' | 'onboarding' | 'locked' | 'unlocked';
 
@@ -143,7 +144,7 @@ export async function init(): Promise<void> {
 }
 
 function accountList(v: OpenVault): AccountEntry[] {
-	return v.secrets.accounts?.length ? v.secrets.accounts : [{ index: 0, name: 'Account 1' }];
+	return v.secrets.accounts?.length ? v.secrets.accounts : [{ index: 0, name: tr('Account {0}', { 0: 1 }) }];
 }
 
 /** Brings one account of the open vault online: keys, client, permit. */
@@ -178,6 +179,8 @@ let brief = false;
 async function open(v: OpenVault, asDecoy = false): Promise<void> {
 	decoy = asDecoy;
 	session = null;
+	// the phrase's seed once, natively: every key below comes from it
+	await warmSeed(v.secrets.mnemonic);
 	const list = accountList(v);
 	wallet.accounts = list.map((a) => ({ ...a, address: walletFromMnemonic(v.secrets.mnemonic, a.index).address }));
 	wallet.contacts = v.secrets.contacts ?? [];
@@ -212,7 +215,7 @@ export interface SetupChoices {
 
 export async function createWallet(mnemonic: string, pin: string, choices: SetupChoices = {}): Promise<void> {
 	const w = walletFromMnemonic(mnemonic, 0);
-	const v = await createVault(pin, { mnemonic, accounts: [{ index: 0, name: 'Account 1' }], active: 0 }, w.address, 'pin');
+	const v = await createVault(pin, { mnemonic, accounts: [{ index: 0, name: tr('Account {0}', { 0: 1 }) }], active: 0 }, w.address, 'pin');
 	wallet.kind = 'pin';
 	await open(v);
 	if (choices.biometric) await enableBiometric(pin).catch(() => {});
@@ -228,7 +231,7 @@ async function addFundedAccounts(): Promise<void> {
 		const { scanAccounts } = await import('./accountScan');
 		const found = await scanAccounts(s.vault.secrets.mnemonic, wallet.accounts.map((a) => a.index));
 		if (session !== s || !found.length) return;
-		for (const f of found) wallet.accounts = [...wallet.accounts, { index: f.index, name: `Account ${f.index + 1}`, address: f.address }];
+		for (const f of found) wallet.accounts = [...wallet.accounts, { index: f.index, name: tr('Account {0}', { 0: f.index + 1 }), address: f.address }];
 		wallet.accounts = [...wallet.accounts].sort((a, b) => a.index - b.index);
 		await persist();
 		void startNotifications();
@@ -246,7 +249,7 @@ export async function findAccounts(onFound?: (a: import('./accountScan').FoundAc
 
 export class LockedOutError extends Error {
 	constructor(public ms: number) {
-		super(`Too many wrong attempts. Try again in ${Math.ceil(ms / 1000)} s.`);
+		super(tr('Too many wrong attempts. Try again in {0} s.', { 0: Math.ceil(ms / 1000) }));
 	}
 }
 
@@ -305,24 +308,30 @@ async function runDuress(p: DuressPayload, pin: string): Promise<void> {
 	const to = p.to && p.mnemonic ? p.to : undefined;
 	const real = to ? p.mnemonic : undefined;
 	// every real account is swept; the decoy has just one, as a fresh wallet would
-	const accounts = p.accounts?.length ? p.accounts.map(({ index, name }) => ({ index, name })) : [{ index: 0, name: 'Account 1' }];
-	const decoyAccounts = [{ index: 0, name: 'Account 1' }];
-	const bio = await biometricEnabled().catch(() => false);
+	const accounts = p.accounts?.length ? p.accounts.map(({ index, name }) => ({ index, name })) : [{ index: 0, name: tr('Account {0}', { 0: 1 }) }];
+	const decoyAccounts = [{ index: 0, name: tr('Account {0}', { 0: 1 }) }];
+	// the fingerprint carries over only through the slot prepared at setup: a
+	// system prompt now would show that this was the emergency PIN
+	const bio = await emergencyBiometricReady().catch(() => false);
+	const slot = await biometricSlot();
 
 	// 1. erase (without passing through the onboarding screen); how the app looks
 	// stays as it was, so the decoy doesn't give itself away
 	const look = await Promise.all([kv.get<boolean>('settings.simple'), kv.get<boolean>('settings.hideBalance'), kv.get<string>(SHEET_WORD_KEY)]);
-	await Promise.allSettled([disableBiometric(), clearBackground()]);
+	const speech = await Promise.all([kv.get<string>('settings.lang'), kv.get<string>('settings.currency')]);
+	await Promise.allSettled([bio ? Promise.resolve() : disableBiometric(), clearBackground()]);
 	await kv.clear();
 	if (look[0]) await kv.set('settings.simple', true);
 	if (look[1]) await kv.set('settings.hideBalance', true);
 	if (look[2]) await kv.set(SHEET_WORD_KEY, look[2]);
+	if (speech[0]) await kv.set('settings.lang', speech[0]);
+	if (speech[1]) await kv.set('settings.currency', speech[1]);
 
 	// 2. the decoy, as a real vault behind the same PIN
 	const decoySeed = p.decoy ?? newMnemonic();
 	const v = await createVault(pin, { mnemonic: decoySeed, accounts: decoyAccounts, active: 0 }, walletFromMnemonic(decoySeed, 0).address, 'pin');
 	wallet.kind = 'pin';
-	if (bio) await enableBiometric(pin).catch(() => {});
+	if (bio) await takeOverBiometric(slot).catch(() => {});
 
 	// 3. the real funds, in the background (the payment sheet closes when it is
 	// done, which would stop it there: it waits, looking like a slow payment)
@@ -369,10 +378,10 @@ function duressPayload(decoy: string, to?: string): DuressPayload {
  * again. `to` (optional) is where the funds go when it is used.
  */
 export async function setEmergencyPin(current: string, pin: string, to?: string): Promise<void> {
-	if (!session) throw new Error('Wallet is locked');
+	if (!session) throw new Error(tr('Wallet is locked'));
 	if (session.decoy) return;
-	if (!/^[0-9]{6}$/.test(pin)) throw new Error('The emergency PIN must be exactly 6 digits.');
-	if (pin === current) throw new Error('The emergency PIN must differ from your normal PIN.');
+	if (!/^[0-9]{6}$/.test(pin)) throw new Error(tr('The emergency PIN must be exactly 6 digits.'));
+	if (pin === current) throw new Error(tr('The emergency PIN must differ from your normal PIN.'));
 	await openVault(current);
 	await installDuress(pin, to);
 }
@@ -382,13 +391,16 @@ async function installDuress(pin: string, to?: string): Promise<void> {
 	if (!session) return;
 	const decoy = session.vault.secrets.duress?.decoy ?? newMnemonic();
 	const key = await setDuress(pin, duressPayload(decoy, to));
-	session.vault.secrets.duress = { key, decoy, ...(to ? { to } : {}) };
+	session.vault.secrets.duress = { key, decoy, pin, ...(to ? { to } : {}) };
 	await persist();
+	// with the fingerprint on, the emergency PIN gets its slot now (one prompt, here)
+	await prepareEmergencyBiometric(pin).catch(() => {});
 }
 
 export async function removeEmergencyPin(): Promise<void> {
 	if (!session || session.decoy) return;
 	await clearDuress();
+	await dropEmergencyBiometric();
 	delete session.vault.secrets.duress;
 	await persist();
 }
@@ -403,9 +415,16 @@ export async function eraseDevice(): Promise<void> {
 export async function setBiometric(on: boolean, pin?: string): Promise<void> {
 	if (session?.decoy) return;
 	if (!on) return disableBiometric();
-	if (!pin) throw new Error('PIN required');
+	if (!pin) throw new Error(tr('PIN required'));
 	await openVault(pin);
 	await enableBiometric(pin);
+	const emergency = session?.vault.secrets.duress?.pin;
+	if (emergency) await prepareEmergencyBiometric(emergency).catch(() => {});
+}
+
+/** An emergency PIN saved before it was kept in the vault: with the fingerprint on, it should be saved again. */
+export function emergencyNeedsBiometric(): boolean {
+	return !!session?.vault.secrets.duress && !session.vault.secrets.duress.pin;
 }
 
 /* ------------------------------ notifications ------------------------------- */
@@ -438,8 +457,8 @@ async function startNotifications(): Promise<void> {
 			if (document.hidden && !bgOn) {
 				void notifyNow(
 					hit.hash,
-					hit.amount !== undefined ? `+${formatAmount(hit.amount)} sSCRT` : 'Payment received',
-					`Received privately${name && wallet.accounts.length > 1 ? ` on ${name}` : ''}.`,
+					hit.amount !== undefined ? tr('+{0} sSCRT', { 0: formatAmount(hit.amount) }) : tr('Payment received'),
+					`Received privately${name && wallet.accounts.length > 1 ? tr(' on {0}', { 0: name }) : ''}.`,
 				);
 			}
 			if (hit.address === wallet.address) setTimeout(() => void refresh(), 1500);
@@ -483,7 +502,7 @@ export async function revealMnemonic(secret: string): Promise<string> {
 /** Sets a new 6-digit PIN (also how an old password vault switches to a PIN). */
 export async function changePin(current: string, pin: string): Promise<void> {
 	if (session?.decoy) return;
-	if (await openDuress(pin)) throw new Error('That is your emergency PIN. Choose another one.');
+	if (await openDuress(pin)) throw new Error(tr('That is your emergency PIN. Choose another one.'));
 	const v = await changeSecret(current, pin, 'pin');
 	wallet.kind = 'pin';
 	if (session) session.vault = v;
@@ -527,7 +546,7 @@ export async function addAccount(name: string, index?: number): Promise<void> {
 	}
 	if (wallet.accounts.some((a) => a.index === index)) return switchAccount(index);
 	const address = walletFromMnemonic(session.vault.secrets.mnemonic, index).address;
-	wallet.accounts = [...wallet.accounts, { index, name: name.trim().slice(0, 32) || `Account ${index + 1}`, address }].sort((a, b) => a.index - b.index);
+	wallet.accounts = [...wallet.accounts, { index, name: name.trim().slice(0, 32) || tr('Account {0}', { 0: index + 1 }), address }].sort((a, b) => a.index - b.index);
 	await persist();
 	await switchAccount(index);
 	void startNotifications();
@@ -571,7 +590,7 @@ export async function renameAccount(index: number, name: string): Promise<void> 
 }
 
 export function activeName(): string {
-	return wallet.accounts.find((a) => a.index === wallet.active)?.name ?? 'Account 1';
+	return accountName(wallet.accounts.find((a) => a.index === wallet.active)?.name ?? tr('Account {0}', { 0: 1 }));
 }
 
 /** User's own FixedFloat credentials, kept in the vault. */
@@ -594,6 +613,7 @@ export function cosmosAddress(): string {
 export function lock(): void {
 	const had = !!session;
 	session = null;
+	forgetSeeds();
 	if (had) keystoreChanged();
 	closeLocalStore();
 	stopWatcher();
@@ -645,12 +665,12 @@ export function dappEnigmaSeed(): Uint8Array | null {
 
 /** Signs a request the user has just confirmed (the caller shows it first). */
 export async function dappSign(req: SignRequest): Promise<SignResult> {
-	if (!session) throw new Error('Wallet is locked');
+	if (!session) throw new Error(tr('Wallet is locked'));
 	return signRequest(session.wallet, req);
 }
 
 export function client(): SecretNetworkClient {
-	if (!session) throw new Error('Wallet is locked');
+	if (!session) throw new Error(tr('Wallet is locked'));
 	return session.client;
 }
 
@@ -786,7 +806,7 @@ async function topUp(s: Session, spends: bigint): Promise<TopUp | null> {
 	try {
 		t = planTopUp(spends, wallet.balance ?? 0n, claimable(), nativeUsable());
 	} catch (e) {
-		if (e instanceof ShortError) throw new Error(`Not enough funds: this needs ${formatAmount(spends)} and the account can spend ${formatAmount(spendable())}.`);
+		if (e instanceof ShortError) throw new Error(tr('Not enough funds: this needs {0} and the account can spend {1}.', { 0: formatAmount(spends), 1: formatAmount(spendable()) }));
 		throw e;
 	}
 	if (t.deposit === 0n) return null;
@@ -822,7 +842,7 @@ async function settlePending(s: Session): Promise<void> {
 		try {
 			const tx = await s.client.query.getTx(l.hash);
 			if (tx) await log({ ...l, status: tx.code === 0 ? 'confirmed' : 'failed', height: tx.height || undefined, error: tx.code === 0 ? undefined : tx.rawLog });
-			else if (Date.now() - l.time > 30 * 60_000) await log({ ...l, status: 'failed', error: 'Never made it into a block.' });
+			else if (Date.now() - l.time > 30 * 60_000) await log({ ...l, status: 'failed', error: tr('Never made it into a block.') });
 		} catch {
 			/* try again next refresh */
 		}
@@ -843,7 +863,7 @@ export async function pay(
 	nativeSpare = 0n,
 ): Promise<TxOutcome> {
 	const s = session;
-	if (!s) throw new Error('Wallet is locked');
+	if (!s) throw new Error(tr('Wallet is locked'));
 	// rewards and public SCRT the payment needs (or rewards worth taking along) go in first
 	const top = plan.spends > 0n && !s.decoy ? await topUp(s, plan.spends) : null;
 	const full: PaymentPlan = top ? { ...plan, msgs: [...top.msgs, ...plan.msgs], gas: plan.gas + top.gas, types: [...new Set([...top.types, ...plan.types])] } : plan;
@@ -900,11 +920,39 @@ export async function pay(
  */
 export async function loadForPayment(): Promise<void> {
 	const s = session;
-	if (!s) throw new Error('Wallet is locked');
-	await refresh();
-	if (wallet.balance === null) throw new Error(wallet.error || 'Could not read the balance.');
-	await readRewards(s);
-	await fetchGrants(s.wallet.address).catch(() => {});
+	if (!s) throw new Error(tr('Wallet is locked'));
+	// only what a payment needs, all at once (no history, no activity)
+	const [bal, native, credits] = await Promise.all([
+		sscrtBalance(s.client, s.permit).catch(() => null),
+		nativeBalance(s.client, s.wallet.address).catch(() => null),
+		readCreditStatus(s.client, GAS_VAULT_ADDRESS, s.wallet.address).catch(() => null),
+		readRewards(s),
+		fetchGrants(s.wallet.address).catch(() => {}),
+	]);
+	if (session !== s) return;
+	if (bal === null || native === null) throw new Error(tr('Could not read the balance.'));
+	wallet.balance = bal;
+	wallet.native = native;
+	wallet.credits = credits;
+}
+
+/**
+ * The payment sheet, before the PIN: everything that needs no key is fetched
+ * while the user reads the payment and while the PIN is checked (the node, the
+ * contracts' code hashes, the account's fee grants), so paying waits only on
+ * what needs the unlocked account.
+ */
+export async function prewarmPayment(address: string, contracts: string[] = []): Promise<void> {
+	try {
+		const { codeHash, readClient } = await import('./chain/client');
+		const client = await readClient();
+		await Promise.allSettled([
+			...[SSCRT_ADDRESS, GAS_VAULT_ADDRESS, ...contracts].map((c) => codeHash(client, c)),
+			address ? fetchGrants(address) : Promise.resolve(),
+		]);
+	} catch {
+		/* offline: the payment itself will say so */
+	}
 }
 
 const tokenPermits = new Map<string, Promise<Permit>>();
@@ -912,7 +960,7 @@ const tokenPermits = new Map<string, Promise<Permit>>();
 /** A query permit for one SNIP-20's balance (signed here, never sent anywhere but in queries). */
 export function tokenPermit(token: string): Promise<Permit> {
 	const s = session;
-	if (!s) return Promise.reject(new Error('Wallet is locked'));
+	if (!s) return Promise.reject(new Error(tr('Wallet is locked')));
 	const key = `${s.wallet.address}:${token}`;
 	let p = tokenPermits.get(key);
 	if (!p) {
@@ -945,7 +993,7 @@ async function warmUp(client: SecretNetworkClient): Promise<void> {
 /** "Refill now" in settings: a refill transaction on its own, explicitly asked for. */
 export async function refillNow(): Promise<TxOutcome> {
 	const s = session;
-	if (!s) throw new Error('Wallet is locked');
+	if (!s) throw new Error(tr('Wallet is locked'));
 	const out = await sendTx(s.client, s.wallet.address, [], 0, [], { sscrtSpare: wallet.balance ?? 0n, forceRefill: true });
 	await log({ hash: out.hash, kind: 'refill', time: Date.now(), refilled: out.refilled.toString(), status: out.status === 'confirmed' ? 'confirmed' : 'pending' });
 	void refresh();
@@ -955,11 +1003,11 @@ export async function refillNow(): Promise<TxOutcome> {
 /** What `wrapPublic` would move into sSCRT, and how much of it would top up gas credits. */
 export async function wrapPreview(): Promise<{ amount: bigint; refill: bigint }> {
 	const s = session;
-	if (!s || wallet.native === null) throw new Error('Wallet is locked');
+	if (!s || wallet.native === null) throw new Error(tr('Wallet is locked'));
 	// keep enough to pay this fee ourselves in case no grant covers it
 	const fee = BigInt(Math.ceil((GAS.wrap + GAS.buyGasCredit) * GAS_PRICE)) * 2n;
 	const available = wallet.native - fee;
-	if (available <= 0n) throw new Error('Not enough public SCRT to move.');
+	if (available <= 0n) throw new Error(tr('Not enough public SCRT to move.'));
 	const due = await refillDue(s.wallet.address).catch(() => false);
 	const refill = due && available >= MIN_REFILL ? (available < CREDIT_REFILL ? available : CREDIT_REFILL) : 0n;
 	return { amount: available - refill, refill };
@@ -972,7 +1020,7 @@ export async function wrapPreview(): Promise<{ amount: bigint; refill: bigint }>
  */
 export async function wrapPublic(): Promise<TxOutcome> {
 	const s = session;
-	if (!s || wallet.native === null) throw new Error('Wallet is locked');
+	if (!s || wallet.native === null) throw new Error(tr('Wallet is locked'));
 	const { amount, refill } = await wrapPreview();
 	if (amount < 10_000n) {
 		// all of it goes to gas credits
@@ -1081,8 +1129,12 @@ function stopAutoLock() {
 
 export async function forgetDevice(): Promise<void> {
 	lock();
+	const speech = await Promise.all([kv.get<string>('settings.lang'), kv.get<string>('settings.currency')]);
 	await Promise.allSettled([disableBiometric(), clearBackground(), allowScreenshots(false)]);
 	await kv.clear();
+	// the language and currency stay for the next setup
+	if (speech[0]) await kv.set('settings.lang', speech[0]);
+	if (speech[1]) await kv.set('settings.currency', speech[1]);
 	wallet.address = '';
 	wallet.phase = 'onboarding';
 }
@@ -1126,7 +1178,7 @@ export interface ChainTxDetail {
 /** A transaction from the chain; our own contract calls come back decrypted. */
 export async function chainTx(hash: string): Promise<ChainTxDetail | null> {
 	const s = session;
-	if (!s) throw new Error('Wallet is locked');
+	if (!s) throw new Error(tr('Wallet is locked'));
 	const tx = await s.client.query.getTx(hash);
 	if (!tx) return null;
 	const body = tx.tx?.body as { messages?: unknown[]; memo?: string } | undefined;

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '../lib/i18n/index.svelte';
 	import { Fingerprint } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import Button from '../components/ui/Button.svelte';
@@ -28,7 +29,7 @@
 			if (/no protected credentials|invalidated|KeyPermanentlyInvalidated/i.test(msg)) {
 				await disableBiometric();
 				bio = false;
-				error = 'Fingerprints changed on this phone. Enter your PIN, then turn fingerprint unlock on again in Settings.';
+				error = t('Fingerprints changed on this phone. Enter your PIN, then turn fingerprint unlock on again in Settings.');
 			}
 			/* cancelled: just stay on the PIN pad */
 		}
@@ -54,8 +55,8 @@
 					? err.message
 					: err instanceof WrongPasswordError
 						? wallet.kind === 'pin'
-							? 'Wrong PIN.'
-							: 'Wrong password.'
+							? t('Wrong PIN.')
+							: t('Wrong password.')
 						: err instanceof Error
 							? err.message
 							: String(err);
@@ -74,16 +75,16 @@
 <div class="mx-auto flex w-full max-w-[420px] flex-1 flex-col">
 	<div class="flex flex-col items-center pt-6 text-center">
 		<span class="halo enter size-16"><img src="/avatar.webp" alt="" class="size-16 rounded-pill object-cover" /></span>
-		{#if word}<span class="mt-3 max-w-[70%] truncate rounded-pill border border-border bg-surface px-3 py-0.5 text-label font-medium" title="Your sheet word">{word}</span>{/if}
+		{#if word}<span class="mt-3 max-w-[70%] truncate rounded-pill border border-border bg-surface px-3 py-0.5 text-label font-medium" title={t('Your sheet word')}>{word}</span>{/if}
 	</div>
 
 	{#if wallet.kind === 'pin'}
-		<PinPad title="Enter your PIN" {error} {busy} bind:reset oncomplete={attempt}>
+		<PinPad title={t('Enter your PIN')} {error} {busy} bind:reset oncomplete={attempt}>
 			{#snippet aux()}
 				{#if bio}
 					<button
 						type="button"
-						aria-label="Unlock with fingerprint"
+						aria-label={t('Unlock with fingerprint')}
 						onclick={withFingerprint}
 						class="flex size-[4.75rem] items-center justify-center rounded-pill text-accent outline-none [-webkit-tap-highlight-color:transparent] focus-visible:ring-2 focus-visible:ring-accent"
 					>
@@ -94,27 +95,27 @@
 		</PinPad>
 	{:else}
 		<form class="mt-8 flex flex-1 flex-col gap-3" onsubmit={submit}>
-			<h1 class="text-center text-headline">Welcome back</h1>
-			<p class="text-center text-base text-text-muted">Unlock with your password once; you can switch to a PIN in Settings.</p>
+			<h1 class="text-center text-headline">{t('Welcome back')}</h1>
+			<p class="text-center text-base text-text-muted">{t('Unlock with your password once; you can switch to a PIN in Settings.')}</p>
 			<label class="field">
-				<span class="text-label text-text-muted">Password</span>
+				<span class="text-label text-text-muted">{t('Password')}</span>
 				<!-- svelte-ignore a11y_autofocus -->
 				<input type="password" autocomplete="current-password" autofocus bind:value={pw} class="field-input" />
 			</label>
 			{#if error}<p class="text-base text-negative" role="alert">{error}</p>{/if}
-			<Button type="submit" block size="lg" loading={busy}>{busy ? 'Unlocking…' : 'Unlock'}</Button>
+			<Button type="submit" block size="lg" loading={busy}>{busy ? 'Unlocking…' : t('Unlock')}</Button>
 		</form>
 	{/if}
 
 	<div class="flex flex-col gap-2 pb-2">
 		{#if !confirmForget}
-			<Button variant="ghost" block onclick={() => (confirmForget = true)}>Forgot {wallet.kind === 'pin' ? 'PIN' : 'password'}?</Button>
+			<Button variant="ghost" block onclick={() => (confirmForget = true)}>{wallet.kind === 'pin' ? t('Forgot PIN?') : t('Forgot password?')}</Button>
 		{:else}
 			<p class="text-label text-text-muted">
-				It cannot be recovered. Remove this account from the device and restore it with your recovery phrase. Without the phrase the money is lost.
+				{t('It cannot be recovered. Remove this account from the device and restore it with your recovery phrase. Without the phrase the money is lost.')}
 			</p>
-			<Button variant="secondary" block size="lg" onclick={forgetDevice}>Remove from this device</Button>
-			<Button variant="ghost" block onclick={() => (confirmForget = false)}>Cancel</Button>
+			<Button variant="secondary" block size="lg" onclick={forgetDevice}>{t('Remove from this device')}</Button>
+			<Button variant="ghost" block onclick={() => (confirmForget = false)}>{t('Cancel')}</Button>
 		{/if}
 	</div>
 </div>

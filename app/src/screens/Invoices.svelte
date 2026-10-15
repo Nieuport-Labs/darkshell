@@ -1,10 +1,11 @@
 <script lang="ts">
+	import { t } from '../lib/i18n/index.svelte';
 	import PageHeader from '../components/ui/PageHeader.svelte';
 	import { ChevronRight, Plus, ReceiptText } from '@lucide/svelte';
 	import Button from '../components/ui/Button.svelte';
 	import { invoices, loadInvoices, reconcile, type IssuedInvoice } from '../lib/pay/invoices.svelte';
 	import { open } from '../lib/ui.svelte';
-	import { usdValue } from '../lib/price.svelte';
+	import { fiatValue } from '../lib/price.svelte';
 	import { toBaseUnits } from 'secret-pay';
 	import { wallet } from '../lib/wallet.svelte';
 
@@ -25,10 +26,10 @@
 </script>
 
 <div class="flex flex-col gap-4">
-	<PageHeader title="Invoices" />
+	<PageHeader title={t('Invoices')} />
 	<Button size="lg" class="w-full" onclick={() => open({ name: 'invoice' })}>
 		{#snippet icon()}<Plus size={17} />{/snippet}
-		New invoice
+		{t('New invoice')}
 	</Button>
 
 	{#if invoices.list.length}
@@ -44,8 +45,8 @@
 						<span class="flex shrink-0 flex-col items-end">
 							<span class="text-base font-medium tabular-nums">{inv.request.amount} sSCRT</span>
 							<span class="text-label"
-								><span class={STATUS[inv.status][1]}>{STATUS[inv.status][0]}</span
-								>{#if usdValue(toBaseUnits(inv.request.amount ?? '0', 6))}<span class="tabular-nums text-text-faint"> · {usdValue(toBaseUnits(inv.request.amount ?? '0', 6))}</span>{/if}</span
+								><span class={STATUS[inv.status][1]}>{t(STATUS[inv.status][0])}</span
+								>{#if fiatValue(toBaseUnits(inv.request.amount ?? '0', 6))}<span class="tabular-nums text-text-faint"> · {fiatValue(toBaseUnits(inv.request.amount ?? '0', 6))}</span>{/if}</span
 							>
 						</span>
 						<ChevronRight size={16} class="shrink-0 text-text-faint" />
@@ -56,8 +57,8 @@
 	{:else}
 		<div class="flex flex-col items-center py-12 text-center">
 			<span class="flex size-11 items-center justify-center rounded-pill bg-accent-container text-accent"><ReceiptText size={20} /></span>
-			<h2 class="mt-4 text-title">No invoices yet</h2>
-			<p class="mt-1.5 text-base text-text-muted">Ask for a set amount with a QR code or link. You’ll see here when it gets paid.</p>
+			<h2 class="mt-4 text-title">{t('No invoices yet')}</h2>
+			<p class="mt-1.5 text-base text-text-muted">{t('Ask for a set amount with a QR code or link. You’ll see here when it gets paid.')}</p>
 		</div>
 	{/if}
 </div>

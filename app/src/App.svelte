@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from './lib/i18n/index.svelte';
 	import Scanner from './components/Scanner.svelte';
 	import InvoiceModal from './components/wallet/InvoiceModal.svelte';
 	import PayModal from './components/wallet/PayModal.svelte';
@@ -95,9 +96,9 @@
 					{:else}<Staking />{/if}
 					{#snippet failed(error, reset)}
 						<div class="card mt-6 flex flex-col gap-3 p-4">
-							<p class="text-base font-medium">This screen hit a problem.</p>
+							<p class="text-base font-medium">{t('This screen hit a problem.')}</p>
 							<p class="break-address font-mono text-xs text-text-faint">{error instanceof Error ? error.message : String(error)}</p>
-							<button type="button" class="self-start text-base text-accent" onclick={reset}>Try again</button>
+							<button type="button" class="self-start text-base text-accent" onclick={reset}>{t('Try again')}</button>
 						</div>
 					{/snippet}
 				</svelte:boundary>

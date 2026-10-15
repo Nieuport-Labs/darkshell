@@ -5,6 +5,7 @@ import { accountKv } from '../crypto/localStore';
 import { wallet } from '../wallet.svelte';
 import { getOrder, type FfStatus } from '../ff/fixedfloat';
 import type { Coin, EvmNetwork } from './external';
+import { t } from '../i18n/index.svelte';
 
 export type XStatus = 'SENDING' | 'NEW' | 'PENDING' | 'EXCHANGE' | 'WITHDRAW' | 'DONE' | 'EXPIRED' | 'EMERGENCY' | 'FAILED';
 
@@ -58,14 +59,14 @@ export const X_STEPS: Record<'ff', XStatus[]> = {
 
 export function statusText(o: Pick<XOrder, 'coin'>, s: XStatus): string {
 	return {
-		SENDING: 'Sending ATOM to FixedFloat',
-		NEW: 'Waiting for the deposit to arrive',
-		PENDING: 'Deposit received, confirming',
-		EXCHANGE: 'Exchanging',
-		WITHDRAW: `Sending the ${o.coin}`,
-		DONE: 'Sent',
-		EXPIRED: 'Expired',
-		EMERGENCY: 'Needs attention',
-		FAILED: 'Failed',
+		SENDING: t('Sending ATOM to FixedFloat'),
+		NEW: t('Waiting for the deposit to arrive'),
+		PENDING: t('Deposit received, confirming'),
+		EXCHANGE: t('Exchanging'),
+		WITHDRAW: t('Sending the {0}', { 0: o.coin }),
+		DONE: t('Sent'),
+		EXPIRED: t('Expired'),
+		EMERGENCY: t('Needs attention'),
+		FAILED: t('Failed'),
 	}[s];
 }

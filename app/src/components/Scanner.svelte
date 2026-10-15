@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '../lib/i18n/index.svelte';
 	import { X } from '@lucide/svelte';
 	import { onDestroy, onMount } from 'svelte';
 	// served from the app itself, so scanning works offline and calls no CDN
@@ -44,8 +45,8 @@
 		} catch (e) {
 			error =
 				(e as DOMException)?.name === 'NotAllowedError'
-					? 'Camera access was blocked. Allow it in settings, or paste the code instead.'
-					: 'The camera is not available. Paste the code instead.';
+					? t('Camera access was blocked. Allow it in settings, or paste the code instead.')
+					: t('The camera is not available. Paste the code instead.');
 		}
 	});
 
@@ -59,16 +60,16 @@
 	onDestroy(stop);
 </script>
 
-<div class="fixed inset-0 z-[60] grid place-items-center bg-black" role="dialog" aria-modal="true" aria-label="Scan a QR code">
+<div class="fixed inset-0 z-[60] grid place-items-center bg-black" role="dialog" aria-modal="true" aria-label={t('Scan a QR code')}>
 	<!-- svelte-ignore a11y_media_has_caption -->
 	<video bind:this={video} playsinline muted class="absolute inset-0 h-full w-full object-cover"></video>
 	<div class="relative aspect-square w-[min(70vw,280px)] rounded-card border-2 border-white/80 shadow-[0_0_0_100vmax_rgb(0_0_0/0.55)]"></div>
 	<button
 		class="glass absolute right-4 top-[max(1rem,env(safe-area-inset-top))] rounded-pill border border-glass-edge p-2.5 text-text"
 		onclick={() => (stop(), onclose())}
-		aria-label="Close scanner"><X size={20} /></button
+		aria-label={t('Close scanner')}><X size={20} /></button
 	>
 	<p class="absolute inset-x-6 bottom-[max(2.5rem,env(safe-area-inset-bottom))] text-center text-base text-white">
-		{error || 'Scan a Secret address, an invoice or a Cosmos address'}
+		{error || t('Scan a Secret address, an invoice or a Cosmos address')}
 	</p>
 </div>

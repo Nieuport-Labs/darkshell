@@ -9,6 +9,7 @@ import { CapacitorHttp } from '@capacitor/core';
 import { FAUCET_URL } from '../config';
 import { accountKv } from '../crypto/localStore';
 import { can } from '../platform';
+import { t } from '../i18n/index.svelte';
 
 /** the faucet hands out one grant a day per address */
 const COOLDOWN_MS = 24 * 3600_000;
@@ -29,8 +30,8 @@ export async function lastClaim(address: string): Promise<number> {
  * grant (it may take a block to show up on chain); throws FaucetError otherwise.
  */
 export async function claimFaucet(address: string): Promise<void> {
-	if (!FAUCET_URL) throw new FaucetError('No faucet is configured.');
-	if (Date.now() - (await lastClaim(address)) < COOLDOWN_MS) throw new FaucetError('The faucet was already used today.');
+	if (!FAUCET_URL) throw new FaucetError(t('No faucet is configured.'));
+	if (Date.now() - (await lastClaim(address)) < COOLDOWN_MS) throw new FaucetError(t('The faucet was already used today.'));
 	const url = `${FAUCET_URL.replace(/\/+$/, '')}/claim/${encodeURIComponent(address)}`;
 	let status: number;
 	let data: unknown;
@@ -45,12 +46,12 @@ export async function claimFaucet(address: string): Promise<void> {
 			data = await r.json().catch(() => null);
 		}
 	} catch (e) {
-		throw new FaucetError(`The faucet could not be reached (${e instanceof Error ? e.message : String(e)}).`);
+		throw new FaucetError(t('The faucet could not be reached ({0}).', { 0: e instanceof Error ? e.message : String(e) }));
 	}
 	const body = (typeof data === 'string' ? safeJson(data) : data) as { feegrant?: unknown; error?: unknown } | null;
 	if (status !== 200 || !body?.feegrant) {
 		const why = body?.error ? (typeof body.error === 'string' ? body.error : JSON.stringify(body.error)) : `HTTP ${status}`;
-		throw new FaucetError(`The faucet did not grant fees (${why}).`);
+		throw new FaucetError(t('The faucet did not grant fees ({0}).', { 0: why }));
 	}
 	await accountKv.set('faucet.at', address, Date.now());
 }

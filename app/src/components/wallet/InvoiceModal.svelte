@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '../../lib/i18n/index.svelte';
 	// After Secret_Dashboard InvoiceModal, with an id (sent as the private memo)
 	// and an expiry so DarkShell can tell when it has been paid.
 	import { Check, Nfc, Share2, Trash2 } from '@lucide/svelte';
@@ -15,7 +16,7 @@
 	import AmountHero from '../ui/AmountHero.svelte';
 	import Button from '../ui/Button.svelte';
 	import Modal from '../ui/Modal.svelte';
-	import { usdValue } from '../../lib/price.svelte';
+	import { fiatValue } from '../../lib/price.svelte';
 	import Qr from '../ui/Qr.svelte';
 
 	let { fromReceive = false, id }: { fromReceive?: boolean; id?: string } = $props();
@@ -84,7 +85,7 @@
 	async function share(inv: IssuedInvoice) {
 		const url = shareTarget(inv.request);
 		try {
-			if (navigator.share) return await navigator.share(url.startsWith('http') ? { title: `Invoice ${inv.request.id}`, url } : { title: `Invoice ${inv.request.id}`, text: url });
+			if (navigator.share) return await navigator.share(url.startsWith('http') ? { title: t('Invoice {0}', { 0: inv.request.id }), url } : { title: t('Invoice {0}', { 0: inv.request.id }), text: url });
 		} catch {
 			return;
 		}
@@ -102,64 +103,64 @@
 		expired: ['Expired', 'text-negative'],
 	};
 	const EXPIRY: [number, string][] = [
-		[3600, '1 hour'],
-		[86400, '1 day'],
-		[604800, '1 week'],
-		[0, 'Never'],
+		[3600, t('1 hour')],
+		[86400, t('1 day')],
+		[604800, t('1 week')],
+		[0, t('Never')],
 	];
 </script>
 
 {#if shown}
-	<Modal full title="Invoice" onclose={id ? close : () => (shownId = null)}>
+	<Modal full title={t('Invoice')} onclose={id ? close : () => (shownId = null)}>
 		<div class="flex flex-col items-center gap-1 pt-2 text-center">
 			<div class="flex items-baseline gap-2">
 				<span class="text-[2.75rem] font-semibold leading-tight tracking-[-0.03em] tabular-nums">{shown.request.amount}</span>
 				<span class="text-title text-text-muted">sSCRT</span>
 			</div>
-			{#if usdValue(toBaseUnits(shown.request.amount ?? '0', 6))}<span class="-mt-1 text-base tabular-nums text-text-faint">≈ {usdValue(toBaseUnits(shown.request.amount ?? '0', 6))}</span>{/if}
+			{#if fiatValue(toBaseUnits(shown.request.amount ?? '0', 6))}<span class="-mt-1 text-base tabular-nums text-text-faint">≈ {fiatValue(toBaseUnits(shown.request.amount ?? '0', 6))}</span>{/if}
 			<span class="inline-flex items-center gap-1.5 text-label {STATUS[shown.status][1]}">
 				{#if shown.status === 'open' || shown.status === 'no_match'}<span class="live-dot" aria-hidden="true"></span>{/if}
-				{STATUS[shown.status][0]}
+				{t(STATUS[shown.status][0])}
 			</span>
 			{#if shown.request.message}<p class="mt-1 text-base text-text-muted">{shown.request.message}</p>{/if}
 		</div>
 
 		{#if shown.status === 'paid'}
-			<div class="mx-auto my-3"><Orb state="done" still={!celebrate} label="Paid" /></div>
-			{#if celebrate}<p class="paid-note text-center text-base text-text-muted">Payment received.</p>{/if}
+			<div class="mx-auto my-3"><Orb state="done" still={!celebrate} label={t('Paid')} /></div>
+			{#if celebrate}<p class="paid-note text-center text-base text-text-muted">{t('Payment received.')}</p>{/if}
 		{:else}
 			{#if PAY_LINK_ORIGIN}
 			<div class="mx-auto flex rounded-pill bg-surface p-1 text-label" role="tablist">
-				{#each [['uri', 'URI'], ['link', 'Link']] as [k, l] (k)}
+				{#each [['uri', 'URI'], ['link', t('Link')]] as [k, l] (k)}
 					<button role="tab" aria-selected={target === k} onclick={() => (target = k as 'uri' | 'link')} class="rounded-pill px-3 py-1 {target === k ? 'bg-accent-strong text-white' : 'text-text-muted'}"
 						>{l}</button
 					>
 				{/each}
 			</div>
 			{/if}
-			<div class="receive-qr mx-auto w-full max-w-[340px] [animation:none]"><Qr fill value={target === 'uri' ? encodePaymentUri(shown.request) : encodePaymentLink(PAY_LINK_ORIGIN, shown.request)} label="Invoice QR code" /></div>
+			<div class="receive-qr mx-auto w-full max-w-[340px] [animation:none]"><Qr fill value={target === 'uri' ? encodePaymentUri(shown.request) : encodePaymentLink(PAY_LINK_ORIGIN, shown.request)} label={t('Invoice QR code')} /></div>
 			{#if nfc.sharing}
 				<p class="flex items-center justify-center gap-2 text-base text-text-muted">
 					<span class="nfc-wave relative flex size-7 items-center justify-center text-accent"><Nfc size={18} aria-hidden="true" /></span>
-					Or hold their phone to the back of this one
+					{t('Or hold their phone to the back of this one')}
 				</p>
 			{:else if nfc.canShare && !nfc.enabled}
-				<p class="flex items-center justify-center gap-1.5 text-label text-text-faint"><Nfc size={15} /> Turn on NFC to let a phone tap to pay</p>
+				<p class="flex items-center justify-center gap-1.5 text-label text-text-faint"><Nfc size={15} /> {t('Turn on NFC to let a phone tap to pay')}</p>
 			{/if}
 		{/if}
 
 		<p class="text-center text-label text-text-faint">
-			<span class="font-mono">{shown.request.id}</span>{shown.request.exp ? ` · valid until ${new Date(shown.request.exp * 1000).toLocaleString()}` : ''}
+			<span class="font-mono">{shown.request.id}</span>{shown.request.exp ? t(' · valid until {0}', { 0: new Date(shown.request.exp * 1000).toLocaleString() }) : ''}
 		</p>
 
 		<div class="mt-auto flex items-center gap-3 pt-4">
 			<Button block size="xl" class="flex-1" onclick={() => share(shown!)}>
 				{#snippet icon()}{#if copied}<Check size={18} />{:else}<Share2 size={18} />{/if}{/snippet}
-				{copied ? 'Copied' : 'Share invoice'}
+				{copied ? t('Copied') : t('Share invoice')}
 			</Button>
 			<button
 				type="button"
-				aria-label="Remove invoice"
+				aria-label={t('Remove invoice')}
 				onclick={() => removeInvoice(shown!.request.id!).then(() => (id ? close() : (shownId = null)))}
 				class="state-layer flex size-14 shrink-0 items-center justify-center rounded-pill bg-surface-3 text-text-muted"
 			>
@@ -168,15 +169,15 @@
 		</div>
 	</Modal>
 {:else}
-	<Modal full title="New invoice" onclose={fromReceive ? () => open({ name: 'receive' }) : close}>
+	<Modal full title={t('New invoice')} onclose={fromReceive ? () => open({ name: 'receive' }) : close}>
 		<div class="flex flex-1 flex-col items-center justify-center">
 			<AmountHero bind:amount symbol="sSCRT" fiat />
 		</div>
 
-		<input bind:value={message} maxlength="140" placeholder="What is it for? (optional)" aria-label="Description" class="rounded-pill bg-surface px-5 py-3.5 text-base outline-none placeholder:text-text-faint" />
+		<input bind:value={message} maxlength="140" placeholder={t('What is it for? (optional)')} aria-label={t('Description')} class="rounded-pill bg-surface px-5 py-3.5 text-base outline-none placeholder:text-text-faint" />
 
 		<div class="flex flex-col gap-1.5">
-			<span class="px-5 text-label text-text-faint">Valid for</span>
+			<span class="px-5 text-label text-text-faint">{t('Valid for')}</span>
 			<div class="grid grid-cols-4 gap-1 rounded-pill bg-surface p-1">
 				{#each EXPIRY as [v, l] (v)}
 					<button
@@ -189,7 +190,7 @@
 			</div>
 		</div>
 
-		<Button block size="xl" disabled={!valid} onclick={create}>{valid ? `Ask for ${valid} sSCRT` : 'Enter an amount'}</Button>
+		<Button block size="xl" disabled={!valid} onclick={create}>{valid ? t('Ask for {0} sSCRT', { 0: valid }) : t('Enter an amount')}</Button>
 
 	</Modal>
 {/if}

@@ -11,6 +11,7 @@ import { te } from '../crypto/bytes';
 import { ffCredentials } from '../wallet.svelte';
 import { tor } from '../tor.svelte';
 import { can } from '../platform';
+import { t } from '../i18n/index.svelte';
 
 const BASE = 'https://ff.io/api/v2/';
 
@@ -51,7 +52,7 @@ export async function ffCall<T>(
 	creds: FfCredentials | undefined = ffCredentials() ?? builtInFf(),
 	transport: (url: string, headers: Record<string, string>, body: string) => Promise<unknown> = post,
 ): Promise<T> {
-	if (!creds) throw new FfError('No FixedFloat API key. Add one in Settings → Lightning (FixedFloat).');
+	if (!creds) throw new FfError(t('No FixedFloat API key. Add one in Settings → Lightning (FixedFloat).'));
 	const body = JSON.stringify(params);
 	const headers = {
 		Accept: 'application/json',
@@ -60,8 +61,8 @@ export async function ffCall<T>(
 		'X-API-SIGN': await hmacHex(creds.secret, body),
 	};
 	const reply = (await transport(BASE + method, headers, body)) as { code?: number; msg?: string; data?: T };
-	if (!reply || typeof reply !== 'object') throw new FfError('FixedFloat sent an unreadable answer.');
-	if (reply.code !== 0) throw new FfError(reply.msg || `FixedFloat error ${reply.code}`, reply.code);
+	if (!reply || typeof reply !== 'object') throw new FfError(t('FixedFloat sent an unreadable answer.'));
+	if (reply.code !== 0) throw new FfError(reply.msg || t('FixedFloat error {0}', { 0: reply.code }), reply.code);
 	return reply.data as T;
 }
 
@@ -75,8 +76,8 @@ async function post(url: string, headers: Record<string, string>, body: string):
 			// a web page instead of the API: ff.io's bot check, which it shows to Tor exits
 			throw new FfError(
 				tor.enabled
-					? 'FixedFloat turned the request away. It blocks many Tor exits; try again in a minute (Tor picks another route), or turn Tor off for this payment in Settings.'
-					: `FixedFloat sent a web page instead of an answer (HTTP ${r.status}). Try again later.`,
+					? t('FixedFloat turned the request away. It blocks many Tor exits; try again in a minute (Tor picks another route), or turn Tor off for this payment in Settings.')
+					: t('FixedFloat sent a web page instead of an answer (HTTP {0}). Try again later.', { 0: r.status }),
 			);
 		}
 	}
@@ -85,7 +86,7 @@ async function post(url: string, headers: Record<string, string>, body: string):
 		return await r.json();
 	} catch {
 		// ff.io sends no CORS headers, so a web page is blocked; the apps use native HTTP, the extension its host permission
-		throw new FfError('Payments through FixedFloat work in the DarkShell app and browser extension (FixedFloat cannot be reached from a web page).');
+		throw new FfError(t('Payments through FixedFloat work in the DarkShell app and browser extension (FixedFloat cannot be reached from a web page).'));
 	}
 }
 
@@ -167,7 +168,7 @@ let lastCreate = 0;
 /** Creates a fixed-rate order that pays `toAddress` (a bolt11 invoice for BTCLN). */
 export async function createOrder(fromCcy: string, toCcy: string, amountTo: string, toAddress: string): Promise<FfOrder> {
 	// `create` costs 50 of the 250-per-minute budget; keep well clear of it
-	if (Date.now() - lastCreate < 15_000) throw new FfError('Please wait a few seconds before creating another order.');
+	if (Date.now() - lastCreate < 15_000) throw new FfError(t('Please wait a few seconds before creating another order.'));
 	lastCreate = Date.now();
 	return order(await ffCall<FfOrder>('create', { type: 'fixed', fromCcy, toCcy, direction: 'to', amount: Number(amountTo), toAddress }));
 }

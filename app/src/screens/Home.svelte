@@ -4,13 +4,14 @@
 </script>
 
 <script lang="ts">
+	import { t, tn } from '../lib/i18n/index.svelte';
 	// Layout after Vizor (account header, balance card, Send/Receive, recent
 	// activity); components and tokens from Secret_Dashboard.
 	import { ArrowDownToLine, ChevronDown, Eye, EyeOff, Loader2, Lock, PanelRight, ScanLine, Send } from '@lucide/svelte';
 	import { openSidePanel, sidePanelAvailable } from '../lib/sidePanel';
 	import { formatAmount, shortAddress } from '../lib/format';
 	import { kv } from '../lib/storage';
-	import { price, usdValue } from '../lib/price.svelte';
+	import { price, fiatValue } from '../lib/price.svelte';
 	import { goTab, open, ui } from '../lib/ui.svelte';
 	import { activeName, refresh, totalBalance, wallet } from '../lib/wallet.svelte';
 	import { loadOthers, others, swappable } from '../lib/pay/dust.svelte';
@@ -29,7 +30,7 @@
 	const publicScrt = $derived(wallet.native !== null && wallet.native > 100_000n ? wallet.native : null);
 	// sSCRT, public SCRT and pending staking rewards: all of it can be spent (see `pay`)
 	const total = $derived(totalBalance());
-	const usd = $derived(usdValue(total));
+	const usd = $derived(fiatValue(total));
 	// when money moves, the figure runs on to the new balance; the first one
 	// just shows (base units; a Number holds any real balance exactly)
 	const counter = new Tween(lastShown, { duration: 900, easing: cubicOut });
@@ -64,11 +65,11 @@
 	<div class="flex shrink-0 items-center gap-1">
 		<TorIcon onclick={() => open({ name: 'settings', page: 'advanced' })} />
 		<GasChip onclick={() => open({ name: 'settings', page: 'gas' })} />
-		<button type="button" onclick={() => (ui.scanning = true)} aria-label="Scan QR code" class="state-layer rounded-pill p-2 text-text-muted">
+		<button type="button" onclick={() => (ui.scanning = true)} aria-label={t('Scan QR code')} class="state-layer rounded-pill p-2 text-text-muted">
 			<ScanLine size={20} />
 		</button>
 		{#if sidePanelAvailable}
-			<button type="button" onclick={openSidePanel} aria-label="Keep open in the side panel" title="Keep open in the side panel" class="state-layer rounded-pill p-2 text-text-muted">
+			<button type="button" onclick={openSidePanel} aria-label={t('Keep open in the side panel')} title={t('Keep open in the side panel')} class="state-layer rounded-pill p-2 text-text-muted">
 				<PanelRight size={20} />
 			</button>
 		{/if}
@@ -81,10 +82,10 @@
 <section class="px-1 pb-7 pt-8">
 	<div class="flex items-center {ui.simple ? 'justify-center gap-2' : 'justify-between'}">
 		<button type="button" onclick={refresh} class="flex items-center gap-1.5 text-base text-text-muted">
-			Balance
-			{#if wallet.refreshing || wallet.switching}<Loader2 size={13} class="animate-spin text-text-faint" aria-label="Updating" />{/if}
+			{t('Balance')}
+			{#if wallet.refreshing || wallet.switching}<Loader2 size={13} class="animate-spin text-text-faint" aria-label={t('Updating')} />{/if}
 		</button>
-		<button type="button" onclick={toggleHidden} aria-label={ui.hideBalance ? 'Show balance' : 'Hide balance'} class="state-layer -m-1.5 rounded-pill p-1.5 text-text-faint">
+		<button type="button" onclick={toggleHidden} aria-label={ui.hideBalance ? t('Show balance') : t('Hide balance')} class="state-layer -m-1.5 rounded-pill p-1.5 text-text-faint">
 			{#if ui.hideBalance}<EyeOff size={18} />{:else}<Eye size={18} />{/if}
 		</button>
 	</div>
@@ -93,7 +94,7 @@
 		<div class="skeleton mt-3 h-[3.75rem] w-48 rounded-control {ui.simple ? 'mx-auto' : ''}"></div>
 	{:else}
 		<!-- whole sSCRT very large, the decimals smaller beside them -->
-		<div class="mt-2 flex items-baseline {ui.simple ? 'justify-center' : ''}" aria-label="{ui.hideBalance ? 'Hidden' : formatAmount(total)} sSCRT">
+		<div class="mt-2 flex items-baseline {ui.simple ? 'justify-center' : ''}" aria-label="{ui.hideBalance ? t('Hidden') : formatAmount(total)} sSCRT">
 			<span class="{(int?.length ?? 0) > 6 ? 'text-[3rem]' : 'text-[3.75rem]'} font-semibold leading-none tracking-[-0.04em] tabular-nums" aria-hidden="true">{ui.hideBalance ? '••••' : int}</span>
 			{#if !ui.hideBalance}<span class="text-[1.625rem] font-semibold leading-none tracking-[-0.025em] tabular-nums text-text-faint" aria-hidden="true">.{frac ?? '00'}</span>{/if}
 		</div>
@@ -103,16 +104,16 @@
 	<div class="mt-3 flex min-h-6 items-center {ui.simple ? 'justify-center' : 'justify-between'} gap-3 text-base tabular-nums text-text-muted">
 		<p class="min-w-0 truncate">
 			{#if wallet.error}
-				<button type="button" onclick={refresh} class="text-negative">Couldn't update. Tap to retry</button>
+				<button type="button" onclick={refresh} class="text-negative">{t('Couldn\'t update. Tap to retry')}</button>
 			{:else if wallet.balance !== null}
 				sSCRT{#if price.usd !== null}<span class="text-text-faint">&nbsp;· {ui.hideBalance ? '$••••' : usd}</span>{/if}
 			{/if}
 		</p>
 		{#if wallet.staked > 0n && !ui.simple}
 			<!-- staked SCRT is locked: not in the balance above, its rewards are -->
-			<button type="button" onclick={() => goTab('staking')} class="inline-flex shrink-0 items-center gap-1.5 text-text-faint" aria-label="{ui.hideBalance ? 'Hidden' : formatAmount(wallet.staked, 2)} SCRT staked">
+			<button type="button" onclick={() => goTab('staking')} class="inline-flex shrink-0 items-center gap-1.5 text-text-faint" aria-label={t('{0} SCRT staked', { 0: ui.hideBalance ? t('Hidden') : formatAmount(wallet.staked, 2) })}>
 				<Lock size={14} aria-hidden="true" />
-				{ui.hideBalance ? '••••' : formatAmount(wallet.staked, 2)} staked
+				{t('{0} staked', { 0: ui.hideBalance ? '••••' : formatAmount(wallet.staked, 2) })}
 			</button>
 		{/if}
 	</div>
@@ -121,28 +122,28 @@
 <div class="grid grid-cols-2 gap-3">
 	<Button size="lg" class="w-full !py-3.5" onclick={() => open({ name: 'send' })}>
 		{#snippet icon()}<Send size={17} />{/snippet}
-		Send
+		{t('Send')}
 	</Button>
 	<Button variant="secondary" size="lg" class="w-full !py-3.5" onclick={() => open({ name: 'receive' })}>
 		{#snippet icon()}<ArrowDownToLine size={17} />{/snippet}
-		Receive
+		{t('Receive')}
 	</Button>
 </div>
 
 {#if publicScrt}
 	<div class="mt-3 flex items-center justify-between gap-3 rounded-card border border-border bg-surface-1 px-4 py-2.5">
-		<span class="text-base text-text-muted">Public SCRT <span class="tabular-nums text-text">{formatAmount(publicScrt)}</span></span>
-		<Button variant="text" size="sm" onclick={() => open({ name: 'action', action: 'wrap' })}>Make private</Button>
+		<span class="text-base text-text-muted">{t('Public SCRT')} <span class="tabular-nums text-text">{formatAmount(publicScrt)}</span></span>
+		<Button variant="text" size="sm" onclick={() => open({ name: 'action', action: 'wrap' })}>{t('Make private')}</Button>
 	</div>
 {/if}
 
 {#if toSweep.length}
 	<div class="mt-3 flex items-center justify-between gap-3 rounded-card border border-border bg-surface-1 px-4 py-2.5">
 		<span class="flex min-w-0 flex-col">
-			<span class="truncate text-base text-text-muted">{toSweep.length === 1 ? `${toSweep[0]!.token.symbol} on this account` : `${toSweep.length} other tokens`}</span>
-			<span class="truncate text-label tabular-nums text-text-faint">≈ {formatAmount(sweepValue, 2)} sSCRT{usdValue(sweepValue) ? ` · ${usdValue(sweepValue)}` : ''}</span>
+			<span class="truncate text-base text-text-muted">{toSweep.length === 1 ? t('{0} on this account', { 0: toSweep[0]!.token.symbol }) : tn('{n} other tokens', toSweep.length)}</span>
+			<span class="truncate text-label tabular-nums text-text-faint">≈ {formatAmount(sweepValue, 2)} sSCRT{fiatValue(sweepValue) ? ` · ${fiatValue(sweepValue)}` : ''}</span>
 		</span>
-		<Button variant="text" size="sm" class="shrink-0 whitespace-nowrap" onclick={() => open({ name: 'sweep' })}>Swap to sSCRT</Button>
+		<Button variant="text" size="sm" class="shrink-0 whitespace-nowrap" onclick={() => open({ name: 'sweep' })}>{t('Swap to sSCRT')}</Button>
 	</div>
 {/if}
 

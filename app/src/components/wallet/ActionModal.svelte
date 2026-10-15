@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t, tn } from '../../lib/i18n/index.svelte';
 	// The small one-tap transactions — collect staking rewards, make public SCRT
 	// private, refill gas credits — get the same recap and swipe as a payment.
 	import { Eye, Fuel, ShieldCheck, Sprout } from '@lucide/svelte';
@@ -7,7 +8,7 @@
 	import { CREDIT_REFILL } from '../../lib/config';
 	import { formatAmount } from '../../lib/format';
 	import { NoGasError } from '../../lib/gas/feePayer';
-	import { usdValue } from '../../lib/price.svelte';
+	import { fiatValue } from '../../lib/price.svelte';
 	import { claimAll, staking, totalRewards } from '../../lib/staking.svelte';
 	import { close } from '../../lib/ui.svelte';
 	import { prefetchForPayment, refillNow, wallet, wrapPreview, wrapPublic } from '../../lib/wallet.svelte';
@@ -34,8 +35,8 @@
 	const validators = staking.rewards.length;
 
 	const amount = $derived(action === 'claim' ? rewards : action === 'wrap' ? (wrap ? wrap.amount + wrap.refill : null) : CREDIT_REFILL);
-	const title = $derived({ claim: 'Collect rewards', wrap: 'Make private', refill: 'Refill gas credits' }[action]);
-	const verb = $derived({ claim: "You're collecting", wrap: "You're making private", refill: "You're adding" }[action]);
+	const title = $derived({ claim: t('Collect rewards'), wrap: t('Make private'), refill: t('Refill gas credits') }[action]);
+	const verb = $derived({ claim: t("You're collecting"), wrap: t("You're making private"), refill: t("You're adding") }[action]);
 	const unit = $derived(action === 'refill' ? 'sSCRT' : 'SCRT');
 	const ready = $derived(action === 'wrap' ? !!wrap && !failure : action === 'claim' ? rewards > 0n : true);
 
@@ -49,7 +50,7 @@
 			haptic.error();
 			failure =
 				e instanceof NoGasError
-					? 'Nothing can pay the network fee: gas credits are empty. See Settings → Gas credits.'
+					? t('Nothing can pay the network fee: gas credits are empty. See Settings → Gas credits.')
 					: e instanceof BusyError || e instanceof Error
 						? e.message
 						: String(e);
@@ -62,10 +63,10 @@
 		!outcome
 			? ''
 			: action === 'claim'
-				? `Collected ${formatAmount(rewards)} SCRT into your private balance.`
+				? t('Collected {0} SCRT into your private balance.', { 0: formatAmount(rewards) })
 				: action === 'wrap'
-					? `Moved into your private balance.${outcome.refilled > 0n ? ` ${formatAmount(outcome.refilled)} SCRT topped up your gas credits.` : ''}`
-					: `Gas credits refilled with ${formatAmount(outcome.refilled)} sSCRT.`,
+					? `${t('Moved into your private balance.')}${outcome.refilled > 0n ? t(' {0} SCRT topped up your gas credits.', { 0: formatAmount(outcome.refilled) }) : ''}`
+					: t('Gas credits refilled with {0} sSCRT.', { 0: formatAmount(outcome.refilled) }),
 	);
 </script>
 
@@ -80,10 +81,10 @@
 	{#if outcome || sending}
 		<TxStage
 			{outcome}
-			verbs={{ claim: ['Collecting', 'Collected'], wrap: ['Making it private', 'Now private'], refill: ['Refilling', 'Refilled'] }[action] as [string, string]}
+			verbs={{ claim: [t('Collecting'), t('Collected')], wrap: [t('Making it private'), t('Now private')], refill: [t('Refilling'), t('Refilled')] }[action] as [string, string]}
 			amount={amount === null ? undefined : formatAmount(amount, 6)}
 			{unit}
-			sub={amount !== null && usdValue(amount) ? `≈ ${usdValue(amount)}` : undefined}
+			sub={amount !== null && fiatValue(amount) ? `≈ ${fiatValue(amount)}` : undefined}
 			{summary}
 			ondone={close}
 		>
@@ -96,30 +97,30 @@
 				<span class="text-[2.75rem] font-semibold leading-tight tracking-[-0.03em] tabular-nums">{amount === null ? '…' : `${action === 'wrap' ? '≈ ' : ''}${formatAmount(amount, 6)}`}</span>
 				<span class="text-title text-text-muted">{unit}</span>
 			</div>
-			{#if amount !== null && usdValue(amount)}<span class="text-base tabular-nums text-text-faint">≈ {usdValue(amount)}</span>{/if}
+			{#if amount !== null && fiatValue(amount)}<span class="text-base tabular-nums text-text-faint">≈ {fiatValue(amount)}</span>{/if}
 		</div>
 		<dl class="flex flex-col divide-y divide-border rounded-card border border-border bg-surface-1 text-base">
 			{#if action === 'claim'}
-				{@render row('From', 'Staking rewards', `${validators} validator${validators === 1 ? '' : 's'}`)}
-				{@render row('To', 'Your private balance', 'claimed and made private in one transaction')}
+				{@render row(t('From'), t('Staking rewards'), tn('{n} validators', validators))}
+				{@render row(t('To'), t('Your private balance'), t('claimed and made private in one transaction'))}
 			{:else if action === 'wrap'}
-				{@render row('From', 'Public SCRT', `${formatAmount(wallet.native ?? 0n)} SCRT on this address`)}
-				{@render row('To', 'Your private balance', 'as sSCRT')}
-				{#if wrap && wrap.refill > 0n}{@render row('Gas credits', `+${formatAmount(wrap.refill)} SCRT`, 'they are low; topped up in the same transaction')}{/if}
-				{@render row('Kept', 'A little SCRT', 'for the network fee, in case gas credits can’t pay it')}
+				{@render row(t('From'), t('Public SCRT'), t('{0} SCRT on this address', { 0: formatAmount(wallet.native ?? 0n) }))}
+				{@render row(t('To'), t('Your private balance'), t('as sSCRT'))}
+				{#if wrap && wrap.refill > 0n}{@render row(t('Gas credits'), t('+{0} SCRT', { 0: formatAmount(wrap.refill) }), t('they are low; topped up in the same transaction'))}{/if}
+				{@render row(t('Kept'), t('A little SCRT'), t('for the network fee, in case gas credits can’t pay it'))}
 			{:else}
-				{@render row('From', 'Your private balance', 'sSCRT')}
-				{@render row('To', 'Gas credits', 'pay the network fee of your next transactions')}
+				{@render row(t('From'), t('Your private balance'), 'sSCRT')}
+				{@render row(t('To'), t('Gas credits'), t('pay the network fee of your next transactions'))}
 			{/if}
-			{@render row('Network fee', 'Paid from gas credits')}
+			{@render row(t('Network fee'), t('Paid from gas credits'))}
 		</dl>
 		<p class="flex items-start gap-2 px-1 text-label text-text-faint">
 			<Eye size={13} class="mt-px shrink-0" />
-			{action === 'refill' ? 'The amount moved to gas credits is public on chain.' : 'Collecting and wrapping are public on chain; once it is sSCRT, what you do with it is private.'}
+			{action === 'refill' ? t('The amount moved to gas credits is public on chain.') : t('Collecting and wrapping are public on chain; once it is sSCRT, what you do with it is private.')}
 		</p>
 		{#if failure}<p class="break-address text-base text-negative animate-[shake_400ms_var(--ease-standard)]" role="alert">{failure}</p>{/if}
 		<div class="mt-auto pt-4">
-			<SwipeConfirm label={{ claim: 'Swipe to collect', wrap: 'Swipe to make private', refill: 'Swipe to refill' }[action]} loading={sending} disabled={!ready && !sending} onconfirm={submit} />
+			<SwipeConfirm label={{ claim: t('Swipe to collect'), wrap: t('Swipe to make private'), refill: t('Swipe to refill') }[action]} loading={sending} disabled={!ready && !sending} onconfirm={submit} />
 		</div>
 	{/if}
 </Modal>

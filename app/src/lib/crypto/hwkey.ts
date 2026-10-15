@@ -11,6 +11,7 @@
 import { registerPlugin } from '@capacitor/core';
 import { can, platform } from '../platform';
 import { buf, fromB64, toB64, wipe } from './bytes';
+import { t } from '../i18n/index.svelte';
 
 interface VaultKeyPlugin {
 	available(): Promise<{ available: boolean }>;
@@ -33,7 +34,7 @@ export function deviceKeyAvailable(): Promise<boolean> {
 /** HMAC-SHA256(device key, root). Throws when the record needs the key and the device has none. */
 export async function bindToDevice(root: Uint8Array): Promise<Uint8Array> {
 	if (platform === 'extension') return webMix(root);
-	if (!can.hwKey) throw new Error('This wallet can only be opened on the device it was made on.');
+	if (!can.hwKey) throw new Error(t('This wallet can only be opened on the device it was made on.'));
 	const data = toB64(root);
 	const { out } = await VaultKey.mix({ data });
 	return fromB64(out);
@@ -86,7 +87,7 @@ function browserKey(): Promise<CryptoKey> {
 		// moment (and sealed a vault under it); then that one is used
 		await idb('readwrite', (s) => s.add(k, ID)).catch(() => {});
 		const stored = await idb<CryptoKey | undefined>('readonly', (s) => s.get(ID));
-		if (!stored) throw new Error('Could not keep the device key in this browser.');
+		if (!stored) throw new Error(t('Could not keep the device key in this browser.'));
 		return stored;
 	})().catch((e) => {
 		webKey = null;

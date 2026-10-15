@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { t } from '../../lib/i18n/index.svelte';
 	// The screen a transaction runs on, from the swipe to the block: the orb
 	// spins while it is signed and sent, slows while the block is awaited, and
 	// lands with a tick, ripples and a buzz. Three steps underneath say where
@@ -27,7 +28,7 @@
 	}: {
 		/** null while it is being signed and sent */
 		outcome: TxOutcome | null;
-		/** what it is doing, and what it did: ['Sending', 'Sent'] */
+		/** what it is doing, and what it did: [t('Sending'), 'Sent'] */
 		verbs: [string, string];
 		amount?: string;
 		unit?: string;
@@ -45,7 +46,7 @@
 	} = $props();
 
 	const state = $derived(!outcome ? 'busy' : outcome.status === 'pending' ? 'pending' : 'done');
-	const status = $derived(state === 'busy' ? (busyText ?? `${verbs[0]}…`) : state === 'pending' ? 'Waiting for the block…' : verbs[1]);
+	const status = $derived(state === 'busy' ? (busyText ?? `${verbs[0]}…`) : state === 'pending' ? t('Waiting for the block…') : verbs[1]);
 
 	// the buzz goes with the tick, only when it lands while on screen
 	let landed = false;
@@ -57,7 +58,7 @@
 	});
 
 	const feeBy = $derived(
-		outcome ? { credits: 'paid from your gas credits', grant: 'paid by a fee grant', self: 'paid from your public SCRT' }[outcome.plan.source] : '',
+		outcome ? { credits: t('paid from your gas credits'), grant: t('paid by a fee grant'), self: t('paid from your public SCRT') }[outcome.plan.source] : '',
 	);
 </script>
 
@@ -90,25 +91,25 @@
 			<span class="tx-step-dot" data-done={state === 'done'}></span>
 		</div>
 		<div class="mt-2 flex justify-between text-label text-text-faint">
-			<span class={state === 'busy' ? 'text-text' : ''}>Signed</span>
-			<span class={state === 'pending' ? 'text-text' : ''}>Sent</span>
-			<span class={state === 'done' ? 'text-positive' : ''}>In a block</span>
+			<span class={state === 'busy' ? 'text-text' : ''}>{t('Signed')}</span>
+			<span class={state === 'pending' ? 'text-text' : ''}>{t('Sent')}</span>
+			<span class={state === 'done' ? 'text-positive' : ''}>{t('In a block')}</span>
 		</div>
 	</div>
 
 	{#if !compact}
 		{#if state === 'pending'}
-			<p class="rise max-w-[30ch] text-center text-label text-text-faint" style="animation-delay: 300ms">It's on its way. A block takes a few seconds — <strong class="text-text-muted">don't send it again</strong>.</p>
+			<p class="rise max-w-[30ch] text-center text-label text-text-faint" style="animation-delay: 300ms">{t('It\'s on its way. A block takes a few seconds —')} <strong class="text-text-muted">{t('don\'t send it again')}</strong>.</p>
 		{/if}
 
 		{#if outcome && state === 'done'}
 			<div class="stagger flex w-full flex-col gap-3" style="--stagger-delay: 650ms">
 				{#if summary}<p class="text-center text-base text-text-muted">{summary}</p>{/if}
 				<p class="text-center text-label text-text-faint">
-					Network fee {formatAmount(outcome.plan.fee)} SCRT, {feeBy}.{outcome.refilled > 0n ? ` Gas credits were topped up with ${formatAmount(outcome.refilled)} in the same transaction.` : ''}
+					{t('Network fee {0} SCRT, {1}.', { 0: formatAmount(outcome.plan.fee), 1: feeBy })}{outcome.refilled > 0n ? t(' Gas credits were topped up with {0} in the same transaction.', { 0: formatAmount(outcome.refilled) }) : ''}
 				</p>
 				<a href={explorerTx(outcome.hash)} target="_blank" rel="noreferrer noopener" class="inline-flex items-center gap-1.5 self-center text-base text-accent underline underline-offset-4">
-					View transaction <ExternalLink size={14} aria-hidden="true" />
+					{t('View transaction')} <ExternalLink size={14} aria-hidden="true" />
 				</a>
 			</div>
 		{/if}
@@ -116,7 +117,7 @@
 		{#if ondone && state !== 'busy'}
 			<!-- after the details; while waiting for the block, a moment later -->
 			<div class="rise mt-auto w-full pt-4" style="animation-delay: {state === 'done' ? 850 : 2500}ms">
-				<Button block size="xl" variant={state === 'done' ? 'primary' : 'secondary'} onclick={ondone}>{state === 'done' ? 'Done' : 'Close'}</Button>
+				<Button block size="xl" variant={state === 'done' ? 'primary' : 'secondary'} onclick={ondone}>{state === 'done' ? t('Done') : t('Close')}</Button>
 			</div>
 		{/if}
 	{/if}
