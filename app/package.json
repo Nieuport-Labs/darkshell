@@ -20,6 +20,7 @@
     "@lucide/svelte": "^1.53.0",
     "@noble/ciphers": "^2.4.0",
     "@noble/hashes": "^2.4.0",
+    "@scure/bip32": "^1.7.0",
     "@scure/bip39": "^2.4.0",
     "@walletconnect/sign-client": "2.25.0",
     "barcode-detector": "^3.2.2",
