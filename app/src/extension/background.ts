@@ -6,6 +6,7 @@
 // approval window, where the user unlocks and sees the request in full.
 // The background holds no private key, phrase or PIN.
 
+import './swWindow';
 import { ripemd160 } from '@noble/hashes/legacy.js';
 import { sha256 } from '@noble/hashes/sha2.js';
 import { fromB64 } from '../lib/crypto/bytes';
